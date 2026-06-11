@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% set active_tab = "search" %}
+{% block title %}QMS GenAI · Global Search{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">🔍 Global Search</div>
+    <div class="page-subtitle">
+      {% if current_user.sees_all_records() %}
+        Search across all quality records and CAPAs
+      {% else %}
+        Search your records · Enter a Record ID to look up any record by ID
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Search box -->
+<div style="background:var(--surface);border:1px solid var(--border);
+            border-radius:var(--r-lg);padding:20px 24px;margin-bottom:20px;
+            box-shadow:var(--shadow-sm);">
+  <div style="display:flex;gap:10px;align-items:center;">
+    <input type="text" id="searchBox" class="search-input"
+           style="flex:1;height:42px;font-size:14px;"
+           placeholder="{% if current_user.sees_all_records() %}Search records, CAPAs, batches, sites…{% else %}Enter Record ID (e.g. CMP-2024-0891){% endif %}"
+           autofocus
+           onkeydown="if(event.key==='Enter') doSearch()"/>
+    <button class="btn btn--primary" style="height:42px;padding:0 24px;" onclick="doSearch()">
+      🔍 Search
+    </button>
+    <button class="btn btn--secondary" style="height:42px;" onclick="clearSearch()">Clear</button>
+  </div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;" id="searchMeta"></div>
+</div>
+
+<div id="banner" class="banner banner--info" style="display:none;"></div>
+
+<!-- Results -->
+<div id="resultsSection" style="display:none;">
+
+  <!-- Records results -->
+  <div id="recordsSection" style="margin-bottom:20px;">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);
+                text-transform:uppercase;letter-spacing:.05em;
+                margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+      📋 Quality Records
+      <span id="recCount" style="background:var(--blue);color:#fff;
+            border-radius:20px;padding:1px 8px;font-size:10px;"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:120px">Record ID</th>
+            <th>Title</th>
+            <th style="width:100px">Type</th>
+            <th style="width:85px">Priority</th>
+            <th style="width:120px">Status</th>
+            <th style="width:120px">Site</th>
+            <th style="width:120px">Action</th>
+          </tr>
+        </thead>
+        <tbody id="recBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CAPAs results -->
+  <div id="capaSection" style="margin-bottom:20px;">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);
+                text-transform:uppercase;letter-spacing:.05em;
+                margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+      ✅ CAPA Records
+      <span id="capaCount" style="background:var(--green);color:#fff;
+            border-radius:20px;padding:1px 8px;font-size:10px;"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:140px">CAPA ID</th>
+            <th style="width:120px">Source Record</th>
+            <th>Title</th>
+            <th style="width:85px">Priority</th>
+            <th style="width:120px">CAPA Status</th>
+            <th style="width:100px">Created By</th>
+            <th style="width:100px">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="capaBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="emptyState" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);">
+  <div style="font-size:40px;margin-bottom:12px;">🔍</div>
+  <div style="font-size:14px;">No results found. Try a different search term.</div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const SEES_ALL   = {{ 'true' if current_user.sees_all_records() else 'false' }};
+  const CAN_CAPA   = {{ 'true' if current_user.can_create_capa() else 'false' }};
+  const MY_USER    = "{{ current_user.username }}";
+
+  function prioBadge(p){
+    const m={Critical:'badge--critical',High:'badge--high',Medium:'badge--medium',Low:'badge--low'};
+    return `<span class="badge ${m[p]||''}">${p||'—'}</span>`;
+  }
+  function typeBadge(t){
+    const l={complaint:'Complaint',deviation:'Deviation',cc:'Change Ctrl',nc:'NC',audit:'Audit'};
+    return `<span class="badge badge--${t||'other'}">${l[t]||t||'—'}</span>`;
+  }
+  function statBadge(s){
+    const m={'Draft Generated':'badge--draft','Under Review':'badge--review','Approved':'badge--approved'};
+    return `<span class="badge ${m[s]||''}">${s||'—'}</span>`;
+  }
+  function capaStatBadge(s){
+    const m={'Under Review':'badge--review','Approved':'badge--approved','Rejected':'badge--critical','Closed':'badge--low'};
+    return `<span class="badge ${m[s]||''}">${s}</span>`;
+  }
+
+  function doSearch(){
+    const q = document.getElementById('searchBox').value.trim();
+    if(!q) return;
+
+    document.getElementById('banner').style.display='';
+    document.getElementById('banner').className='banner banner--info';
+    document.getElementById('banner').innerHTML='<span>ℹ</span> Searching…';
+    document.getElementById('resultsSection').style.display='none';
+    document.getElementById('emptyState').style.display='none';
+
+    fetch(`/api/search?q=${encodeURIComponent(q)}`)
+      .then(r=>r.json())
+      .then(data=>{
+        document.getElementById('banner').style.display='none';
+
+        const recs  = data.records||[];
+        const capas = data.capas||[];
+
+        /* Metadata strip */
+        document.getElementById('searchMeta').innerHTML =
+          `<span style="font-size:11px;color:var(--text-muted);">
+            Found <strong>${data.total}</strong> result(s) for "<strong>${q}</strong>"
+            ${!SEES_ALL?'· <em>Limited to your records + ID matches</em>':''}
+          </span>`;
+
+        if(!recs.length && !capas.length){
+          document.getElementById('emptyState').style.display='';
+          return;
+        }
+
+        document.getElementById('resultsSection').style.display='';
+        document.getElementById('recCount').textContent  = recs.length;
+        document.getElementById('capaCount').textContent = capas.length;
+
+        /* Records */
+        document.getElementById('recBody').innerHTML = recs.length
+          ? recs.map(r=>{
+              const isOwner = r.createdBy===MY_USER;
+              const canAct  = CAN_CAPA || isOwner;
+              const action  = canAct && r.status==='Draft Generated'
+                ? `<button class="btn--run" onclick="window.location.href='/capa/create?id=${r.id}'">▶ Generate CAPA</button>`
+                : canAct
+                  ? `<a href="/capa/create?id=${r.id}" style="color:var(--blue);font-size:11px;">View →</a>`
+                  : `<span style="font-size:11px;color:var(--text-muted);">Read-only</span>`;
+              return `<tr>
+                <td class="table__id">${r.id}</td>
+                <td style="font-size:12px;">${r.title}</td>
+                <td>${typeBadge(r.type)}</td>
+                <td>${prioBadge(r.priority)}</td>
+                <td>${statBadge(r.status)}</td>
+                <td style="font-size:11px;color:var(--text-muted);">${r.site||'—'}</td>
+                <td>${action}</td>
+              </tr>`;
+            }).join('')
+          : '<tr><td colspan="7" class="table__empty">No matching records.</td></tr>';
+
+        /* CAPAs */
+        document.getElementById('capaBody').innerHTML = capas.length
+          ? capas.map(c=>`<tr>
+              <td style="font-family:monospace;font-size:11px;color:var(--green);font-weight:700;">${c.capaId}</td>
+              <td style="font-family:monospace;font-size:10px;color:var(--blue);">${c.sourceRecordId}</td>
+              <td style="font-size:12px;">${c.sourceRecordTitle||'—'}</td>
+              <td>${prioBadge(c.priority)}</td>
+              <td>${capaStatBadge(c.status||'Under Review')}</td>
+              <td style="font-size:11px;color:var(--text-muted);">${c.createdBy||'—'}</td>
+              <td><a href="/capa/create?id=${c.sourceRecordId}" style="color:var(--blue);font-size:11px;">View →</a></td>
+            </tr>`).join('')
+          : '<tr><td colspan="7" class="table__empty">No matching CAPAs.</td></tr>';
+      })
+      .catch(err=>{
+        document.getElementById('banner').style.display='';
+        document.getElementById('banner').className='banner banner--error';
+        document.getElementById('banner').innerHTML=`<span>✗</span> Search error: ${err.message}`;
+      });
+  }
+
+  function clearSearch(){
+    document.getElementById('searchBox').value='';
+    document.getElementById('searchMeta').innerHTML='';
+    document.getElementById('resultsSection').style.display='none';
+    document.getElementById('emptyState').style.display='none';
+    document.getElementById('banner').style.display='none';
+  }
+
+  /* Pre-fill from navbar search */
+  document.addEventListener('DOMContentLoaded',()=>{
+    const q=new URLSearchParams(window.location.search).get('q');
+    if(q){document.getElementById('searchBox').value=q;doSearch();}
+  });
+</script>
+{% endblock %}

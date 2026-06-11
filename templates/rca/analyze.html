@@ -1,0 +1,1184 @@
+{% extends "base.html" %}
+{% set active_tab = "rca" %}
+{% block title %}QMS GenAI · RCA Analysis{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .rca-layout {
+    display: grid;
+    grid-template-columns: 290px 1fr;
+    gap: 20px; align-items: start;
+  }
+  @media (max-width: 1050px) { .rca-layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+    box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  .panel__header {
+    padding: 13px 18px;
+    background: linear-gradient(135deg, #1e293b, var(--navy));
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 10px;
+  }
+  .panel__title { font-size: 13px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .panel__subtitle { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .panel__body { padding: 16px; }
+  .panel__footer {
+    padding: 11px 16px; background: #f7f8fa;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+
+  .record-list { display: flex; flex-direction: column; gap: 5px; max-height: 500px; overflow-y: auto; }
+  .record-item {
+    padding: 9px 12px; border: 1px solid var(--border);
+    border-left: 3px solid transparent;
+    border-radius: var(--radius); cursor: pointer;
+    transition: all 0.12s; background: #f9fafb;
+  }
+  .record-item:hover { border-left-color: var(--blue); background: var(--blue-pale); }
+  .record-item--active { border-left-color: var(--blue); background: var(--blue-pale); }
+  .record-item__id { font-family: 'Consolas', monospace; font-size: 10px; color: var(--blue); font-weight: 600; }
+  .record-item__title { font-size: 11px; color: var(--text); line-height: 1.4; margin: 3px 0; }
+  .record-item__chips { display: flex; gap: 5px; flex-wrap: wrap; }
+  .chip { font-size: 10px; padding: 1px 7px; border-radius: 3px; font-weight: 600; }
+  .chip--critical { background: #fce8e6; color: #9b1c1c; }
+  .chip--high     { background: #fff3e0; color: #7c3a00; }
+  .chip--medium   { background: #e8f0fe; color: #1a4b8c; }
+  .chip--complaint{ background: #e8f0fe; color: #0c3f8c; }
+  .chip--deviation{ background: var(--amber-pale); color: var(--amber); }
+  .chip--cc       { background: var(--purple-pale); color: var(--purple); }
+
+  .method-tabs { display: flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+  .method-tab {
+    flex: 1; padding: 9px; font-size: 12px; font-weight: 500;
+    border: none; cursor: pointer; background: #f9fafb; color: var(--text-mid);
+    transition: all 0.12s; font-family: var(--font);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    border-right: 1px solid var(--border);
+  }
+  .method-tab:last-child { border-right: none; }
+  .method-tab:hover { background: var(--blue-pale); color: var(--blue); }
+  .method-tab--active { background: var(--blue); color: #fff; }
+
+  .stepper {
+    display: flex; margin-bottom: 20px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm);
+  }
+  .step {
+    flex: 1; padding: 11px 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    font-size: 11px; font-weight: 500; color: var(--text-muted);
+    border-right: 1px solid var(--border); transition: all 0.2s; text-align: center;
+  }
+  .step:last-child { border-right: none; }
+  .step__num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #e0e4ec; color: var(--text-muted);
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+  }
+  .step--active .step__num { background: var(--blue); color: #fff; }
+  .step--done   .step__num { background: var(--green); color: #fff; }
+  .step--active { color: var(--blue); background: var(--blue-pale); }
+  .step--done   { color: var(--green); background: var(--green-pale); }
+
+  .verdict-bar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px; border-radius: var(--radius-lg);
+    margin-bottom: 16px; border: 2px solid transparent;
+    animation: fadeIn 0.3s ease;
+  }
+  .verdict-bar--green { background: var(--green-pale); border-color: var(--green); }
+  .verdict-bar--amber { background: var(--amber-pale); border-color: var(--amber); }
+  .verdict-bar--red   { background: var(--red-pale);   border-color: var(--red); }
+  .verdict-bar__icon  { font-size: 28px; flex-shrink: 0; }
+  .verdict-bar__label { font-size: 15px; font-weight: 700; }
+  .verdict-bar--green .verdict-bar__label { color: var(--green); }
+  .verdict-bar--amber .verdict-bar__label { color: var(--amber); }
+  .verdict-bar--red   .verdict-bar__label { color: var(--red); }
+  .verdict-bar__msg   { font-size: 12px; color: var(--text-mid); margin-top: 3px; line-height: 1.5; }
+  .verdict-bar__score { margin-left: auto; font-size: 30px; font-weight: 800; flex-shrink: 0; }
+  .verdict-bar--green .verdict-bar__score { color: var(--green); }
+  .verdict-bar--amber .verdict-bar__score { color: var(--amber); }
+  .verdict-bar--red   .verdict-bar__score { color: var(--red); }
+
+  .fishbone-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 800px) { .fishbone-grid { grid-template-columns: 1fr; } }
+
+  .fb-cat {
+    background: #f7f8fc; border: 1px solid var(--border);
+    border-left: 4px solid var(--blue); border-radius: var(--radius); padding: 12px 14px;
+  }
+  .fb-cat--primary { border-left-color: var(--red); }
+  .fb-cat__title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-mid); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .cause-row { margin-bottom: 10px; }
+  .cause-row__top { display: flex; align-items: flex-start; gap: 8px; }
+  .cause-checkbox { margin-top: 3px; cursor: pointer; flex-shrink: 0; accent-color: var(--blue); }
+  .cause-text { font-size: 12px; color: var(--text); line-height: 1.5; flex: 1; }
+  .cause-text--primary { color: var(--red); font-weight: 500; }
+  .cause-score-badge {
+    display: inline-flex; align-items: center;
+    padding: 1px 7px; border-radius: 20px;
+    font-size: 10px; font-weight: 700;
+    border: 1px solid transparent; flex-shrink: 0;
+  }
+  .score--green { background: var(--green-pale); color: var(--green); border-color: #a3d4b5; }
+  .score--amber { background: var(--amber-pale); color: var(--amber); border-color: #f0c882; }
+  .score--red   { background: var(--red-pale);   color: var(--red);   border-color: #f5b8b3; }
+
+  .cause-edit-area {
+    width: 100%; margin-top: 6px;
+    font-size: 11px; font-family: var(--font);
+    border: 1px solid var(--blue); border-radius: var(--radius);
+    padding: 6px 9px; background: #fffff8; outline: none;
+    resize: vertical; min-height: 52px; line-height: 1.5;
+    display: none; color: var(--text);
+    transition: border-color 0.15s;
+  }
+  .cause-edit-area:focus { border-color: var(--purple); background: #fff; }
+  .edit-mode .cause-edit-area { display: block; }
+
+  .cause-ai-hint { font-size: 10px; color: var(--amber); margin-top: 4px; padding-left: 22px; font-style: italic; display: none; }
+  .cause-ai-hint.visible { display: block; }
+
+  .add-cause-btn {
+    width: 100%; margin-top: 6px; padding: 5px;
+    border: 1px dashed var(--border); border-radius: var(--radius);
+    background: none; color: var(--text-muted);
+    font-size: 11px; font-family: var(--font);
+    cursor: pointer; transition: all 0.12s; display: none;
+  }
+  .edit-mode .add-cause-btn { display: block; }
+  .add-cause-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-pale); }
+
+  .score-bars { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; padding-left: 22px; }
+  .score-bar  { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+  .score-bar__label { width: 80px; color: var(--text-muted); flex-shrink: 0; }
+  .score-bar__track { flex: 1; height: 4px; background: #e0e4ec; border-radius: 2px; overflow: hidden; }
+  .score-bar__fill  { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+  .fill--green { background: var(--green); }
+  .fill--amber { background: var(--amber); }
+  .fill--red   { background: var(--red); }
+  .score-bar__pct { width: 28px; text-align: right; color: var(--text-muted); font-weight: 600; font-size: 10px; }
+
+  .rc-summary {
+    background: var(--green-pale); border: 1px solid #a3d4b5;
+    border-left: 4px solid var(--green); border-radius: var(--radius);
+    padding: 14px 16px; margin-top: 16px; display: none;
+  }
+  .rc-summary__label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--green); margin-bottom: 8px; }
+  .rc-summary__text  { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 12px; }
+
+  .spinner { width: 32px; height: 32px; border: 3px solid #e0e4ec; border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 40px auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+  .empty-state__icon { font-size: 42px; margin-bottom: 12px; }
+  .empty-state__text { font-size: 13px; line-height: 1.6; }
+
+  .search-box {
+    width: 100%; height: 32px; padding: 0 11px; margin-bottom: 10px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 12px; font-family: var(--font); outline: none; color: var(--text);
+  }
+  .search-box:focus { border-color: var(--blue); }
+  .mini-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+  .mini-pill { padding: 3px 10px; font-size: 11px; border-radius: 20px; border: 1px solid var(--border); background: #fff; color: var(--text-mid); cursor: pointer; font-family: var(--font); }
+  .mini-pill:hover { border-color: var(--blue); color: var(--blue); }
+  .mini-pill--active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+
+  /* AI Improvement Modal */
+  .ai-overlay {
+    display: none; position: fixed; inset: 0; z-index: 400;
+    background: rgba(15,23,42,0.75); backdrop-filter: blur(4px);
+    padding: 20px; align-items: center; justify-content: center;
+  }
+  .ai-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+  .ai-modal {
+    background: var(--surface); border-radius: 20px;
+    width: 100%; max-width: 820px; max-height: 90vh;
+    overflow-y: auto; box-shadow: 0 25px 80px rgba(0,0,0,0.4);
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .ai-modal__header {
+    padding: 22px 28px 18px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-radius: 20px 20px 0 0;
+    display: flex; align-items: flex-start; justify-content: space-between;
+  }
+  .ai-modal__title { font-size: 17px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  .ai-modal__sub   { font-size: 12px; color: rgba(255,255,255,0.5); }
+  .ai-modal__close {
+    background: rgba(255,255,255,0.1); border: none; width: 32px; height: 32px;
+    border-radius: 50%; color: rgba(255,255,255,0.7); font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.12s; flex-shrink: 0;
+  }
+  .ai-modal__close:hover { background: rgba(255,255,255,0.2); color: #fff; }
+  .ai-modal__body { padding: 24px 28px; }
+  .score-summary { display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+  .score-card {
+    flex: 1; min-width: 120px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 12px 14px; text-align: center;
+  }
+  .score-card__val   { font-size: 26px; font-weight: 800; line-height: 1; }
+  .score-card__label { font-size: 10px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .score-card--overall { border-top: 3px solid var(--blue); }
+  .improve-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 22px; }
+  .improve-table th {
+    padding: 8px 12px; background: var(--navy); color: rgba(255,255,255,0.7);
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; text-align: left;
+  }
+  .improve-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .improve-table tr:last-child td { border-bottom: none; }
+  .improve-table tr:hover td { background: var(--bg); }
+  .step-label   { font-size: 11px; font-weight: 600; color: var(--text); }
+  .step-current { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-style: italic; max-width: 200px; }
+  .step-suggestion { font-size: 12px; color: var(--text-mid); line-height: 1.5; background: var(--amber-pale); border: 1px solid #fde68a; border-radius: var(--radius); padding: 8px 10px; }
+  .model-section-title { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .models-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 650px) { .models-grid { grid-template-columns: 1fr; } }
+  .model-card {
+    border: 2px solid var(--border); border-radius: var(--radius-lg);
+    padding: 16px; cursor: pointer; transition: all 0.15s;
+    background: var(--surface); position: relative;
+  }
+  .model-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .model-card--selected { border-color: var(--blue); background: var(--blue-pale); }
+  .model-card__icon  { font-size: 24px; margin-bottom: 8px; }
+  .model-card__name  { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .model-card__score {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; margin-bottom: 8px;
+  }
+  .model-card--a .model-card__score { background: #dbeafe; color: #1d4ed8; }
+  .model-card--b .model-card__score { background: #fef9c3; color: #ca8a04; }
+  .model-card--c .model-card__score { background: #dcfce7; color: #16a34a; }
+  .model-card__badge { font-size: 10px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .model-card__desc  { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+  .model-card__check { position: absolute; top: 12px; right: 12px; font-size: 16px; display: none; }
+  .model-card--selected .model-card__check { display: block; }
+  .ai-modal__actions {
+    display: flex; gap: 10px; justify-content: flex-end;
+    padding: 16px 28px; border-top: 1px solid var(--border);
+    background: #f7f8fa; border-radius: 0 0 20px 20px;
+  }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">🔍 Root Cause Analysis</div>
+    <div class="page-subtitle">
+      Generate → Assess accuracy → AI improves if needed →
+      Select model → Edit → Re-assess → Approve → Submit to CAPA
+    </div>
+  </div>
+  <div class="page-actions">
+    <a href="/capa/create" class="btn btn--primary">📋 Go to CAPA Creation →</a>
+  </div>
+</div>
+
+<div class="banner banner--info" id="banner">
+  <span>ℹ</span> Select a quality record to begin root cause analysis.
+</div>
+
+<div class="stepper">
+  <div class="step step--active" id="step1"><div class="step__num">1</div><span>Select</span></div>
+  <div class="step" id="step2"><div class="step__num">2</div><span>Generate</span></div>
+  <div class="step" id="step3"><div class="step__num">3</div><span>Assess</span></div>
+  <div class="step" id="step4"><div class="step__num">4</div><span>AI Improve</span></div>
+  <div class="step" id="step5"><div class="step__num">5</div><span>Edit</span></div>
+  <div class="step" id="step6"><div class="step__num">6</div><span>Approve</span></div>
+</div>
+
+<div class="rca-layout">
+
+  <!-- LEFT — Record list -->
+  <div>
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">📂 Quality Records</div>
+          <div class="panel__subtitle">Select record to analyse</div>
+        </div>
+        <span id="recordCount" style="font-size:11px;color:rgba(255,255,255,0.5);">—</span>
+      </div>
+      <div class="panel__body" style="padding:13px;">
+        <input class="search-box" type="text" id="searchBox"
+               placeholder="🔎 Search…" oninput="filterRecords()"/>
+        <div class="mini-pills" id="typeFilter">
+          <button class="mini-pill mini-pill--active" data-val="all">All</button>
+          <button class="mini-pill" data-val="complaint">Complaints</button>
+          <button class="mini-pill" data-val="deviation">Deviations</button>
+          <button class="mini-pill" data-val="cc">Change Ctrl</button>
+        </div>
+        <div class="record-list" id="recordList">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT — RCA workspace -->
+  <div>
+    <div class="method-tabs">
+      <button class="method-tab method-tab--active" id="tab5why"
+              onclick="switchMethod('5why')">❓ 5-Why Analysis</button>
+      <button class="method-tab" id="tabFishbone"
+              onclick="switchMethod('fishbone')">🐟 Fishbone (Ishikawa)</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title" id="rcaTitle">🔍 RCA Workspace</div>
+          <div class="panel__subtitle" id="rcaSubtitle">Select a record to begin</div>
+        </div>
+        <span style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);
+                     border:1px solid rgba(255,255,255,0.15);border-radius:20px;
+                     padding:3px 10px;font-size:11px;">🤖 AI Assisted</span>
+      </div>
+      <div class="panel__body">
+
+        <div class="verdict-bar" id="verdictBar" style="display:none;">
+          <div class="verdict-bar__icon"  id="verdictIcon"></div>
+          <div>
+            <div class="verdict-bar__label" id="verdictLabel"></div>
+            <div class="verdict-bar__msg"   id="verdictMsg"></div>
+          </div>
+          <div class="verdict-bar__score" id="verdictScore"></div>
+        </div>
+
+        <div id="rcaOutput">
+          <div class="empty-state">
+            <div class="empty-state__icon">🔎</div>
+            <div class="empty-state__text">
+              Select a record → click <strong>Generate RCA</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Approved root cause + redirect -->
+        <div class="rc-summary" id="rcSummary">
+          <div class="rc-summary__label">✦ Approved Root Cause</div>
+          <div class="rc-summary__text" id="rcSummaryText">—</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+            <button class="btn btn--success btn--sm" onclick="submitToCAPA()">
+              📋 Submit to CAPA Creation →
+            </button>
+            <span id="rcaScoreNote" style="font-size:11px;color:var(--green);font-weight:600;"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel__footer">
+        <button class="btn btn--primary"   id="btnGenerate" onclick="generateRCA()" disabled>
+          🔍 Generate RCA
+        </button>
+        <button class="btn btn--secondary" id="btnAssess"   onclick="assessRCA()"  style="display:none;">
+          📊 Assess Accuracy
+        </button>
+        <button class="btn btn--secondary" id="btnAIImprove" onclick="openAIImprove()" style="display:none;">
+          🤖 AI Improve
+        </button>
+        <button class="btn btn--secondary" id="btnEdit"     onclick="toggleEditMode()" style="display:none;">
+          ✏️ Edit RCA
+        </button>
+        <button class="btn btn--secondary" id="btnReAssess" onclick="reAssessRCA()"    style="display:none;">
+          🔄 Re-assess
+        </button>
+        <button class="btn btn--success"   id="btnApprove"  onclick="approveRCA()"     style="display:none;">
+          ✅ Approve &amp; Submit to CAPA
+        </button>
+        <button class="btn btn--secondary btn--sm" onclick="resetWorkspace()" style="margin-left:auto;">
+          ↺ Reset
+        </button>
+        <span id="rcaStatus" style="font-size:11px;color:var(--text-muted);">No record selected</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI Improvement Modal -->
+<div class="ai-overlay" id="aiOverlay" onclick="closeAIOnBg(event)">
+  <div class="ai-modal">
+    <div class="ai-modal__header">
+      <div>
+        <div class="ai-modal__title">🤖 AI Improvement Suggestions</div>
+        <div class="ai-modal__sub" id="aiModalSub">Score analysis and improvement models</div>
+      </div>
+      <button class="ai-modal__close" onclick="closeAIImprove()">✕</button>
+    </div>
+    <div class="ai-modal__body">
+      <div class="score-summary" id="aiScoreSummary"></div>
+      <div id="aiStepSuggestions"></div>
+      <div id="aiModelsSection" style="display:none;">
+        <div class="model-section-title">
+          🎯 Choose an AI-Proposed Model
+          <span style="font-size:11px;font-weight:400;color:var(--text-muted);">
+            Model A = 70% · Model B = 80% · Model C = 90%
+          </span>
+        </div>
+        <div class="models-grid" id="modelsGrid">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ai-modal__actions">
+      <button class="btn btn--secondary" onclick="closeAIImprove()">Cancel</button>
+      <button class="btn btn--primary"   id="btnApplyModel"
+              onclick="applySelectedModel()" disabled>
+        Apply Selected Model →
+      </button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+/* ══════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════ */
+let allRecords      = [];
+let filteredRecords = [];
+let currentRecord   = null;
+let currentMethod   = 'fishbone';
+let typeFilterVal   = 'all';
+let rcaData         = null;
+let assessmentData  = null;
+let editMode        = false;
+let selectedModelId = null;
+let proposedModels  = null;
+
+const TYPE_LBL  = {complaint:'Complaint',deviation:'Deviation',cc:'Change Ctrl',nc:'NC'};
+const CAT_ICONS = {Man:'👤',Machine:'⚙️',Method:'📋',Material:'🧪',Measurement:'📏',Environment:'🌡️'};
+
+/* ══════════════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  loadRecords();
+  bindTypeFilter();
+  const urlId = new URLSearchParams(window.location.search).get('id');
+  if (urlId) {
+    fetch(`/api/records/${urlId}`)
+      .then(r => r.json())
+      .then(rec => selectRecord(rec));
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   RECORDS — FIX: limit=2000 to show all imported records
+══════════════════════════════════════════════════════ */
+function loadRecords() {
+  fetch('/api/records?limit=2000').then(r=>r.json()).then(data=>{
+    allRecords = filteredRecords = data.records||[];
+    renderRecordList(allRecords);
+    document.getElementById('recordCount').textContent = `${allRecords.length} records`;
+  });
+}
+
+function renderRecordList(recs) {
+  const c = document.getElementById('recordList');
+  if (!recs.length) {
+    c.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">No records found</div>';
+    return;
+  }
+  c.innerHTML = recs.map(r => {
+    const prioCls={Critical:'chip--critical',High:'chip--high',Medium:'chip--medium'}[r.priority]||'chip--medium';
+    const typeCls={complaint:'chip--complaint',deviation:'chip--deviation',cc:'chip--cc'}[r.type]||'';
+    return `
+      <div class="record-item ${currentRecord?.id===r.id?'record-item--active':''}"
+           onclick='selectRecord(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
+        <div class="record-item__id">${r.id}</div>
+        <div class="record-item__title">${r.title}</div>
+        <div class="record-item__chips">
+          <span class="chip ${typeCls}">${TYPE_LBL[r.type]||r.type}</span>
+          <span class="chip ${prioCls}">${r.priority}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function filterRecords() {
+  const q = document.getElementById('searchBox').value.toLowerCase().trim();
+  filteredRecords = allRecords.filter(r => {
+    const tm = typeFilterVal==='all'||r.type===typeFilterVal;
+    const qm = !q||(r.id||'').toLowerCase().includes(q)||(r.title||'').toLowerCase().includes(q);
+    return tm && qm;
+  });
+  renderRecordList(filteredRecords);
+}
+
+function bindTypeFilter() {
+  const g = document.getElementById('typeFilter');
+  g.addEventListener('click', e => {
+    const p = e.target.closest('.mini-pill');
+    if (!p) return;
+    g.querySelectorAll('.mini-pill').forEach(x=>x.classList.remove('mini-pill--active'));
+    p.classList.add('mini-pill--active');
+    typeFilterVal = p.dataset.val;
+    filterRecords();
+  });
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 1 — SELECT RECORD
+══════════════════════════════════════════════════════ */
+function selectRecord(rec) {
+  if (typeof rec==='string') rec=JSON.parse(rec);
+  currentRecord = rec;
+  renderRecordList(filteredRecords);
+  document.getElementById('rcaTitle').textContent    = `🔍 ${rec.id}`;
+  document.getElementById('rcaSubtitle').textContent = rec.title.substring(0,65)+'…';
+  document.getElementById('btnGenerate').disabled = false;
+  setStatus('Ready — click Generate RCA');
+  setBanner(`✓ Record ${rec.id} selected`, 'success');
+  setStep(1); resetWorkspaceOutput();
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 2 — GENERATE
+══════════════════════════════════════════════════════ */
+function generateRCA() {
+  if (!currentRecord) return;
+  const btn = document.getElementById('btnGenerate');
+  btn.disabled=true; btn.textContent='⏳ Generating…';
+  setStatus('Generating RCA…');
+  showOutput('<div class="spinner"></div>');
+  hideVerdict();
+
+  const ep = currentMethod==='5why'?'/api/rca/five-why':'/api/rca/fishbone';
+  fetch(ep, {method:'POST', headers:{'Content-Type':'application/json'},
+             body:JSON.stringify({record:currentRecord})})
+    .then(r=>r.json())
+    .then(data=>{
+      rcaData=data; assessmentData=null; editMode=false;
+      if (currentMethod==='5why') render5Why(data, false);
+      else renderFishbone(data, false);
+      btn.disabled=false; btn.textContent='🔄 Regenerate';
+      setStatus('Generated — click Assess Accuracy');
+      showBtn('btnAssess'); hideBtn('btnEdit'); hideBtn('btnReAssess');
+      hideBtn('btnApprove'); hideBtn('btnAIImprove');
+      setStep(2);
+      setBanner('✓ RCA generated — click Assess Accuracy to score this analysis','success');
+    })
+    .catch(err=>{
+      btn.disabled=false; btn.textContent='🔍 Generate RCA';
+      setStatus('Error'); setBanner('Error: '+err.message,'error');
+    });
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 3 — ASSESS
+══════════════════════════════════════════════════════ */
+function assessRCA() {
+  if (!rcaData) return;
+  const btn=document.getElementById('btnAssess');
+  btn.disabled=true; btn.textContent='⏳ Assessing…';
+  setStatus('Assessing accuracy…');
+
+  fetch('/api/rca/assess',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({method:currentMethod, rca_data:rcaData})})
+    .then(r=>r.json())
+    .then(data=>{
+      assessmentData=data;
+      if (currentMethod==='5why') render5Why(rcaData, true);
+      else renderFishbone(rcaData, true);
+      renderVerdictBar(data);
+      btn.disabled=false; btn.textContent='📊 Re-assess';
+      showBtn('btnEdit'); showBtn('btnReAssess'); showBtn('btnApprove');
+      setStep(3);
+
+      if (data.needs_ai_help) {
+        showBtn('btnAIImprove');
+        setBanner(
+          `⚠ Score is ${data.overall_score}% — below 55% threshold. ` +
+          'Click <strong>🤖 AI Improve</strong> to get 3 AI-proposed models.',
+          'warning'
+        );
+        setTimeout(openAIImprove, 800);
+      } else {
+        hideBtn('btnAIImprove');
+        setBanner(
+          `Assessment: ${data.verdict} (${data.overall_score}%) — `+
+          (data.ready_to_submit ? 'Ready to approve ✓' : 'Edit flagged steps and re-assess'),
+          data.verdict_color==='green'?'success':data.verdict_color==='amber'?'warning':'error'
+        );
+      }
+      setStatus('Assessment complete');
+    })
+    .catch(err=>{
+      btn.disabled=false; btn.textContent='📊 Assess Accuracy';
+      setBanner('Assessment error: '+err.message,'error');
+    });
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 4 — AI IMPROVE POPUP
+══════════════════════════════════════════════════════ */
+function openAIImprove() {
+  if (!assessmentData) { assessRCA(); return; }
+  document.getElementById('aiOverlay').classList.add('open');
+  buildAIPopup();
+  loadProposedModels();
+}
+function closeAIImprove() {
+  document.getElementById('aiOverlay').classList.remove('open');
+}
+function closeAIOnBg(e) {
+  if (e.target===document.getElementById('aiOverlay')) closeAIImprove();
+}
+
+function buildAIPopup() {
+  const d = assessmentData;
+  document.getElementById('aiModalSub').textContent =
+    `Overall score: ${d.overall_score}% — ${d.verdict}. `+
+    (d.needs_ai_help ? 'Score is below 55% — AI will propose improved models.' :
+     'Select a model below to upgrade your RCA quality.');
+
+  const overallColor = d.overall_score>=75?'var(--green)':d.overall_score>=55?'var(--amber)':'var(--red)';
+  document.getElementById('aiScoreSummary').innerHTML = `
+    <div class="score-card score-card--overall">
+      <div class="score-card__val" style="color:${overallColor}">${d.overall_score}%</div>
+      <div class="score-card__label">Overall Score</div>
+    </div>
+    <div class="score-card">
+      <div class="score-card__val" style="color:var(--blue)">${d.verdict}</div>
+      <div class="score-card__label">Verdict</div>
+    </div>
+    <div class="score-card">
+      <div class="score-card__val" style="font-size:14px;margin-top:6px;">
+        ${d.needs_ai_help ? '⚠️ Needs improvement' : '✅ Acceptable'}
+      </div>
+      <div class="score-card__label">Status</div>
+    </div>`;
+
+  let html = '';
+  if (currentMethod === 'fishbone') {
+    const cats = d.assessed_categories || {};
+    const rows = Object.entries(cats).flatMap(([cat, causes]) =>
+      causes.filter(c => c.primary && c.score).map(c => ({
+        label:      `${CAT_ICONS[cat]||'•'} ${cat}`,
+        current:    c.text,
+        score:      c.score.overall,
+        color:      c.score.color,
+        suggestion: c.score.improvement,
+      }))
+    );
+    if (rows.length) {
+      html = `
+        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;">
+          💡 Per-Cause Improvement Suggestions
+        </div>
+        <table class="improve-table">
+          <thead><tr>
+            <th style="width:100px;">Category</th>
+            <th style="width:180px;">Current statement</th>
+            <th style="width:60px;">Score</th>
+            <th>AI Suggestion</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td><div class="step-label">${r.label}</div></td>
+                <td><div class="step-current">"${r.current.substring(0,80)}…"</div></td>
+                <td><span class="cause-score-badge score--${r.color}">${r.score}%</span></td>
+                <td><div class="step-suggestion">${r.suggestion}</div></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+  } else {
+    const steps = d.assessed_steps || [];
+    html = `
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;">
+        💡 Per-Step Improvement Suggestions
+      </div>
+      <table class="improve-table">
+        <thead><tr>
+          <th style="width:70px;">Step</th>
+          <th style="width:180px;">Current answer</th>
+          <th style="width:60px;">Score</th>
+          <th>AI Suggestion</th>
+        </tr></thead>
+        <tbody>
+          ${steps.map(s => `
+            <tr>
+              <td><div class="step-label">Why #${s.level}</div></td>
+              <td><div class="step-current">"${(s.because||'').substring(0,80)}…"</div></td>
+              <td><span class="cause-score-badge score--${s.score?.color||'red'}">${s.score?.overall||0}%</span></td>
+              <td><div class="step-suggestion">${s.score?.improvement||'Add more detail.'}</div></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  document.getElementById('aiStepSuggestions').innerHTML = html;
+}
+
+function loadProposedModels() {
+  const section = document.getElementById('aiModelsSection');
+  const grid    = document.getElementById('modelsGrid');
+  section.style.display = 'block';
+  grid.innerHTML = '<div class="spinner"></div>';
+  selectedModelId = null;
+  document.getElementById('btnApplyModel').disabled = true;
+
+  fetch('/api/rca/propose', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({record: currentRecord, method: currentMethod}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    proposedModels = data;
+    const cardCls = ['model-card--a','model-card--b','model-card--c'];
+    grid.innerHTML = data.models.map((m, i) => `
+      <div class="model-card ${cardCls[i]}" id="model-card-${m.id}"
+           onclick="selectModel('${m.id}')">
+        <div class="model-card__check">✅</div>
+        <div class="model-card__icon">${m.icon}</div>
+        <div class="model-card__name">${m.name}</div>
+        <div><span class="model-card__score">~${m.estimated_score}% estimated</span></div>
+        <div class="model-card__badge">${m.badge}</div>
+        <div class="model-card__desc">${m.description}</div>
+      </div>`
+    ).join('');
+  })
+  .catch(() => {
+    grid.innerHTML = '<div style="color:var(--red);font-size:12px;">Error loading models</div>';
+  });
+}
+
+function selectModel(id) {
+  selectedModelId = id;
+  document.querySelectorAll('.model-card').forEach(c=>c.classList.remove('model-card--selected'));
+  document.getElementById(`model-card-${id}`).classList.add('model-card--selected');
+  document.getElementById('btnApplyModel').disabled = false;
+}
+
+/* FIX: applySelectedModel now handles BOTH fishbone AND 5-Why correctly */
+function applySelectedModel() {
+  if (!selectedModelId || !proposedModels) return;
+  const model = proposedModels.models.find(m => m.id === selectedModelId);
+  if (!model) return;
+
+  if (currentMethod === 'fishbone') {
+    // Apply new categories to fishbone
+    if (model.categories) rcaData.categories = model.categories;
+    renderFishbone(rcaData, false);
+  } else {
+    // 5-Why: use the chain built by the service, or build from categories
+    if (model.chain && model.chain.length > 0) {
+      rcaData.chain = model.chain;
+      rcaData.root_cause = model.chain[model.chain.length-1]?.because || rcaData.root_cause;
+    } else if (model.categories) {
+      // Build chain from primary causes
+      const primaries = Object.values(model.categories)
+        .flat().filter(c => c.primary).slice(0, 5);
+      const whys = [
+        'Why did the quality event occur?',
+        'Why did this cause arise?',
+        'Why was this not prevented?',
+        'Why was the control missing?',
+        'Why was the root issue not addressed earlier?',
+      ];
+      if (primaries.length > 0) {
+        rcaData.chain = primaries.map((c, i) => ({
+          level: i+1,
+          why: whys[i] || `Why ${i+1}?`,
+          because: c.text,
+          is_root: i === primaries.length-1,
+        }));
+        rcaData.root_cause = primaries[primaries.length-1].text;
+      }
+    }
+    render5Why(rcaData, false);
+  }
+
+  assessmentData = null;
+  editMode = false;
+  hideVerdict();
+  closeAIImprove();
+  showBtn('btnEdit');
+  showBtn('btnAssess');
+  hideBtn('btnApprove');
+  setStep(4);
+  setBanner(
+    `✓ ${model.name} applied (~${model.estimated_score}%) — edit if needed, then click Re-assess`,
+    'success'
+  );
+  setStatus('Model applied — re-assess to score');
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 5 — EDIT MODE
+══════════════════════════════════════════════════════ */
+function toggleEditMode() {
+  editMode = !editMode;
+  const btn    = document.getElementById('btnEdit');
+  const output = document.getElementById('rcaOutput');
+
+  if (editMode) {
+    output.classList.add('edit-mode');
+    btn.textContent = '👁 View Mode';
+    document.querySelectorAll('.cause-edit-area').forEach(ta => {
+      if (!ta.value) {
+        const display = ta.closest('.cause-row')?.querySelector('.cause-text');
+        if (display) ta.value = display.textContent.replace(/^[⚡•]\s*/,'').trim();
+      }
+    });
+    document.querySelectorAll('.why-answer-edit').forEach(ta => {
+      if (!ta.value) {
+        const display = ta.closest('[style]')?.querySelector('.why-answer-display');
+        if (display) ta.value = display.textContent.trim();
+      }
+    });
+    setStep(5);
+    setBanner('✏️ Edit mode — modify any field. Click Re-assess when done.','info');
+  } else {
+    output.classList.remove('edit-mode');
+    btn.textContent = '✏️ Edit RCA';
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   RE-ASSESS with edited content
+══════════════════════════════════════════════════════ */
+function reAssessRCA() {
+  // Read edited values back into rcaData
+  if (currentMethod === 'fishbone') {
+    const cats = rcaData.categories || {};
+    Object.keys(cats).forEach(cat => {
+      cats[cat].forEach((cause, i) => {
+        const ta = document.querySelector(
+          `.cause-edit-area[data-cat="${cat}"][data-idx="${i}"]`
+        );
+        if (ta && ta.value.trim()) cause.text = ta.value.trim();
+      });
+    });
+  } else {
+    (rcaData.chain || []).forEach((step, i) => {
+      const ta = document.querySelector(`.why-answer-edit[data-idx="${i}"]`);
+      if (ta && ta.value.trim()) step.because = ta.value.trim();
+    });
+    const last = rcaData.chain?.[rcaData.chain.length-1];
+    if (last) rcaData.root_cause = last.because;
+  }
+
+  if (editMode) toggleEditMode();
+  if (currentMethod==='5why') render5Why(rcaData, false);
+  else renderFishbone(rcaData, false);
+  assessRCA();
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 6 — APPROVE + AUTO-REDIRECT TO CAPA
+══════════════════════════════════════════════════════ */
+function approveRCA() {
+  if (!rcaData) return;
+
+  // Extract the root cause text
+  let rootCause = '';
+  if (currentMethod === '5why') {
+    rootCause = rcaData.root_cause
+      || rcaData.chain?.[rcaData.chain.length-1]?.because
+      || '';
+  } else {
+    const primaries = Object.values(rcaData.categories||{})
+      .flatMap(c => c.filter(x=>x.primary).map(x=>x.text));
+    rootCause = primaries.slice(0,2).join('; ') + (primaries.length ? '.' : '');
+  }
+
+  const score = assessmentData?.overall_score || '—';
+
+  // Show the approved root cause summary
+  document.getElementById('rcSummaryText').textContent = rootCause;
+  document.getElementById('rcSummary').style.display   = 'block';
+  document.getElementById('rcaScoreNote').textContent  = `Score: ${score}%`;
+
+  // Save to sessionStorage so CAPA page can pick it up
+  try {
+    sessionStorage.setItem('approved_rca', JSON.stringify({
+      record_id:   currentRecord.id,
+      method:      currentMethod,
+      root_cause:  rootCause,
+      score:       score,
+      rca_data:    rcaData,
+      approved_at: new Date().toISOString(),
+    }));
+  } catch(e) {}
+
+  setStep(6);
+  hideBtn('btnEdit'); hideBtn('btnReAssess'); hideBtn('btnAIImprove');
+  const ab = document.getElementById('btnApprove');
+  ab.textContent='✅ Approved'; ab.disabled=true;
+
+  setBanner(
+    `✅ RCA approved (${score}%) — click <strong>Submit to CAPA Creation →</strong> below to transfer`,
+    'success'
+  );
+  setStatus(`Approved (${score}%) — ready for CAPA`);
+
+  // Auto-redirect after 1.5s if score is strong (≥75%)
+  if (assessmentData?.overall_score >= 75) {
+    setBanner(
+      `✅ Strong RCA (${score}%) — auto-transferring to CAPA Creation in 2 seconds…`,
+      'success'
+    );
+    setTimeout(() => submitToCAPA(), 2000);
+  }
+}
+
+/* ── Submit to CAPA — carries RCA data as URL params ── */
+function submitToCAPA() {
+  if (!currentRecord) return;
+
+  let rootCause = '';
+  if (currentMethod === '5why') {
+    rootCause = rcaData?.root_cause
+      || rcaData?.chain?.[rcaData.chain.length-1]?.because
+      || document.getElementById('rcSummaryText')?.textContent
+      || '';
+  } else {
+    rootCause = document.getElementById('rcSummaryText')?.textContent
+      || Object.values(rcaData?.categories||{})
+           .flatMap(c => c.filter(x=>x.primary).map(x=>x.text))
+           .slice(0,2).join('; ') + '.';
+  }
+
+  const score = assessmentData?.overall_score || '';
+  const params = new URLSearchParams({
+    id:         currentRecord.id,
+    rca_score:  score,
+    rca_method: currentMethod,
+    root_cause: rootCause,
+  });
+
+  setBanner('↗ Transferring to CAPA Creation…', 'success');
+  setTimeout(() => {
+    window.location.href = `/capa/create?${params.toString()}`;
+  }, 400);
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER FUNCTIONS
+══════════════════════════════════════════════════════ */
+function render5Why(data, scored) {
+  const steps = (scored && assessmentData?.assessed_steps)
+    ? assessmentData.assessed_steps
+    : data.chain || [];
+
+  const html = steps.map((s,i) => {
+    const score = s.score;
+    const badge = score
+      ? `<span class="cause-score-badge score--${score.color}">${score.overall}%</span>` : '';
+    const bars = score ? `
+      <div class="score-bars">
+        ${['specificity','actionability','completeness'].map(k=>`
+          <div class="score-bar">
+            <span class="score-bar__label">${k.charAt(0).toUpperCase()+k.slice(1)}</span>
+            <div class="score-bar__track">
+              <div class="score-bar__fill fill--${score.color}" style="width:${score[k]}%"></div>
+            </div>
+            <span class="score-bar__pct">${score[k]}%</span>
+          </div>`).join('')}
+      </div>` : '';
+    const hint = score && score.overall < 55
+      ? `<div class="cause-ai-hint visible">💡 ${score.improvement}</div>` : '';
+
+    return `
+      <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px dashed var(--border);">
+        <div style="width:28px;height:28px;border-radius:50%;
+                    background:${s.is_root?'var(--red)':'var(--blue)'};color:#fff;
+                    font-size:11px;font-weight:700;display:flex;align-items:center;
+                    justify-content:center;flex-shrink:0;margin-top:4px;">
+          ${s.level}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.04em;color:var(--text-muted);margin-bottom:4px;">
+            ${s.why} ${badge}
+          </div>
+          <div class="why-answer-display" style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:4px;">
+            ${s.because}
+          </div>
+          <textarea class="why-answer-edit cause-edit-area"
+                    data-idx="${i}" rows="3"
+                    placeholder="Edit this step — add SOP references, equipment IDs, dates…"
+                    >${s.because}</textarea>
+          ${s.is_root?'<span style="display:inline-block;background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;text-transform:uppercase;margin-top:4px;">✦ Root Cause</span>':''}
+          ${bars}${hint}
+        </div>
+      </div>`;
+  }).join('');
+
+  showOutput(`<div>${html}</div>`);
+  if (scored && assessmentData) renderVerdictBar(assessmentData);
+}
+
+function renderFishbone(data, scored) {
+  const cats = (scored && assessmentData?.assessed_categories)
+    ? assessmentData.assessed_categories
+    : data.categories || {};
+
+  const html = Object.entries(cats).map(([cat, causes]) => {
+    const hasPrimary = causes.some(c=>c.primary);
+    const causesHtml = causes.map((c,i) => {
+      const score = c.score;
+      const badge = score
+        ? `<span class="cause-score-badge score--${score.color}">${score.overall}%</span>` : '';
+      const bars = score ? `
+        <div class="score-bars">
+          ${['specificity','actionability','completeness'].map(k=>`
+            <div class="score-bar">
+              <span class="score-bar__label">${k.charAt(0).toUpperCase()+k.slice(1)}</span>
+              <div class="score-bar__track">
+                <div class="score-bar__fill fill--${score.color}" style="width:${score[k]}%"></div>
+              </div>
+              <span class="score-bar__pct">${score[k]}%</span>
+            </div>`).join('')}
+        </div>` : '';
+      const hint = score && score.overall < 55
+        ? `<div class="cause-ai-hint visible">💡 ${score.improvement}</div>` : '';
+
+      return `
+        <div class="cause-row">
+          <div class="cause-row__top">
+            <input type="checkbox" class="cause-checkbox"
+                   ${c.primary?'checked':''}
+                   onchange="togglePrimary('${cat}',${i},this.checked)"/>
+            <div style="flex:1;">
+              <span class="cause-text ${c.primary?'cause-text--primary':''}">
+                ${c.primary?'⚡ ':''} ${c.text}
+              </span>
+              ${badge}
+            </div>
+          </div>
+          <textarea class="cause-edit-area"
+                    data-cat="${cat}" data-idx="${i}"
+                    rows="3"
+                    placeholder="Edit cause — add SOP ref, equipment ID, date, regulatory citation…"
+                    >${c.text}</textarea>
+          ${bars}${hint}
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="fb-cat ${hasPrimary?'fb-cat--primary':''}">
+        <div class="fb-cat__title">
+          <span>${CAT_ICONS[cat]||'•'}</span> ${cat}
+        </div>
+        ${causesHtml}
+        <button class="add-cause-btn" onclick="addCause('${cat}')">
+          + Add another cause for ${cat}
+        </button>
+      </div>`;
+  }).join('');
+
+  showOutput(`<div class="fishbone-grid">${html}</div>`);
+  if (scored && assessmentData) renderVerdictBar(assessmentData);
+}
+
+function addCause(cat) {
+  if (!rcaData?.categories?.[cat]) return;
+  rcaData.categories[cat].push({text: '', primary: false});
+  renderFishbone(rcaData, false);
+  document.getElementById('rcaOutput').classList.add('edit-mode');
+  editMode = true;
+  document.getElementById('btnEdit').textContent = '👁 View Mode';
+}
+
+function togglePrimary(cat, idx, checked) {
+  if (rcaData?.categories?.[cat]?.[idx] !== undefined) {
+    rcaData.categories[cat][idx].primary = checked;
+  }
+}
+
+function renderVerdictBar(a) {
+  const bar   = document.getElementById('verdictBar');
+  const color = a.verdict_color;
+  const icons = {green:'✅',amber:'⚠️',red:'❌'};
+  bar.className = `verdict-bar verdict-bar--${color}`;
+  document.getElementById('verdictIcon').textContent  = icons[color]||'📊';
+  document.getElementById('verdictLabel').textContent = a.verdict;
+  document.getElementById('verdictMsg').textContent   = a.verdict_msg;
+  document.getElementById('verdictScore').textContent = `${a.overall_score}%`;
+  bar.style.display = 'flex';
+}
+
+/* ══════════════════════════════════════════════════════
+   UTILITIES
+══════════════════════════════════════════════════════ */
+function switchMethod(m) {
+  currentMethod = m;
+  document.getElementById('tab5why').classList.toggle('method-tab--active', m==='5why');
+  document.getElementById('tabFishbone').classList.toggle('method-tab--active', m==='fishbone');
+  resetWorkspaceOutput();
+}
+
+function resetWorkspaceOutput() {
+  rcaData=null; assessmentData=null; editMode=false; selectedModelId=null;
+  showOutput(`<div class="empty-state"><div class="empty-state__icon">🔎</div>
+    <div class="empty-state__text">Click <strong>Generate RCA</strong> to begin</div></div>`);
+  hideVerdict();
+  document.getElementById('rcSummary').style.display='none';
+  document.getElementById('rcaOutput').classList.remove('edit-mode');
+  ['btnAssess','btnEdit','btnReAssess','btnApprove','btnAIImprove'].forEach(hideBtn);
+  const gb=document.getElementById('btnGenerate');
+  gb.textContent='🔍 Generate RCA'; gb.disabled=!currentRecord;
+  setStatus(currentRecord?'Ready — click Generate RCA':'No record selected');
+}
+
+function resetWorkspace() {
+  currentRecord=null; resetWorkspaceOutput();
+  renderRecordList(filteredRecords);
+  document.getElementById('rcaTitle').textContent='🔍 RCA Workspace';
+  document.getElementById('rcaSubtitle').textContent='Select a record to begin';
+  document.getElementById('btnGenerate').disabled=true;
+  setStep(1);
+  setBanner('ℹ Select a quality record to begin.','info');
+}
+
+function setStep(n) {
+  for (let i=1;i<=6;i++) {
+    const el=document.getElementById(`step${i}`);
+    if (!el) continue;
+    el.classList.remove('step--active','step--done');
+    if (i<n)        el.classList.add('step--done');
+    else if (i===n) el.classList.add('step--active');
+  }
+}
+function showOutput(h)  { document.getElementById('rcaOutput').innerHTML=h; }
+function hideVerdict()  { document.getElementById('verdictBar').style.display='none'; }
+function showBtn(id)    { const el=document.getElementById(id); if(el) el.style.display=''; }
+function hideBtn(id)    { const el=document.getElementById(id); if(el) el.style.display='none'; }
+function setStatus(msg) { document.getElementById('rcaStatus').textContent=msg; }
+function setBanner(msg,type) {
+  const b=document.getElementById('banner');
+  const icons={info:'ℹ',success:'✓',warning:'⚠',error:'✗'};
+  b.className=`banner banner--${type}`;
+  b.innerHTML=`<span>${icons[type]}</span> ${msg}`;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}QMS GenAI · TrackWise{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Brand */
+      --navy:        #0f172a;
+      --navy-mid:    #1e293b;
+      --blue:        #3b82f6;
+      --blue-dark:   #1d4ed8;
+      --blue-pale:   #eff6ff;
+      --blue-border: #bfdbfe;
+      --purple:      #7c3aed;
+      --purple-pale: #f5f3ff;
+      --green:       #10b981;
+      --green-pale:  #ecfdf5;
+      --green-border:#a7f3d0;
+      --red:         #ef4444;
+      --red-pale:    #fef2f2;
+      --amber:       #f59e0b;
+      --amber-pale:  #fffbeb;
+      /* Neutrals */
+      --bg:          #f1f5f9;
+      --surface:     #ffffff;
+      --border:      #e2e8f0;
+      --border-dark: #cbd5e1;
+      --text:        #0f172a;
+      --text-mid:    #334155;
+      --text-muted:  #64748b;
+      /* Sidebar */
+      --sidebar-bg:  #0f172a;
+      --sidebar-w:   230px;
+      /* Type */
+      --font:        'Inter', 'Segoe UI', sans-serif;
+      /* Shape */
+      --r:           8px;
+      --r-lg:        12px;
+      --r-xl:        16px;
+      --radius:      8px;
+      --radius-lg:   12px;
+      --radius-xl:   16px;
+      /* Shadow */
+      --shadow-sm:   0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow:      0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg:   0 10px 30px rgba(0,0,0,0.12);
+    }
+
+    html, body {
+      font-family: var(--font);
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    a { color: var(--blue); text-decoration: none; }
+
+    /* ════════════════════════════════════════════════
+       NAVBAR
+    ════════════════════════════════════════════════ */
+    .navbar {
+      position: sticky; top: 0; z-index: 200;
+      height: 56px;
+      background: var(--navy);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center;
+      padding: 0 20px 0 0;
+      gap: 0;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.05),
+                  0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    /* Sidebar brand area in navbar */
+    .navbar__brand {
+      width: var(--sidebar-w);
+      padding: 0 20px;
+      display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      height: 100%;
+    }
+    .navbar__logo {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--blue), #6366f1);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800; color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(59,130,246,0.4);
+    }
+    .navbar__name {
+      color: #fff; font-size: 14px; font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    .navbar__name sup { font-size: 8px; }
+    .navbar__module {
+      color: rgba(255,255,255,0.4);
+      font-size: 11px; margin-top: 1px;
+    }
+
+    /* Navbar right section */
+    .navbar__right {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 8px;
+      padding-left: 16px;
+    }
+
+    /* Mode badge */
+    .mode-badge {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px; padding: 4px 12px;
+      font-size: 11px; font-weight: 500;
+      color: rgba(255,255,255,0.6);
+    }
+    .mode-badge__dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 2px rgba(16,185,129,0.3);
+    }
+
+    /* Nav links */
+    .navbar__links {
+      display: flex; align-items: center; gap: 2px;
+      margin-left: 16px;
+    }
+    .navbar__link {
+      color: rgba(255,255,255,0.55); font-size: 12px;
+      padding: 6px 14px; border-radius: var(--r);
+      transition: all 0.12s; font-weight: 500;
+    }
+    .navbar__link:hover { color:#fff; background:rgba(255,255,255,0.08); }
+    .navbar__link--active { color:#fff; background:rgba(59,130,246,0.2); }
+
+    /* Help button */
+    .btn-help {
+      width: 34px; height: 34px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.7);
+      font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-help:hover {
+      background: var(--blue); border-color: var(--blue);
+      color: #fff; transform: scale(1.05);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.25);
+    }
+
+    /* User menu */
+    .user-menu {
+      display: flex; align-items: center; gap: 9px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 40px; padding: 4px 14px 4px 4px;
+      cursor: pointer; transition: all 0.12s;
+      position: relative;
+    }
+    .user-menu:hover { background: rgba(255,255,255,0.12); }
+    .user-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .user-name  { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.85); }
+    .user-role  { font-size: 10px; color: rgba(255,255,255,0.4); }
+
+    /* Logout dropdown */
+    .user-dropdown {
+      display: none;
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-lg);
+      min-width: 180px; z-index: 300;
+      overflow: hidden;
+      animation: fadeIn 0.15s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+    .user-dropdown.open { display: block; }
+    .user-dropdown__item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; font-size: 12px; color: var(--text-mid);
+      cursor: pointer; transition: background 0.1s;
+      border: none; background: none; width: 100%;
+      font-family: var(--font); text-decoration: none;
+    }
+    .user-dropdown__item:hover { background: var(--bg); color: var(--text); }
+    .user-dropdown__item--danger { color: var(--red); }
+    .user-dropdown__item--danger:hover { background: var(--red-pale); }
+    .user-dropdown__divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* ════════════════════════════════════════════════
+       TAB BAR
+    ════════════════════════════════════════════════ */
+    .tabbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px 0 calc(var(--sidebar-w) + 24px);
+      display: flex; align-items: flex-end; gap: 2px;
+      box-shadow: var(--shadow-sm);
+    }
+    .tabbar__tab {
+      padding: 13px 18px 11px;
+      font-size: 12px; font-weight: 500;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      cursor: pointer; transition: all 0.15s;
+      white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
+      text-decoration: none;
+      border-radius: var(--r) var(--r) 0 0;
+    }
+    .tabbar__tab:hover { color: var(--blue); background: var(--blue-pale); }
+    .tabbar__tab--active {
+      color: var(--blue); border-bottom-color: var(--blue);
+      font-weight: 600; background: var(--blue-pale);
+    }
+    .tabbar__tab--disabled { opacity:0.4; cursor:not-allowed; pointer-events:none; }
+    .tab-count {
+      background: var(--blue); color: #fff;
+      border-radius: 20px; padding: 1px 7px;
+      font-size: 10px; font-weight: 700;
+    }
+    .tab-soon {
+      background: var(--amber-pale); color: var(--amber);
+      border-radius: 20px; padding: 1px 7px;
+      font-size: 10px; font-weight: 600;
+    }
+
+    /* ════════════════════════════════════════════════
+       LAYOUT
+    ════════════════════════════════════════════════ */
+    .layout { display: flex; min-height: calc(100vh - 94px); }
+
+    /* ════════════════════════════════════════════════
+       SIDEBAR
+    ════════════════════════════════════════════════ */
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: var(--navy-mid);
+      border-right: 1px solid rgba(255,255,255,0.05);
+      padding: 16px 0 24px; overflow-y: auto;
+    }
+    .sidebar__section {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.25);
+      padding: 0 16px 6px; margin-top: 12px;
+    }
+    .sidebar__item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px;
+      color: rgba(255,255,255,0.55);
+      font-size: 12px; font-weight: 500;
+      cursor: pointer; border-radius: 0;
+      border-left: 3px solid transparent;
+      transition: all 0.12s; text-decoration: none;
+    }
+    .sidebar__item:hover {
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.9);
+    }
+    .sidebar__item--active {
+      background: rgba(59,130,246,0.15);
+      color: #fff; font-weight: 600;
+      border-left-color: var(--blue);
+    }
+    .sidebar__icon {
+      font-size: 14px; flex-shrink: 0;
+      width: 20px; text-align: center;
+    }
+    .sidebar__count {
+      margin-left: auto; font-size: 10px; font-weight: 600;
+      color: rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.07);
+      border-radius: 20px; padding: 1px 7px;
+    }
+    .sidebar__item--active .sidebar__count {
+      background: rgba(59,130,246,0.3); color: #93c5fd;
+    }
+
+    /* Agent status pill */
+    .agent-pill {
+      margin: 10px 12px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: var(--r-lg); padding: 10px 12px;
+    }
+    .agent-pill__row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: rgba(255,255,255,0.6);
+    }
+    .agent-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green); flex-shrink: 0;
+      box-shadow: 0 0 0 2px rgba(16,185,129,0.25);
+    }
+    .agent-dot--busy { background: var(--amber); animation: pulse 1s infinite; }
+    .agent-dot--error{ background: var(--red); }
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+    /* Sidebar stats */
+    .sidebar-stats { padding: 6px 16px; }
+    .sidebar-stat  {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 0; font-size: 11px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .sidebar-stat:last-child { border-bottom: none; }
+    .sidebar-stat__label { color: rgba(255,255,255,0.35); }
+    .sidebar-stat__value { font-weight: 600; color: rgba(255,255,255,0.75); }
+
+    /* ════════════════════════════════════════════════
+       MAIN
+    ════════════════════════════════════════════════ */
+    .main { flex:1; padding:24px; overflow-x:auto; min-width:0; }
+
+    /* ════════════════════════════════════════════════
+       BANNER
+    ════════════════════════════════════════════════ */
+    .banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 16px; border-radius: var(--r-lg);
+      font-size: 12px; margin-bottom: 20px;
+      border: 1px solid transparent;
+      box-shadow: var(--shadow-sm);
+    }
+    .banner--info    { background:var(--blue-pale);   border-color:var(--blue-border); color:#1e40af; }
+    .banner--success { background:var(--green-pale);  border-color:var(--green-border); color:#065f46; }
+    .banner--warning { background:var(--amber-pale);  border-color:#fde68a; color:#92400e; }
+    .banner--error   { background:var(--red-pale);    border-color:#fecaca; color:#991b1b; }
+
+    /* ════════════════════════════════════════════════
+       METRIC CARDS
+    ════════════════════════════════════════════════ */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(138px,1fr));
+      gap: 14px; margin-bottom: 22px;
+    }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .metric-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      border-radius: var(--r-xl) var(--r-xl) 0 0;
+    }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    .metric-card--blue   ::before, .metric-card--blue::before   { background: var(--blue); }
+    .metric-card--green  ::before, .metric-card--green::before  { background: var(--green); }
+    .metric-card--red    ::before, .metric-card--red::before    { background: var(--red); }
+    .metric-card--amber  ::before, .metric-card--amber::before  { background: var(--amber); }
+    .metric-card--purple ::before, .metric-card--purple::before { background: var(--purple); }
+    .metric-card__label {
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted); margin-bottom: 10px;
+    }
+    .metric-card__value {
+      font-size: 30px; font-weight: 800;
+      color: var(--navy); line-height: 1;
+    }
+    .metric-card--blue   .metric-card__value { color: var(--blue); }
+    .metric-card--green  .metric-card__value { color: var(--green); }
+    .metric-card--red    .metric-card__value { color: var(--red); }
+    .metric-card--amber  .metric-card__value { color: var(--amber); }
+    .metric-card--purple .metric-card__value { color: var(--purple); }
+
+    /* ════════════════════════════════════════════════
+       BUTTONS
+    ════════════════════════════════════════════════ */
+    .btn {
+      display: inline-flex; align-items: center;
+      justify-content: center; gap: 6px;
+      padding: 0 18px; height: 36px;
+      font-size: 12px; font-weight: 600;
+      border-radius: var(--r-lg);
+      border: 1px solid transparent;
+      cursor: pointer; white-space: nowrap;
+      transition: all 0.12s; font-family: var(--font);
+    }
+    .btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .btn--primary {
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      color: #fff; box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+    }
+    .btn--primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px rgba(59,130,246,0.4);
+    }
+    .btn--secondary {
+      background: var(--surface); color: var(--text-mid);
+      border-color: var(--border);
+    }
+    .btn--secondary:hover:not(:disabled) {
+      background: var(--blue-pale); border-color: var(--blue); color: var(--blue);
+    }
+    .btn--success {
+      background: linear-gradient(135deg, var(--green), #059669);
+      color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.3);
+    }
+    .btn--success:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px rgba(16,185,129,0.4);
+    }
+    .btn--sm { height:30px; padding:0 12px; font-size:11px; }
+
+    /* ════════════════════════════════════════════════
+       BADGES
+    ════════════════════════════════════════════════ */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 3px 9px; font-size: 10px; font-weight: 700;
+      border-radius: 20px; white-space: nowrap;
+      border: 1px solid transparent; letter-spacing: 0.03em;
+    }
+    .badge--critical { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
+    .badge--high     { background:#fffbeb; color:#d97706; border-color:#fde68a; }
+    .badge--medium   { background:#eff6ff; color:#2563eb; border-color:#bfdbfe; }
+    .badge--low      { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
+    .badge--draft    { background:var(--purple-pale); color:var(--purple); border-color:#ddd6fe; }
+    .badge--review   { background:var(--amber-pale);  color:var(--amber); border-color:#fde68a; }
+    .badge--approved { background:var(--green-pale);  color:var(--green); border-color:var(--green-border); }
+    .badge--complaint{ background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+    .badge--deviation{ background:#fffbeb; color:#b45309; border-color:#fde68a; }
+    .badge--cc       { background:var(--purple-pale); color:var(--purple); border-color:#ddd6fe; }
+    .badge--nc       { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
+
+    /* ════════════════════════════════════════════════
+       FILTERS BAR
+    ════════════════════════════════════════════════ */
+    .filters {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 14px 18px;
+      margin-bottom: 16px;
+      display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end;
+      box-shadow: var(--shadow-sm);
+    }
+    .filter-group { display:flex; flex-direction:column; gap:6px; }
+    .filter-group--right { margin-left:auto; }
+    .filter-label {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--text-muted);
+    }
+    .pills { display:flex; gap:4px; flex-wrap:wrap; }
+    .pill {
+      padding: 5px 14px; font-size: 12px; font-weight: 500;
+      border-radius: 20px; border: 1.5px solid var(--border);
+      background: var(--surface); color: var(--text-muted);
+      cursor: pointer; transition: all 0.12s; font-family: var(--font);
+    }
+    .pill:hover { background:var(--blue-pale); border-color:var(--blue); color:var(--blue); }
+    .pill--active { background:var(--blue); color:#fff; border-color:var(--blue); box-shadow:0 2px 8px rgba(59,130,246,0.25); }
+    .search-input {
+      height: 34px; padding: 0 12px; font-size: 12px;
+      border: 1.5px solid var(--border); border-radius: var(--r-lg);
+      background: var(--surface); color: var(--text); outline: none;
+      min-width: 230px; font-family: var(--font);
+      transition: all 0.15s;
+    }
+    .search-input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+
+    /* ════════════════════════════════════════════════
+       TABLE
+    ════════════════════════════════════════════════ */
+    .table-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-xl); overflow:hidden; box-shadow:var(--shadow-sm);
+    }
+    .table { width:100%; border-collapse:collapse; font-size:12px; }
+    .table thead {
+      background: linear-gradient(135deg, #1e293b 0%, var(--navy) 100%);
+    }
+    .table thead th {
+      padding:11px 16px; text-align:left; font-size:10px; font-weight:700;
+      text-transform:uppercase; letter-spacing:0.07em; color:rgba(255,255,255,0.7);
+      white-space:nowrap;
+    }
+    .table tbody tr {
+      border-bottom:1px solid var(--border);
+      transition:background 0.1s; cursor:pointer;
+    }
+    .table tbody tr:hover { background:#f8faff; }
+    .table tbody tr:last-child { border-bottom:none; }
+    .table tbody td { padding:11px 16px; vertical-align:middle; }
+    .table__id {
+      font-family:'Consolas',monospace; font-size:11px;
+      color:var(--blue); font-weight:600;
+    }
+    .table__empty {
+      text-align:center; padding:60px 20px;
+      color:var(--text-muted); font-size:13px;
+    }
+
+    /* ════════════════════════════════════════════════
+       PAGE HEADER
+    ════════════════════════════════════════════════ */
+    .page-header {
+      display:flex; align-items:flex-start;
+      justify-content:space-between; flex-wrap:wrap;
+      gap:12px; margin-bottom:22px;
+    }
+    .page-title { font-size:22px; font-weight:800; color:var(--navy); letter-spacing:-0.3px; }
+    .page-subtitle { font-size:12px; color:var(--text-muted); margin-top:4px; max-width:560px; line-height:1.6; }
+    .page-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+    /* ════════════════════════════════════════════════
+       HELP MODAL
+    ════════════════════════════════════════════════ */
+    .help-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(15,23,42,0.75);
+      backdrop-filter: blur(4px);
+      padding: 20px;
+      align-items: center; justify-content: center;
+    }
+    .help-overlay.open { display: flex; animation: fadeOverlay 0.2s ease; }
+    @keyframes fadeOverlay { from{opacity:0} to{opacity:1} }
+
+    .help-modal {
+      background: var(--surface);
+      border-radius: 20px;
+      width: 100%; max-width: 700px;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.4);
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+    .help-header {
+      padding: 24px 28px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 16px;
+      background: linear-gradient(135deg, var(--navy), #1e293b);
+      border-radius: 20px 20px 0 0;
+    }
+    .help-header__title {
+      font-size: 18px; font-weight: 800; color: #fff;
+      margin-bottom: 4px;
+    }
+    .help-header__sub {
+      font-size: 12px; color: rgba(255,255,255,0.5);
+    }
+    .help-close {
+      background: rgba(255,255,255,0.1); border: none;
+      width: 32px; height: 32px; border-radius: 50%;
+      color: rgba(255,255,255,0.7); font-size: 16px;
+      cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.12s;
+    }
+    .help-close:hover { background:rgba(255,255,255,0.2); color:#fff; }
+
+    .help-body { padding: 24px 28px; }
+
+    /* Help tabs */
+    .help-tabs {
+      display: flex; gap: 4px; margin-bottom: 20px;
+      background: var(--bg); border-radius: 10px; padding: 4px;
+    }
+    .help-tab {
+      flex: 1; padding: 8px; text-align: center;
+      font-size: 12px; font-weight: 500;
+      border-radius: 7px; cursor: pointer;
+      border: none; background: none;
+      color: var(--text-muted); transition: all 0.12s;
+      font-family: var(--font);
+    }
+    .help-tab:hover { color: var(--text); }
+    .help-tab--active { background: var(--surface); color: var(--blue); font-weight: 600; box-shadow: var(--shadow-sm); }
+
+    .help-tab-content { display: none; }
+    .help-tab-content.active { display: block; }
+
+    /* Step cards */
+    .help-steps { display: flex; flex-direction: column; gap: 12px; }
+    .help-step {
+      display: flex; gap: 14px; padding: 14px 16px;
+      background: var(--bg); border-radius: var(--r-lg);
+      border: 1px solid var(--border);
+      transition: all 0.12s;
+    }
+    .help-step:hover { border-color: var(--blue); background: var(--blue-pale); }
+    .help-step__num {
+      width: 32px; height: 32px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--blue), #6366f1);
+      color: #fff; font-size: 13px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .help-step__title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+    .help-step__desc  { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+    /* User table in help */
+    .help-users { width:100%; border-collapse:collapse; font-size:12px; }
+    .help-users th {
+      padding:8px 12px; background:var(--navy); color:#fff;
+      font-size:10px; font-weight:700;
+      text-transform:uppercase; letter-spacing:0.05em; text-align:left;
+    }
+    .help-users td { padding:9px 12px; border-bottom:1px solid var(--border); }
+    .help-users tr:last-child td { border-bottom:none; }
+    .help-users tr:hover td { background:var(--bg); }
+
+    .user-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .user-chip__avatar {
+      width: 22px; height: 22px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; color: #fff;
+    }
+
+    /* API info */
+    .api-table { width:100%; border-collapse:collapse; font-size:11px; }
+    .api-table th {
+      padding:7px 12px; background:var(--navy); color:rgba(255,255,255,0.7);
+      font-size:10px; font-weight:700; text-transform:uppercase;
+      letter-spacing:0.05em; text-align:left;
+    }
+    .api-table td { padding:8px 12px; border-bottom:1px solid var(--border); }
+    .api-table tr:last-child td { border-bottom:none; }
+    .api-method {
+      display:inline-block; padding:1px 7px;
+      border-radius:4px; font-size:10px; font-weight:700;
+      font-family:'Consolas',monospace;
+    }
+    .api-method--get  { background:#dcfce7; color:#16a34a; }
+    .api-method--post { background:#dbeafe; color:#1d4ed8; }
+    .api-method--patch{ background:#fef9c3; color:#ca8a04; }
+    .api-url { font-family:'Consolas',monospace; font-size:11px; color:var(--blue); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+  </style>
+  {% block extra_styles %}{% endblock %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ═══ NAVBAR ══════════════════════════════════════════ -->
+<header class="navbar">
+  <div class="navbar__brand">
+    <div class="navbar__logo">TW</div>
+    <div>
+      <div class="navbar__name">TrackWise<sup>®</sup></div>
+      <div class="navbar__module">Quality Management · GenAI</div>
+    </div>
+  </div>
+
+  <div class="navbar__links">
+    <a href="/"              class="navbar__link {% if active_tab=='dashboard' %}navbar__link--active{% endif %}">Dashboard</a>
+    <a href="/capa/create"   class="navbar__link {% if active_tab=='capa' %}navbar__link--active{% endif %}">CAPA</a>
+    <a href="/rca/analyze"   class="navbar__link {% if active_tab=='rca' %}navbar__link--active{% endif %}">RCA</a>
+    <a href="/decision-tree" class="navbar__link {% if active_tab=='decision' %}navbar__link--active{% endif %}">Decision Tree</a>
+    <a href="/rag-extract" class="navbar__link {% if active_tab=='rag' %}navbar__link--active{% endif %}" style="display:flex;align-items:center;gap:5px;">🧠 RAG Extract</a>
+    <a href="/search" class="navbar__link {% if active_tab=='search' %}navbar__link--active{% endif %}" style="display:flex;align-items:center;gap:5px;">🔍 Global Search</a>
+    {% if current_user.is_authenticated and current_user.sees_all_records() %}
+    <a href="/analytics" class="navbar__link {% if active_tab=='analytics' %}navbar__link--active{% endif %}" style="display:flex;align-items:center;gap:5px;">📊 Analytics</a>
+    {% endif %}
+  </div>
+
+  <div class="navbar__right">
+    <div class="mode-badge">
+      <div class="mode-badge__dot"></div>
+      Mock Mode · Live
+    </div>
+
+    <!-- Help button -->
+    <button class="btn-help" onclick="openHelp()" title="Help & Guide">
+      ?
+    </button>
+
+    <!-- User dropdown -->
+    <div class="user-menu" id="userMenu" onclick="toggleUserMenu()">
+      <div class="user-avatar"
+           id="userAvatar"
+           style="background: #1756b8;">
+        QA
+      </div>
+      <div>
+        <div class="user-name" id="userName">QA Admin</div>
+        <div class="user-role" id="userRole">Loading…</div>
+      </div>
+      <span style="color:rgba(255,255,255,0.4);font-size:10px;margin-left:2px;">▾</span>
+
+      <div class="user-dropdown" id="userDropdown" onclick="event.stopPropagation()">
+        <div style="padding:12px 16px 8px;">
+          <div style="font-size:12px;font-weight:600;color:var(--text)" id="dropName">—</div>
+          <div style="font-size:11px;color:var(--text-muted)" id="dropRole">—</div>
+        </div>
+        <div class="user-dropdown__divider"></div>
+        <a href="/" class="user-dropdown__item">📊 Dashboard</a>
+        <button class="user-dropdown__item" onclick="openHelp()">❓ Help & Guide</button>
+        {% if current_user.is_authenticated and current_user.is_admin() %}
+        <a href="/admin/users" class="user-dropdown__item">👥 Manage Users</a>
+        <a href="/audit-trail" class="sidebar__item {% if request.path == '/audit-trail' %}sidebar__item--active{% endif %}">
+          <span class="sidebar__icon">📋</span> Audit Trail
+        </a>
+        {% endif %}
+        <div class="user-dropdown__divider"></div>
+        <a href="/logout" class="user-dropdown__item user-dropdown__item--danger">
+          🚪 Sign Out
+        </a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ TAB BAR ══════════════════════════════════════════ -->
+<nav class="tabbar">
+  <a href="/" class="tabbar__tab {% if active_tab=='dashboard' %}tabbar__tab--active{% endif %}">
+    📊 Dashboard <span class="tab-count" id="tabCount">—</span>
+  </a>
+  <a href="/capa/create" class="tabbar__tab {% if active_tab=='capa' %}tabbar__tab--active{% endif %}">
+    📋 CAPA Creation
+  </a>
+  <a href="/rca/analyze" class="tabbar__tab {% if active_tab=='rca' %}tabbar__tab--active{% endif %}">
+    🔍 RCA Analysis
+  </a>
+  <a href="/decision-tree" class="tabbar__tab {% if active_tab=='decision' %}tabbar__tab--active{% endif %}">
+    🌳 Decision Tree
+  </a>
+  <a href="/rag-extract" class="tabbar__tab {% if active_tab=='rag' %}tabbar__tab--active{% endif %}">
+    🧠 RAG Extract
+  </a>
+  <a href="/search" class="tabbar__tab {% if active_tab=='search' %}tabbar__tab--active{% endif %}">
+    🔍 Global Search
+  </a>
+  <a href="/analytics" class="tabbar__tab {% if active_tab=='analytics' %}tabbar__tab--active{% endif %}">
+    📊 Analytics
+  </a>
+</nav>
+
+<!-- ═══ LAYOUT ════════════════════════════════════════════ -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar__section">Navigation</div>
+
+    <a href="/" class="sidebar__item {% if active_tab=='dashboard' and not active_filter %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">📊</span> CAPA Dashboard
+    </a>
+    <a href="/capa/create" class="sidebar__item {% if active_tab=='capa' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">📋</span> CAPA Creation
+    </a>
+    <a href="/rca/analyze" class="sidebar__item {% if active_tab=='rca' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">🔍</span> RCA Analysis
+    </a>
+    <a href="/decision-tree" class="sidebar__item {% if active_tab=='decision' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">🌳</span> Decision Tree
+    </a>
+
+    <div class="sidebar__section">Source Filters</div>
+
+    <a href="/?type=complaint" class="sidebar__item {% if active_filter=='complaint' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">📬</span> Complaints
+      <span class="sidebar__count" id="sbComplaintCount">—</span>
+    </a>
+    <a href="/?type=deviation" class="sidebar__item {% if active_filter=='deviation' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">⚠️</span> Deviations
+      <span class="sidebar__count" id="sbDeviationCount">—</span>
+    </a>
+    <a href="/?type=cc" class="sidebar__item {% if active_filter=='cc' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">🔄</span> Change Control
+      <span class="sidebar__count" id="sbCCCount">—</span>
+    </a>
+
+    <div class="sidebar__section" style="margin-top:16px;">Agent</div>
+    <div class="agent-pill">
+      <div class="agent-pill__row">
+        <div class="agent-dot" id="agentDot"></div>
+        <span id="agentLabel">Ready</span>
+      </div>
+    </div>
+
+<!-- <div class="sidebar__section">Quick Stats</div>
+    <div style="padding:8px 12px;">
+      <canvas id="sidebarChart" height="140"></canvas>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:8px;">
+        <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:6px 8px;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#3b82f6;" id="sbTotal">—</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Records</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:6px 8px;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#ef4444;" id="sbCritical">—</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Critical</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:6px 8px;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#10b981;" id="sbEligible">—</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Eligible</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:6px 8px;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#f59e0b;" id="sbCAPAs">—</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">CAPAs</div>
+        </div>
+      </div>
+    </div> -->
+
+    <div class="sidebar__section" style="margin-top:16px;">AI Tools</div>
+    <a href="/rag-extract" class="sidebar__item {% if request.path == '/rag-extract' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">🧠</span> RAG Extract
+      <span style="margin-left:auto;font-size:9px;background:rgba(99,102,241,.3);color:#a5b4fc;border-radius:20px;padding:1px 6px;font-weight:700;">New</span>
+    </a>
+    <a href="/search" class="sidebar__item {% if request.path == '/search' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">🔍</span> Global Search
+      <span style="margin-left:auto;font-size:9px;background:rgba(99,102,241,.3);color:#a5b4fc;border-radius:20px;padding:1px 6px;font-weight:700;">New</span>
+    </a>
+    <a href="/analytics" class="sidebar__item {% if request.path == '/analytics' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">📊</span> Analytics
+    </a>
+    <a href="/salesforce-demo" class="sidebar__item {% if request.path == '/salesforce-demo' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">☁</span> Salesforce Demo
+      <span style="margin-left:auto;font-size:9px;background:rgba(0,176,211,.3);color:#67e8f9;border-radius:20px;padding:1px 6px;font-weight:700;">SF</span>
+    </a>
+
+    {% if current_user.is_authenticated and current_user.is_admin() %}
+    <div class="sidebar__section" style="margin-top:16px;">Admin</div>
+    <a href="/admin/users" class="sidebar__item {% if request.path == '/admin/users' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">👥</span>
+      Manage Users
+      <span class="sidebar__count" id="pendingCount" style="display:none;background:rgba(239,68,68,0.3);color:#fca5a5;"></span>
+    </a>
+    <a href="/audit-trail" class="sidebar__item {% if request.path == '/audit-trail' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">📋</span> Audit Trail
+    </a>
+    {% endif %}
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+
+<!-- ═══ HELP MODAL ════════════════════════════════════════ -->
+<div class="help-overlay" id="helpOverlay" onclick="closeHelpOnBg(event)">
+  <div class="help-modal">
+
+    <div class="help-header">
+      <div>
+        <div class="help-header__title">❓ QMS GenAI — Help & Guide</div>
+        <div class="help-header__sub">Everything you need to use this application</div>
+      </div>
+      <button class="help-close" onclick="closeHelp()">✕</button>
+    </div>
+
+    <div class="help-body">
+
+      <!-- Tabs -->
+      <div class="help-tabs">
+        <button class="help-tab help-tab--active" onclick="showHelpTab('how')">
+          🗺 How it works
+        </button>
+        <button class="help-tab" onclick="showHelpTab('users')">
+          👥 Demo Users
+        </button>
+        <button class="help-tab" onclick="showHelpTab('workflow')">
+          🔄 Workflow
+        </button>
+        <button class="help-tab" onclick="showHelpTab('api')">
+          🔌 API Endpoints
+        </button>
+      </div>
+
+      <!-- Tab 1: How it works -->
+      <div class="help-tab-content active" id="help-how">
+        <div class="help-steps">
+          <div class="help-step">
+            <div class="help-step__num">1</div>
+            <div>
+              <div class="help-step__title">📊 Dashboard — View Quality Records</div>
+              <div class="help-step__desc">
+                The dashboard shows all 14 quality records (Complaints, Deviations, Change Controls)
+                loaded from the Python backend. Use filters to narrow by type, priority, or sector.
+                Each record shows its status, priority badge, and age.
+              </div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step__num">2</div>
+            <div>
+              <div class="help-step__title">📋 CAPA Creation — Generate &amp; Save CAPA Drafts</div>
+              <div class="help-step__desc">
+                Select any record from the dropdown. Click <strong>Generate CAPA</strong> — the AI
+                service auto-fills root cause, corrective action, preventive action, regulatory
+                references, and effectiveness check. Edit any field, then <strong>Save Draft</strong>.
+              </div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step__num">3</div>
+            <div>
+              <div class="help-step__title">🔍 RCA Analysis — 5-Why &amp; Fishbone</div>
+              <div class="help-step__desc">
+                Select a record, choose 5-Why or Fishbone method, click <strong>Generate RCA</strong>.
+                Then click <strong>Assess Accuracy</strong> — each step is scored on Specificity,
+                Actionability, and Completeness. Edit weak steps and <strong>Re-assess</strong>
+                until score is Strong, then <strong>Approve &amp; Submit to CAPA</strong>.
+              </div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step__num">4</div>
+            <div>
+              <div class="help-step__title">🌳 Decision Tree — Should a CAPA be raised?</div>
+              <div class="help-step__desc">
+                Select Complaint, Deviation, or Change Control. Answer each of the 6 gate questions
+                Yes/No. The Python backend evaluates gates in order — the first Yes triggers a CAPA
+                recommendation with the regulatory reference. All No = no CAPA needed.
+              </div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step__num" style="background:linear-gradient(135deg,#f59e0b,#d97706);">5</div>
+            <div>
+              <div class="help-step__title">🔮 Use Case 3 — Coming in Sprint 2</div>
+              <div class="help-step__desc">
+                The third use case module is planned for Sprint 2. The backend folder structure
+                is already in place — a new <code>routes/usecase3.py</code> and
+                <code>templates/usecase3/</code> are all that's needed.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Demo Users -->
+      <div class="help-tab-content" id="help-users">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
+          Six demo accounts are available. Click any account on the login page
+          to sign in instantly, or use the credentials below.
+        </p>
+        <table class="help-users">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Username</th>
+              <th>Password</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="user-chip">
+                  <div class="user-chip__avatar" style="background:#1756b8;">AU</div>
+                  Admin User
+                </div>
+              </td>
+              <td><code>admin</code></td>
+              <td><code>admin</code></td>
+              <td>QA Admin</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="user-chip">
+                  <div class="user-chip__avatar" style="background:#7c3aed;">DK</div>
+                  Dheeraj Kumar
+                </div>
+              </td>
+              <td><code>dheeraj</code></td>
+              <td><code>demo123</code></td>
+              <td>Frontend Developer</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="user-chip">
+                  <div class="user-chip__avatar" style="background:#1e6b3a;">PS</div>
+                  Priya Sharma
+                </div>
+              </td>
+              <td><code>manager</code></td>
+              <td><code>demo123</code></td>
+              <td>QA Manager</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="user-chip">
+                  <div class="user-chip__avatar" style="background:#b45309;">RP</div>
+                  Raj Patel
+                </div>
+              </td>
+              <td><code>analyst</code></td>
+              <td><code>demo123</code></td>
+              <td>Quality Analyst</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="user-chip">
+                  <div class="user-chip__avatar" style="background:#c0392b;">SC</div>
+                  Sarah Chen
+                </div>
+              </td>
+              <td><code>reviewer</code></td>
+              <td><code>demo123</code></td>
+              <td>QA Reviewer</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="user-chip">
+                  <div class="user-chip__avatar" style="background:#0f6e56;">AK</div>
+                  Ahmed Khan
+                </div>
+              </td>
+              <td><code>auditor</code></td>
+              <td><code>demo123</code></td>
+              <td>Compliance Auditor</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab 3: Workflow -->
+      <div class="help-tab-content" id="help-workflow">
+        <div style="background:var(--bg);border-radius:var(--r-lg);padding:16px;font-size:12px;line-height:1.8;color:var(--text-mid);">
+          <strong style="color:var(--text);">Recommended demo flow (8 minutes):</strong><br/><br/>
+          <strong>1.</strong> Login as <code>admin / admin</code> → lands on Dashboard<br/>
+          <strong>2.</strong> Show filters — click <strong>Complaints</strong> in sidebar → filters table<br/>
+          <strong>3.</strong> Click <strong>▶ Generate CAPA</strong> on CMP-2024-0891<br/>
+          <strong>4.</strong> Show CAPA form auto-filling — edit root cause — Save Draft<br/>
+          <strong>5.</strong> Go to <strong>RCA Analysis</strong> tab<br/>
+          <strong>6.</strong> Select same record → Generate RCA → Assess Accuracy<br/>
+          <strong>7.</strong> Show score bars — edit one step — Re-assess → improvement<br/>
+          <strong>8.</strong> Approve &amp; Submit to CAPA<br/>
+          <strong>9.</strong> Go to <strong>Decision Tree</strong> → select Complaint → answer gates<br/>
+          <strong>10.</strong> Show CAPA Triggered result with regulatory reference<br/>
+          <strong>11.</strong> Logout → login as <code>dheeraj</code> to show multi-user
+        </div>
+      </div>
+
+      <!-- Tab 4: API -->
+      <div class="help-tab-content" id="help-api">
+        <table class="api-table">
+          <thead>
+            <tr>
+              <th>Method</th><th>Endpoint</th><th>What it does</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="api-method api-method--get">GET</span></td>
+              <td><span class="api-url">/api/records</span></td>
+              <td>All 14 quality records (filterable)</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--get">GET</span></td>
+              <td><span class="api-url">/api/records/&lt;id&gt;</span></td>
+              <td>Single record by ID</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--get">GET</span></td>
+              <td><span class="api-url">/api/metrics</span></td>
+              <td>Dashboard KPI counts</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--post">POST</span></td>
+              <td><span class="api-url">/api/capa/generate</span></td>
+              <td>Generate CAPA (non-streaming)</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--post">POST</span></td>
+              <td><span class="api-url">/api/capa/stream</span></td>
+              <td>Generate CAPA (SSE streaming)</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--post">POST</span></td>
+              <td><span class="api-url">/api/capa/save</span></td>
+              <td>Save CAPA draft</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--post">POST</span></td>
+              <td><span class="api-url">/api/rca/five-why</span></td>
+              <td>Generate 5-Why RCA chain</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--post">POST</span></td>
+              <td><span class="api-url">/api/rca/fishbone</span></td>
+              <td>Generate Fishbone categories</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--post">POST</span></td>
+              <td><span class="api-url">/api/rca/assess</span></td>
+              <td>Score RCA accuracy</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--post">POST</span></td>
+              <td><span class="api-url">/api/decision/evaluate</span></td>
+              <td>Evaluate decision gates</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--get">GET</span></td>
+              <td><span class="api-url">/api/health</span></td>
+              <td>Server status check</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--get">GET</span></td>
+              <td><span class="api-url">/api/analytics</span></td>
+              <td>Chart data — priority, status, type breakdown</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--post">POST</span></td>
+              <td><span class="api-url">/api/records/inquire</span></td>
+              <td>AI chat grounded on an extracted record</td>
+            </tr>
+            <tr>
+              <td><span class="api-method api-method--post">POST</span></td>
+              <td><span class="api-url">/api/records/upload</span></td>
+              <td>Upload document → AI extracts quality record</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+{% block extra_scripts %}{% endblock %}
+
+<script>
+  /* ── Load sidebar stats ── */
+fetch('/api/metrics')
+    .then(r => r.json())
+    .then(d => {
+      const s = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+      s('sbTotal',    d.total);
+      s('sbEligible', d.eligible);
+      s('sbCritical', d.critical);
+      s('sbCAPAs',    d.capa_drafts || '—');
+      s('tabCount',   d.eligible);
+
+      /* Mini donut chart in sidebar */
+      const ctx = document.getElementById('sidebarChart');
+      if(ctx && typeof Chart !== 'undefined') {
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Critical','High','Med.Device','BioPharma'],
+            datasets: [{
+              data: [d.critical||0, (d.total||0)-(d.critical||0), d.medical_device||0, d.biopharma||0],
+              backgroundColor: ['#ef4444','#f59e0b','#3b82f6','#10b981'],
+              borderWidth: 0, hoverOffset: 4,
+            }]
+          },
+          options: {
+            responsive: true, cutout: '70%',
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: { label: c => ` ${c.label}: ${c.raw}` }
+              },
+              datalabels: {
+                display: c => c.dataset.data[c.dataIndex] > 0,
+                color: '#fff',
+                font: { size: 9, weight: 'bold' },
+                formatter: v => v > 0 ? v : ''
+              }
+            }
+          },
+          plugins: typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : []
+        });
+      }
+    }).catch(()=>{});
+  fetch('/api/records')
+    .then(r=>r.json())
+    .then(d=>{
+      const recs = d.records||[];
+      const count = t => recs.filter(r=>r.type===t).length;
+      const s = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+      s('sbComplaintCount', count('complaint'));
+      s('sbDeviationCount', count('deviation'));
+      s('sbCCCount',        count('cc'));
+    }).catch(()=>{});
+
+  /* ── Load current user ── */
+  fetch('/api/auth/me')
+    .then(r => r.json())
+    .then(u => {
+      const s = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+      s('userName',  u.full_name);
+      s('userRole',  u.role);
+      s('dropName',  u.full_name);
+      s('dropRole',  u.role);
+      const av = document.getElementById('userAvatar');
+      if (av) {
+        /* Build initials from full_name if avatar_initials not provided */
+        const initials = u.avatar_initials ||
+          (u.full_name || '?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+        const colors = ['#1756b8','#0f6e56','#7c3aed','#b45309','#c0392b','#1e6b3a'];
+        const color  = u.color || colors[(u.id || 0) % colors.length];
+        av.textContent      = initials;
+        av.style.background = color;
+      }
+    }).catch(()=>{});
+
+  /* ── User dropdown ── */
+  function toggleUserMenu() {
+    document.getElementById('userDropdown').classList.toggle('open');
+  }
+  document.addEventListener('click', e => {
+    if (!document.getElementById('userMenu').contains(e.target)) {
+      document.getElementById('userDropdown').classList.remove('open');
+    }
+  });
+
+  /* ── Help modal ── */
+  function openHelp() {
+    document.getElementById('helpOverlay').classList.add('open');
+  }
+  function closeHelp() {
+    document.getElementById('helpOverlay').classList.remove('open');
+  }
+  function closeHelpOnBg(e) {
+    if (e.target === document.getElementById('helpOverlay')) closeHelp();
+  }
+  function showHelpTab(id) {
+    document.querySelectorAll('.help-tab')
+      .forEach(t => t.classList.remove('help-tab--active'));
+    document.querySelectorAll('.help-tab-content')
+      .forEach(c => c.classList.remove('active'));
+    event.target.classList.add('help-tab--active');
+    document.getElementById(`help-${id}`).classList.add('active');
+  }
+
+  /* ── Pending user count badge (admin only) ── */
+  {% if current_user.is_authenticated and current_user.is_admin() %}
+  fetch('/api/auth/pending-count')
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById('pendingCount');
+      if (el) {
+        if (d.count > 0) {
+          el.textContent      = d.count;
+          el.style.display    = '';
+          el.style.background = 'rgba(239,68,68,0.3)';
+          el.style.color      = '#fca5a5';
+        } else {
+          el.style.display = 'none';
+        }
+      }
+    }).catch(() => {});
+  {% endif %}
+</script>
+
+</body>
+</html>

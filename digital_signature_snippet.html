@@ -1,0 +1,250 @@
+<!-- ══════════════════════════════════════════════════════════
+     DIGITAL SIGNATURE MODAL
+     Paste this BEFORE </body> in templates/dashboard/index.html
+     and add the CSS to the <style> block.
+     
+     HOW IT WORKS:
+     1. Admin clicks Approve/Reject on a CAPA
+     2. Modal opens asking for username + password + reason
+     3. Credentials verified via /api/auth/verify-signature
+     4. If valid → CAPA status updated + audit log entry
+     5. 21 CFR Part 11 §11.100 compliant electronic signature
+══════════════════════════════════════════════════════════ -->
+
+<!-- ── CSS — add inside <style> block ── -->
+<style>
+  .sig-overlay{
+    display:none;position:fixed;inset:0;z-index:500;
+    background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);
+    align-items:center;justify-content:center;padding:20px;
+  }
+  .sig-overlay.open{display:flex;}
+  .sig-modal{
+    background:#fff;border-radius:16px;width:100%;max-width:480px;
+    box-shadow:0 25px 80px rgba(0,0,0,0.4);overflow:hidden;
+    animation:sigIn 0.2s ease;
+  }
+  @keyframes sigIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1)}}
+  .sig-header{
+    padding:20px 24px;
+    background:linear-gradient(135deg,#032D60,#1756b8);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .sig-header h3{font-size:15px;font-weight:700;color:#fff;margin:0;}
+  .sig-header p{font-size:11px;color:rgba(255,255,255,.6);margin:3px 0 0;}
+  .sig-close{background:rgba(255,255,255,.15);border:none;color:#fff;
+    width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;}
+  .sig-body{padding:24px;}
+  .sig-intent{
+    background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;
+    padding:12px 14px;margin-bottom:18px;font-size:12px;color:#1e40af;
+    line-height:1.6;
+  }
+  .sig-intent strong{display:block;font-size:13px;margin-bottom:4px;}
+  .sig-field{margin-bottom:14px;}
+  .sig-field label{display:block;font-size:11px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.05em;color:#374151;margin-bottom:5px;}
+  .sig-field input,.sig-field textarea{
+    width:100%;height:38px;padding:0 12px;font-size:13px;font-family:inherit;
+    border:1.5px solid #e2e8f0;border-radius:8px;outline:none;background:#f8fafc;
+    transition:border-color .15s;
+  }
+  .sig-field textarea{height:72px;padding:8px 12px;resize:vertical;}
+  .sig-field input:focus,.sig-field textarea:focus{border-color:#1756b8;background:#fff;}
+  .sig-error{
+    background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+    padding:8px 12px;font-size:12px;color:#b91c1c;margin-bottom:14px;display:none;
+  }
+  .sig-footer{
+    padding:14px 24px;background:#f7f8fa;border-top:1px solid #e2e8f0;
+    display:flex;gap:8px;justify-content:flex-end;
+  }
+  .sig-btn-cancel{padding:8px 18px;font-size:12px;font-weight:600;
+    border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-family:inherit;}
+  .sig-btn-submit{padding:8px 20px;font-size:12px;font-weight:600;color:#fff;
+    border:none;border-radius:8px;cursor:pointer;font-family:inherit;transition:all .15s;}
+  .sig-btn-approve{background:#10b981;}.sig-btn-approve:hover{background:#059669;}
+  .sig-btn-reject{background:#ef4444;}.sig-btn-reject:hover{background:#dc2626;}
+  .sig-part11{font-size:10px;color:#94a3b8;text-align:center;margin-top:8px;
+    padding-top:8px;border-top:1px solid #e2e8f0;}
+</style>
+
+<!-- ── Signature Modal HTML ── -->
+<div class="sig-overlay" id="sigOverlay" onclick="closeSigOnBg(event)">
+  <div class="sig-modal">
+    <div class="sig-header">
+      <div>
+        <h3 id="sigTitle">Electronic Signature — Approve CAPA</h3>
+        <p>21 CFR Part 11 §11.100 compliant · This action will be audit-logged</p>
+      </div>
+      <button class="sig-close" onclick="closeSigModal()">✕</button>
+    </div>
+    <div class="sig-body">
+      <div class="sig-intent">
+        <strong id="sigIntentTitle">Approving CAPA</strong>
+        <span id="sigIntentText">By signing below, you confirm this CAPA is complete,
+        accurate, and approved for implementation.</span>
+      </div>
+
+      <div id="sigError" class="sig-error">⚠ Incorrect username or password. Please try again.</div>
+
+      <div class="sig-field">
+        <label>Username</label>
+        <input type="text" id="sigUsername" placeholder="Your login username" autocomplete="username"/>
+      </div>
+      <div class="sig-field">
+        <label>Password</label>
+        <input type="password" id="sigPassword" placeholder="Your login password" autocomplete="current-password"/>
+      </div>
+      <div class="sig-field">
+        <label>Meaning of signature</label>
+        <input type="text" id="sigMeaning" readonly
+               value="I have reviewed and approve this CAPA for implementation"/>
+      </div>
+      <div class="sig-field">
+        <label>Comment / reason <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+        <textarea id="sigComment" placeholder="Add any approval comments or conditions…"></textarea>
+      </div>
+    </div>
+    <div class="sig-footer">
+      <button class="sig-btn-cancel" onclick="closeSigModal()">Cancel</button>
+      <button class="sig-btn-submit" id="sigSubmitBtn" onclick="submitSignature()">
+        ✅ Sign &amp; Approve
+      </button>
+    </div>
+    <div class="sig-part11">
+      This electronic signature is legally binding under 21 CFR Part 11.
+      Timestamp and user identity will be permanently logged.
+    </div>
+  </div>
+</div>
+
+<!-- ── JavaScript — add inside <script> block ── -->
+<script>
+let _sigCapaId   = null;
+let _sigAction   = null;  // 'approve' | 'reject'
+
+/* ── Open signature modal ─────────────────────────────────── */
+function openSigModal(capaId, action) {
+  _sigCapaId = capaId;
+  _sigAction = action;
+
+  const isApprove = action === 'approve';
+  document.getElementById('sigTitle').textContent =
+    isApprove ? 'Electronic Signature — Approve CAPA'
+              : 'Electronic Signature — Reject CAPA';
+  document.getElementById('sigIntentTitle').textContent =
+    isApprove ? `Approving CAPA ${capaId}` : `Rejecting CAPA ${capaId}`;
+  document.getElementById('sigIntentText').textContent =
+    isApprove
+      ? 'By signing, you confirm this CAPA is complete and approved for implementation.'
+      : 'By signing, you confirm this CAPA requires revision and is being returned to the author.';
+  document.getElementById('sigMeaning').value =
+    isApprove
+      ? 'I have reviewed and approve this CAPA for implementation'
+      : 'I have reviewed and reject this CAPA — revision required';
+
+  const btn = document.getElementById('sigSubmitBtn');
+  btn.className = `sig-btn-submit sig-btn-${action}`;
+  btn.textContent = isApprove ? '✅ Sign & Approve' : '✕ Sign & Reject';
+
+  document.getElementById('sigUsername').value = '';
+  document.getElementById('sigPassword').value = '';
+  document.getElementById('sigComment').value  = '';
+  document.getElementById('sigError').style.display = 'none';
+
+  document.getElementById('sigOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('sigUsername').focus(), 200);
+}
+
+function closeSigModal() {
+  document.getElementById('sigOverlay').classList.remove('open');
+  _sigCapaId = null; _sigAction = null;
+}
+function closeSigOnBg(e) {
+  if (e.target === document.getElementById('sigOverlay')) closeSigModal();
+}
+
+/* ── Submit signature ─────────────────────────────────────── */
+async function submitSignature() {
+  const username = document.getElementById('sigUsername').value.trim();
+  const password = document.getElementById('sigPassword').value.trim();
+  const comment  = document.getElementById('sigComment').value.trim();
+  const meaning  = document.getElementById('sigMeaning').value;
+
+  if (!username || !password) {
+    document.getElementById('sigError').style.display = 'block';
+    document.getElementById('sigError').textContent = '⚠ Username and password are required.';
+    return;
+  }
+
+  const btn = document.getElementById('sigSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Verifying…';
+
+  try {
+    // Step 1: verify credentials
+    const authRes = await fetch('/api/auth/verify-signature', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({ username, password }),
+    });
+    const auth = await authRes.json();
+
+    if (!auth.valid) {
+      document.getElementById('sigError').style.display = 'block';
+      document.getElementById('sigError').textContent =
+        '⚠ Incorrect username or password. Please try again.';
+      btn.disabled = false;
+      btn.textContent = _sigAction === 'approve' ? '✅ Sign & Approve' : '✕ Sign & Reject';
+      return;
+    }
+
+    // Step 2: update CAPA status
+    const newStatus = _sigAction === 'approve' ? 'Approved' : 'Rejected';
+    const statusRes = await fetch(`/api/capas/${_sigCapaId}/status`, {
+      method:  'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({
+        status:    newStatus,
+        comment:   comment,
+        signature: {
+          username:   username,
+          meaning:    meaning,
+          timestamp:  new Date().toISOString(),
+          ip_address: 'client',
+        },
+      }),
+    });
+    const result = await statusRes.json();
+
+    if (result.error) {
+      document.getElementById('sigError').style.display  = 'block';
+      document.getElementById('sigError').textContent    = '⚠ ' + result.error;
+      btn.disabled = false;
+      return;
+    }
+
+    closeSigModal();
+    showToast(`✅ CAPA ${_sigCapaId} ${newStatus} — electronic signature recorded`);
+    setTimeout(() => window.location.reload(), 1200);
+
+  } catch (err) {
+    document.getElementById('sigError').style.display = 'block';
+    document.getElementById('sigError').textContent   = '⚠ Network error: ' + err.message;
+    btn.disabled = false;
+  }
+}
+
+/* ── Toast ─────────────────────────────────────────────────── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (t) { t.textContent = msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500); }
+  else   { alert(msg); }
+}
+
+/* ── Keyboard close ─────────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSigModal();
+});
+</script>

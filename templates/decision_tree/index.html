@@ -1,0 +1,687 @@
+{% extends "base.html" %}
+{% set active_tab = "decision" %}
+{% block title %}QMS GenAI · Decision Tree{% endblock %}
+
+{% block extra_styles %}
+<style>
+  /* ── Source type selector ── */
+  .source-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 700px) {
+    .source-cards { grid-template-columns: 1fr; }
+  }
+  .source-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    box-shadow: var(--shadow);
+  }
+  .source-card:hover {
+    border-color: var(--blue);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  .source-card--active {
+    border-color: var(--blue);
+    background: var(--blue-pale);
+  }
+  .source-card__icon { font-size: 32px; margin-bottom: 8px; }
+  .source-card__title {
+    font-size: 13px; font-weight: 600;
+    color: var(--navy); margin-bottom: 4px;
+  }
+  .source-card__desc {
+    font-size: 11px; color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ── Two column layout ── */
+  .dt-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 1000px) {
+    .dt-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .panel__header {
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #1e2d5f, var(--navy));
+    display: flex; align-items: center;
+    justify-content: space-between;
+  }
+  .panel__title {
+    font-size: 13px; font-weight: 600;
+    color: #fff; display: flex;
+    align-items: center; gap: 8px;
+  }
+  .panel__subtitle {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 2px;
+  }
+  .panel__body { padding: 20px; }
+
+  /* ── Gate steps ── */
+  .gates { display: flex; flex-direction: column; gap: 12px; }
+
+  .gate-item {
+    display: flex; gap: 14px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: var(--radius);
+    transition: all 0.2s;
+  }
+  .gate-item--triggered {
+    border-left-color: var(--green);
+    background: var(--green-pale);
+  }
+  .gate-item--skipped {
+    border-left-color: var(--text-muted);
+    opacity: 0.55;
+  }
+  .gate-item--active {
+    border-left-color: var(--blue);
+    background: var(--blue-pale);
+    box-shadow: 0 2px 8px rgba(23,86,184,0.12);
+  }
+  .gate-item--no-trigger {
+    border-left-color: var(--amber);
+    background: var(--amber-pale);
+  }
+
+  .gate-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--border);
+    color: var(--text-muted);
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center;
+    justify-content: center;
+    flex-shrink: 0; margin-top: 2px;
+    transition: all 0.2s;
+  }
+  .gate-item--active    .gate-num { background: var(--blue); color: #fff; }
+  .gate-item--triggered .gate-num { background: var(--green); color: #fff; }
+  .gate-item--skipped   .gate-num { background: #ccc; }
+
+  .gate-content { flex: 1; }
+  .gate-label {
+    font-size: 12px; font-weight: 600;
+    color: var(--text); margin-bottom: 8px;
+    line-height: 1.4;
+  }
+  .gate-meta {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .gate-mandatory {
+    display: inline-block;
+    background: var(--red-pale);
+    color: var(--red);
+    border: 1px solid #f5b8b3;
+    border-radius: 3px;
+    font-size: 9px; font-weight: 700;
+    padding: 1px 6px;
+    text-transform: uppercase;
+    margin-left: 6px;
+  }
+
+  /* Yes/No toggle buttons */
+  .gate-toggle {
+    display: flex; gap: 6px; margin-top: 8px;
+  }
+  .toggle-btn {
+    flex: 1; padding: 7px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: #fff;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: var(--font);
+  }
+  .toggle-btn--yes:hover  { background: var(--green-pale); border-color: var(--green); color: var(--green); }
+  .toggle-btn--no:hover   { background: var(--red-pale);   border-color: var(--red);   color: var(--red); }
+  .toggle-btn--yes.active { background: var(--green); border-color: var(--green); color: #fff; }
+  .toggle-btn--no.active  { background: var(--red);   border-color: var(--red);   color: #fff; }
+
+  .gate-icon {
+    font-size: 16px; flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  /* ── Result panel ── */
+  .result-panel {
+    display: none;
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    margin-top: 20px;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity:0; transform:translateY(-8px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .result-panel--capa {
+    background: var(--green-pale);
+    border: 2px solid var(--green);
+  }
+  .result-panel--no-capa {
+    background: var(--amber-pale);
+    border: 2px solid var(--amber);
+  }
+  .result-panel__icon { font-size: 36px; margin-bottom: 10px; }
+  .result-panel__title {
+    font-size: 16px; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .result-panel--capa    .result-panel__title { color: var(--green); }
+  .result-panel--no-capa .result-panel__title { color: var(--amber); }
+  .result-panel__gate {
+    font-size: 12px; margin-bottom: 8px;
+    color: var(--text-mid);
+  }
+  .result-panel__rec {
+    font-size: 13px; line-height: 1.6;
+    color: var(--text);
+    background: rgba(255,255,255,0.6);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+  }
+
+  /* ── Summary card (right column) ── */
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    position: sticky; top: 100px;
+  }
+  .summary-card__header {
+    background: var(--navy);
+    padding: 12px 16px;
+    font-size: 12px; font-weight: 600;
+    color: #fff;
+  }
+  .summary-card__body { padding: 16px; }
+  .summary-row {
+    display: flex; justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row__label { color: var(--text-muted); }
+  .summary-row__val   { font-weight: 600; color: var(--text); }
+  .summary-row__val--yes { color: var(--green); }
+  .summary-row__val--no  { color: var(--red); }
+  .summary-row__val--pending { color: var(--text-muted); font-style: italic; }
+
+  /* Reg refs in summary */
+  .reg-refs {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .reg-refs__title {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .reg-ref-tag {
+    display: inline-block;
+    background: #eef3ff; color: #1a4b8c;
+    border: 1px solid #b3cef5;
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: 'Consolas', monospace;
+    padding: 2px 7px;
+    margin: 2px;
+  }
+
+  /* Empty / placeholder */
+  .dt-placeholder {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+  .dt-placeholder__icon { font-size: 48px; margin-bottom: 14px; }
+  .dt-placeholder__text { font-size: 13px; line-height: 1.6; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <div class="page-title">🌳 CAPA Trigger Decision Tree</div>
+    <div class="page-subtitle">
+      Answer each gate question to determine if a CAPA is required.
+      The Python backend evaluates all gates and returns a regulatory-mapped result.
+    </div>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn--secondary" onclick="resetAll()">🔄 Reset</button>
+  </div>
+</div>
+
+<!-- Banner -->
+<div class="banner banner--info" id="banner">
+  <span>ℹ</span>
+  Select a source type below to load the decision gates for that workflow.
+</div>
+
+<!-- Step 1: Source Type Cards -->
+<div style="font-size:12px;font-weight:700;text-transform:uppercase;
+            letter-spacing:0.06em;color:var(--text-muted);margin-bottom:12px;">
+  Step 1 — Select Source Type
+</div>
+<div class="source-cards">
+  <div class="source-card" id="card-complaint" onclick="selectSource('complaint')">
+    <div class="source-card__icon">📬</div>
+    <div class="source-card__title">Complaint</div>
+    <div class="source-card__desc">Customer complaints, MDR reportable events, adverse events</div>
+  </div>
+  <div class="source-card" id="card-deviation" onclick="selectSource('deviation')">
+    <div class="source-card__icon">⚠️</div>
+    <div class="source-card__title">Deviation</div>
+    <div class="source-card__desc">Manufacturing, process, environmental, and OOS deviations</div>
+  </div>
+  <div class="source-card" id="card-cc" onclick="selectSource('cc')">
+    <div class="source-card__icon">🔄</div>
+    <div class="source-card__title">Failed Change Control</div>
+    <div class="source-card__desc">V&amp;V failures, unauthorised changes, supplier failures</div>
+  </div>
+</div>
+
+<!-- Step 2: Gates + Summary -->
+<div class="dt-layout" id="dtLayout" style="display:none;">
+
+  <!-- LEFT: Gate Questions -->
+  <div>
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.06em;color:var(--text-muted);margin-bottom:12px;">
+      Step 2 — Answer Each Gate
+    </div>
+
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title" id="gatesPanelTitle">Decision Gates</div>
+          <div class="panel__subtitle" id="gatesPanelSub">
+            Answer Yes or No for each gate
+          </div>
+        </div>
+        <span id="progressLabel"
+              style="font-size:11px;color:rgba(255,255,255,0.6);">
+          0 / 6 answered
+        </span>
+      </div>
+      <div class="panel__body">
+        <div class="gates" id="gatesContainer">
+          <!-- populated by JS -->
+        </div>
+
+        <!-- Result after evaluation -->
+        <div class="result-panel" id="resultPanel">
+          <div class="result-panel__icon" id="resultIcon"></div>
+          <div class="result-panel__title" id="resultTitle"></div>
+          <div class="result-panel__gate"  id="resultGate"></div>
+          <div class="result-panel__rec"   id="resultRec"></div>
+          <div id="resultActions"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Summary Card -->
+  <div>
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.06em;color:var(--text-muted);margin-bottom:12px;">
+      Live Summary
+    </div>
+    <div class="summary-card">
+      <div class="summary-card__header">Gate Evaluation Summary</div>
+      <div class="summary-card__body">
+        <div class="summary-row">
+          <span class="summary-row__label">Source Type</span>
+          <span class="summary-row__val" id="sumSource">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row__label">Gates Answered</span>
+          <span class="summary-row__val" id="sumAnswered">0 / 0</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row__label">CAPA Triggered</span>
+          <span class="summary-row__val summary-row__val--pending"
+                id="sumTriggered">Pending…</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row__label">Mandatory</span>
+          <span class="summary-row__val summary-row__val--pending"
+                id="sumMandatory">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row__label">Triggered At</span>
+          <span class="summary-row__val summary-row__val--pending"
+                id="sumGate">—</span>
+        </div>
+
+        <!-- Reg refs shown after result -->
+        <div class="reg-refs" id="regRefs" style="display:none;">
+          <div class="reg-refs__title">Applicable Regulations</div>
+          <div id="regRefTags"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reference table -->
+    <div class="panel" style="margin-top:16px;">
+      <div class="panel__header">
+        <div class="panel__title">📖 Quick Reference</div>
+      </div>
+      <div class="panel__body" style="padding:14px;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;">
+          <thead>
+            <tr style="background:var(--navy);color:#fff;">
+              <th style="padding:6px 10px;text-align:left;border-radius:4px 0 0 0;">Threshold</th>
+              <th style="padding:6px 10px;text-align:left;">CAPA?</th>
+            </tr>
+          </thead>
+          <tbody id="refTable">
+            <!-- populated by source type -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.dt-layout -->
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+  /* ── State ──────────────────────────────────────────────── */
+  let currentSource = null;
+  let currentGates  = [];
+  let answers       = {};   /* gateId → true/false */
+
+  const SOURCE_LABELS = {
+    complaint: '📬 Complaint',
+    deviation: '⚠️ Deviation',
+    cc:        '🔄 Change Control',
+  };
+
+  const REF_ROWS = {
+    complaint: [
+      ['Adverse event / patient harm', 'Always'],
+      ['Priority Critical or High',    'Always'],
+      ['Recurrence ≥3 in 90 days',     'Always'],
+      ['MDR / CDSCO / EMA reportable', 'Always'],
+      ['Systemic root cause',          'Likely'],
+      ['QA recommendation',            'Discretion'],
+    ],
+    deviation: [
+      ['Batch released / patient impact', 'Always'],
+      ['CQA / CCP out of spec',           'Always'],
+      ['Validated process affected',       'Always'],
+      ['Same category repeated',           'Always'],
+      ['Equipment / utility failure',      'Likely'],
+      ['GxP documentation gap',            'Always'],
+    ],
+    cc: [
+      ['Safety / regulatory impact', 'Always'],
+      ['V&V / study failure',         'Always'],
+      ['Unauthorised change',         'Always'],
+      ['CQA breached',                'Always'],
+      ['Supplier / CMO failure',      'Likely'],
+      ['Repeat failure (12 months)',  'Always'],
+    ],
+  };
+
+  /* ── Select source type ─────────────────────────────────── */
+  function selectSource(source) {
+    currentSource = source;
+    answers       = {};
+
+    /* Highlight selected card */
+    document.querySelectorAll('.source-card')
+      .forEach(c => c.classList.remove('source-card--active'));
+    document.getElementById(`card-${source}`)
+      .classList.add('source-card--active');
+
+    /* Update summary */
+    document.getElementById('sumSource').textContent = SOURCE_LABELS[source];
+
+    /* Load gates from Flask API */
+    fetch(`/api/decision/gates/${source}`)
+      .then(r => r.json())
+      .then(data => {
+        currentGates = data.gates || [];
+        renderGates(currentGates);
+        updateRefTable(source);
+        document.getElementById('dtLayout').style.display = 'grid';
+        document.getElementById('resultPanel').style.display = 'none';
+        document.getElementById('gatesPanelTitle').textContent =
+          `${SOURCE_LABELS[source]} — Decision Gates`;
+        document.getElementById('gatesPanelSub').textContent =
+          `Answer Yes or No for each of the ${currentGates.length} gates`;
+        setBanner(`✓ ${currentGates.length} gates loaded for ${SOURCE_LABELS[source]}`, 'success');
+        updateProgress();
+      })
+      .catch(err => setBanner('Error loading gates: ' + err.message, 'error'));
+  }
+
+  /* ── Render gate question cards ─────────────────────────── */
+  function renderGates(gates) {
+    const container = document.getElementById('gatesContainer');
+    container.innerHTML = gates.map((gate, idx) => `
+      <div class="gate-item" id="gate-${gate.id}">
+        <div class="gate-num">${gate.gate}</div>
+        <div class="gate-content">
+          <div class="gate-meta">
+            Gate ${gate.gate}
+            ${gate.mandatory
+              ? '<span class="gate-mandatory">Mandatory</span>'
+              : ''}
+          </div>
+          <div class="gate-label">${gate.label}</div>
+          <div class="gate-toggle">
+            <button class="toggle-btn toggle-btn--yes"
+                    id="yes-${gate.id}"
+                    onclick="setAnswer('${gate.id}', true)">
+              ✓ Yes — CAPA Needed
+            </button>
+            <button class="toggle-btn toggle-btn--no"
+                    id="no-${gate.id}"
+                    onclick="setAnswer('${gate.id}', false)">
+              ✗ No — Continue
+            </button>
+          </div>
+        </div>
+        <div class="gate-icon" id="icon-${gate.id}">❓</div>
+      </div>`
+    ).join('');
+  }
+
+  /* ── Handle Yes/No answer ───────────────────────────────── */
+  function setAnswer(gateId, value) {
+    answers[gateId] = value;
+
+    /* Update button styles */
+    const yBtn = document.getElementById(`yes-${gateId}`);
+    const nBtn = document.getElementById(`no-${gateId}`);
+    const icon = document.getElementById(`icon-${gateId}`);
+    const item = document.getElementById(`gate-${gateId}`);
+
+    yBtn.classList.toggle('active', value === true);
+    nBtn.classList.toggle('active', value === false);
+    icon.textContent = value ? '✅' : '➡️';
+    item.classList.remove('gate-item--active','gate-item--skipped');
+    item.classList.add(value ? 'gate-item--triggered' : 'gate-item--skipped');
+
+    updateProgress();
+
+    /* Auto-evaluate once all answered OR any Yes answer */
+    if (value === true || allAnswered()) {
+      evaluateGates();
+    }
+  }
+
+  /* ── Check if all gates answered ───────────────────────── */
+  function allAnswered() {
+    return currentGates.every(g => answers[g.id] !== undefined);
+  }
+
+  /* ── Update progress counter ────────────────────────────── */
+  function updateProgress() {
+    const answered = Object.keys(answers).length;
+    const total    = currentGates.length;
+    document.getElementById('progressLabel').textContent =
+      `${answered} / ${total} answered`;
+    document.getElementById('sumAnswered').textContent =
+      `${answered} / ${total}`;
+  }
+
+  /* ── Call backend to evaluate gates ────────────────────── */
+  function evaluateGates() {
+    if (!currentSource) return;
+
+    fetch('/api/decision/evaluate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({source: currentSource, answers: answers}),
+    })
+    .then(r => r.json())
+    .then(result => renderResult(result))
+    .catch(err => setBanner('Evaluation error: ' + err.message, 'error'));
+  }
+
+  /* ── Render evaluation result ───────────────────────────── */
+  function renderResult(result) {
+    const panel  = document.getElementById('resultPanel');
+    const isCapa = result.capa_triggered;
+
+    panel.className = `result-panel result-panel--${isCapa ? 'capa' : 'no-capa'}`;
+    panel.style.display = 'block';
+
+    document.getElementById('resultIcon').textContent  = isCapa ? '🚨' : '✅';
+    document.getElementById('resultTitle').textContent =
+      isCapa ? 'CAPA is Required' : 'No CAPA Required';
+
+    document.getElementById('resultGate').textContent = isCapa
+      ? `Triggered at: Gate ${result.triggered_gate} — ${result.gate_label}`
+      : 'All gates evaluated — no trigger found';
+
+    document.getElementById('resultRec').textContent  = result.recommendation;
+
+    document.getElementById('resultActions').innerHTML = isCapa
+      ? `<a href="/capa/create" class="btn btn--success">
+           📋 Create CAPA Now →
+         </a>
+         ${result.mandatory
+           ? '<span style="font-size:11px;color:var(--red);margin-left:10px;">⚠ Mandatory — regulatory requirement</span>'
+           : ''}`
+      : `<a href="/" class="btn btn--secondary">← Back to Dashboard</a>`;
+
+    /* Update summary card */
+    document.getElementById('sumTriggered').textContent  = isCapa ? 'Yes ✓' : 'No';
+    document.getElementById('sumTriggered').className    =
+      `summary-row__val ${isCapa ? 'summary-row__val--yes' : 'summary-row__val--no'}`;
+    document.getElementById('sumMandatory').textContent  =
+      isCapa ? (result.mandatory ? 'Yes — Required' : 'No — Discretionary') : 'N/A';
+    document.getElementById('sumGate').textContent       =
+      isCapa ? `Gate ${result.triggered_gate}` : 'None';
+
+    /* Show regulatory refs if present */
+    const refs = result.regulatory_refs || [];
+    if (refs.length) {
+      document.getElementById('regRefs').style.display = 'block';
+      document.getElementById('regRefTags').innerHTML  =
+        refs.map(r => `<span class="reg-ref-tag">${r}</span>`).join('');
+    }
+
+    panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  /* ── Update reference table ─────────────────────────────── */
+  function updateRefTable(source) {
+    const rows  = REF_ROWS[source] || [];
+    const tbody = document.getElementById('refTable');
+    tbody.innerHTML = rows.map(([cond, req]) => `
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:6px 10px;color:var(--text-mid);">${cond}</td>
+        <td style="padding:6px 10px;">
+          <span style="
+            color:${req==='Always'?'var(--green)':req==='Likely'?'var(--blue)':'var(--amber)'};
+            font-weight:600;font-size:11px;">
+            ${req}
+          </span>
+        </td>
+      </tr>`
+    ).join('');
+  }
+
+  /* ── Reset everything ───────────────────────────────────── */
+  function resetAll() {
+    currentSource = null;
+    currentGates  = [];
+    answers       = {};
+    document.querySelectorAll('.source-card')
+      .forEach(c => c.classList.remove('source-card--active'));
+    document.getElementById('dtLayout').style.display = 'none';
+    document.getElementById('resultPanel').style.display = 'none';
+    ['sumSource','sumAnswered','sumGate'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+    });
+    document.getElementById('sumTriggered').textContent = 'Pending…';
+    document.getElementById('sumTriggered').className =
+      'summary-row__val summary-row__val--pending';
+    document.getElementById('regRefs').style.display = 'none';
+    setBanner('ℹ Select a source type to begin the decision tree evaluation.', 'info');
+  }
+
+  /* ── Banner ─────────────────────────────────────────────── */
+  function setBanner(msg, type) {
+    const b = document.getElementById('banner');
+    const icons = {info:'ℹ',success:'✓',warning:'⚠',error:'✗'};
+    b.className = `banner banner--${type}`;
+    b.innerHTML = `<span>${icons[type]}</span> ${msg}`;
+  }
+</script>
+{% endblock %}

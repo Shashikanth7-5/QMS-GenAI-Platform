@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% set active_tab = "analytics" %}
+{% block title %}QMS GenAI · Audit Trail{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">📋 Audit Trail</div>
+    <div class="page-subtitle">21 CFR Part 11 compliant change log — every action recorded</div>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn--secondary" onclick="loadAudit()">🔄 Refresh</button>
+  </div>
+</div>
+
+<div class="banner banner--info" id="banner"><span>ℹ</span> Loading audit trail…</div>
+
+<div style="background:var(--surface);border:1px solid var(--border);
+            border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow);">
+  <div style="padding:12px 18px;background:var(--navy);display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <input type="text" id="filterRecord" placeholder="Filter by Record ID…"
+           class="search-input" style="width:200px;"
+           onkeydown="if(event.key==='Enter')loadAudit()"/>
+    <input type="text" id="filterUser" placeholder="Filter by user…"
+           class="search-input" style="width:160px;"/>
+    <button class="btn btn--secondary" onclick="loadAudit()">Search</button>
+    <span id="auditCount" style="font-size:11px;color:rgba(255,255,255,0.5);margin-left:auto;"></span>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width:160px">Timestamp</th>
+          <th style="width:140px">Action</th>
+          <th style="width:100px">Entity</th>
+          <th style="width:130px">Record / CAPA</th>
+          <th style="width:100px">Performed By</th>
+          <th style="width:80px">Role</th>
+          <th>Old → New Value</th>
+        </tr>
+      </thead>
+      <tbody id="auditBody">
+        <tr><td colspan="7" class="table__empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const ACTION_COLORS = {
+    capa_saved:           '#10b981',
+    capa_status_change:   '#f59e0b',
+    capa_generated:       '#3b82f6',
+    capa_batch_run:       '#8b5cf6',
+    user_login:           '#64748b',
+    user_approved:        '#10b981',
+    role_changed:         '#f97316',
+    record_uploaded:      '#06b6d4',
+    record_status_change: '#f59e0b',
+  };
+
+  function loadAudit(){
+    const rec  = document.getElementById('filterRecord').value.trim();
+    const url  = rec ? `/api/audit?record=${encodeURIComponent(rec)}&limit=100` : '/api/audit?limit=100';
+    fetch(url).then(r=>r.json()).then(d=>{
+      const entries = d.entries || [];
+      document.getElementById('auditCount').textContent = `${entries.length} entries`;
+      document.getElementById('banner').style.display = 'none';
+
+      const userFilter = document.getElementById('filterUser').value.trim().toLowerCase();
+      const filtered   = userFilter ? entries.filter(e => (e.performedBy||'').toLowerCase().includes(userFilter)) : entries;
+
+      const tbody = document.getElementById('auditBody');
+      if(!filtered.length){
+        tbody.innerHTML = '<tr><td colspan="7" class="table__empty">No audit entries yet. Actions will appear here as users interact with the system.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(e => {
+        const ts    = e.timestamp ? new Date(e.timestamp).toLocaleString('en-GB') : '—';
+        const color = ACTION_COLORS[e.action] || '#64748b';
+        const chg   = e.oldValue && e.newValue
+          ? `<span style="color:#ef4444;">${e.oldValue}</span> → <span style="color:#10b981;">${e.newValue}</span>`
+          : (e.newValue || e.notes || '—');
+        return `<tr>
+          <td style="font-size:11px;color:var(--text-muted);font-family:monospace;">${ts}</td>
+          <td><span style="background:${color}22;color:${color};border:1px solid ${color}44;
+               border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">
+               ${(e.action||'').replace(/_/g,' ')}</span></td>
+          <td style="font-size:11px;color:var(--text-muted);">${e.entityType||'—'}</td>
+          <td style="font-family:monospace;font-size:10px;color:var(--blue);">
+            ${e.recordId||e.capaId||'—'}</td>
+          <td style="font-size:11px;font-weight:600;">${e.performedBy||'—'}</td>
+          <td><span class="badge badge--${e.performedByRole==='admin'?'critical':e.performedByRole==='quality'?'approved':'draft'}">
+            ${e.performedByRole||'—'}</span></td>
+          <td style="font-size:11px;">${chg}</td>
+        </tr>`;
+      }).join('');
+    }).catch(e=>{
+      document.getElementById('banner').className='banner banner--error';
+      document.getElementById('banner').innerHTML=`<span>✗</span> ${e.message}`;
+      document.getElementById('banner').style.display='';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', loadAudit);
+</script>
+{% endblock %}

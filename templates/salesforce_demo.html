@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Salesforce Health Cloud — QMS GenAI Integration</title>
+<style>
+:root{
+  --sf-navy:#032D60;--sf-blue:#0176D3;--sf-blue2:#014486;
+  --sf-green:#2E844A;--sf-amber:#A86403;--sf-red:#BA0517;
+  --sf-purple:#7C3AED;--sf-teal:#0E7490;
+  --sf-bg:#F3F2F2;--sf-surface:#FFFFFF;--sf-border:#DDDBDA;
+  --sf-text:#181818;--sf-muted:#706E6B;
+  --sf-hh:52px;--sf-sh:40px;--sf-sw:248px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Salesforce Sans','Arial',sans-serif;font-size:13px;
+  background:var(--sf-bg);color:var(--sf-text);height:100vh;overflow:hidden;}
+
+/* ── Header ── */
+.sf-hdr{height:var(--sf-hh);background:var(--sf-navy);position:fixed;top:0;left:0;right:0;
+  z-index:100;display:flex;align-items:center;padding:0 16px;gap:12px;
+  box-shadow:0 2px 4px rgba(0,0,0,.2);}
+.sf-logo{width:32px;height:32px;background:var(--sf-blue);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;font-size:16px;}
+.sf-brand{font-size:15px;font-weight:700;color:#fff;}
+.sf-brand span{font-weight:300;opacity:.7;}
+.sf-nav{display:flex;align-items:center;gap:2px;flex:1;}
+.sf-nav a{padding:6px 12px;color:rgba(255,255,255,.75);font-size:12px;font-weight:500;
+  border-radius:4px;cursor:pointer;white-space:nowrap;text-decoration:none;transition:all .15s;}
+.sf-nav a:hover{background:rgba(255,255,255,.1);color:#fff;}
+.sf-nav a.active{background:rgba(255,255,255,.15);color:#fff;}
+.sf-nav a.qms{color:#A5D6FF;font-weight:600;}
+.sf-right{display:flex;align-items:center;gap:10px;margin-left:auto;}
+.sf-icon-btn{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.1);
+  border:none;cursor:pointer;color:rgba(255,255,255,.8);font-size:14px;display:flex;
+  align-items:center;justify-content:center;}
+.sf-avatar{width:28px;height:28px;border-radius:50%;background:var(--sf-blue);
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;cursor:pointer;}
+.sf-search{height:28px;padding:0 10px 0 28px;background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.2);border-radius:4px;color:#fff;
+  font-size:12px;width:200px;outline:none;}
+.sf-search::placeholder{color:rgba(255,255,255,.5);}
+.sf-sw{position:relative;display:flex;align-items:center;}
+.sf-sw::before{content:"🔍";position:absolute;left:8px;font-size:11px;
+  color:rgba(255,255,255,.5);pointer-events:none;}
+
+/* ── Sub nav ── */
+.sf-subnav{height:var(--sf-sh);background:#fff;border-bottom:1px solid var(--sf-border);
+  display:flex;align-items:flex-end;padding:0 16px;
+  position:fixed;top:var(--sf-hh);left:0;right:0;z-index:99;}
+.sf-tab{padding:8px 16px 10px;font-size:12px;font-weight:500;color:var(--sf-muted);
+  cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;}
+.sf-tab:hover{color:var(--sf-blue);}
+.sf-tab.active{color:var(--sf-blue);border-bottom-color:var(--sf-blue);font-weight:600;}
+.sf-tab.qms{color:var(--sf-purple);font-weight:600;}
+
+/* ── Layout ── */
+.sf-layout{display:grid;grid-template-columns:var(--sf-sw) 1fr;
+  height:calc(100vh - var(--sf-hh) - var(--sf-sh));
+  margin-top:calc(var(--sf-hh) + var(--sf-sh));overflow:hidden;}
+
+/* ── Sidebar ── */
+.sf-sidebar{background:#F3F2F2;border-right:1px solid var(--sf-border);overflow-y:auto;}
+.sf-sb-hdr{padding:10px 16px 8px;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--sf-muted);border-bottom:1px solid var(--sf-border);
+  background:#fff;display:flex;justify-content:space-between;align-items:center;}
+.sf-sb-sec{padding:8px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--sf-muted);}
+.sf-sb-item{padding:7px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;
+  gap:8px;color:var(--sf-text);transition:background .1s;}
+.sf-sb-item:hover{background:rgba(1,118,211,.06);}
+.sf-sb-item.active{background:rgba(1,118,211,.1);color:var(--sf-blue);font-weight:600;
+  border-left:3px solid var(--sf-blue);padding-left:13px;}
+.sf-sb-cnt{margin-left:auto;background:var(--sf-blue);color:#fff;
+  font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;}
+.sf-sb-ico{width:16px;text-align:center;font-size:13px;flex-shrink:0;}
+
+/* ── Main ── */
+.sf-main{overflow-y:auto;background:var(--sf-bg);}
+
+/* ── Record header ── */
+.sf-rec-hdr{background:#fff;border-bottom:1px solid var(--sf-border);}
+.sf-rec-top{padding:12px 20px 0;display:flex;align-items:flex-start;gap:12px;}
+.sf-rec-icon{width:44px;height:44px;background:var(--sf-blue);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.sf-rec-meta h1{font-size:17px;font-weight:700;color:var(--sf-text);}
+.sf-rec-meta p{font-size:11px;color:var(--sf-muted);margin-top:2px;}
+.sf-rec-status{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.sf-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
+  border-radius:20px;font-size:11px;font-weight:600;border:1px solid transparent;}
+.sf-badge-open{background:#FFF3E0;color:var(--sf-amber);border-color:#F0C27F;}
+.sf-badge-crit{background:#FEF2F2;color:var(--sf-red);border-color:#F5C2C7;}
+.sf-rec-actions{padding:10px 20px;display:flex;gap:8px;border-top:1px solid var(--sf-border);
+  margin-top:10px;flex-wrap:wrap;align-items:center;}
+.sf-btn{height:30px;padding:0 14px;font-size:12px;font-weight:600;border-radius:4px;
+  cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;
+  display:flex;align-items:center;gap:5px;border:1px solid transparent;}
+.sf-btn-primary{background:var(--sf-blue);color:#fff;border-color:var(--sf-blue);}
+.sf-btn-primary:hover{background:var(--sf-blue2);}
+.sf-btn-neutral{background:#fff;color:var(--sf-blue);border-color:var(--sf-blue);}
+.sf-btn-neutral:hover{background:#E8F4FD;}
+.sf-btn-ai{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;}
+.sf-btn-ai:hover{filter:brightness(1.1);}
+.sf-btn-teal{background:var(--sf-teal);color:#fff;}
+.sf-btn-teal:hover{filter:brightness(1.1);}
+.sf-btn-dest{background:#fff;color:var(--sf-red);border-color:var(--sf-red);}
+
+/* ── Detail grid ── */
+.sf-detail{padding:16px 20px;display:grid;grid-template-columns:1fr 380px;gap:16px;}
+.sf-card{background:#fff;border:1px solid var(--sf-border);border-radius:4px;
+  overflow:hidden;margin-bottom:12px;}
+.sf-card-hdr{padding:10px 16px;background:#F3F2F2;border-bottom:1px solid var(--sf-border);
+  display:flex;align-items:center;justify-content:space-between;}
+.sf-card-title{font-size:12px;font-weight:700;color:var(--sf-text);
+  text-transform:uppercase;letter-spacing:.06em;}
+.sf-card-body{padding:14px 16px;}
+.sf-card-expand{font-size:11px;color:var(--sf-blue);cursor:pointer;background:none;
+  border:none;font-family:inherit;}
+.sf-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;}
+.sf-field-lbl{font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--sf-muted);margin-bottom:3px;}
+.sf-field-val{font-size:12px;color:var(--sf-text);font-weight:500;}
+.sf-field-val a{color:var(--sf-blue);text-decoration:none;cursor:pointer;}
+.sf-field-val a:hover{text-decoration:underline;}
+
+/* ── Timeline ── */
+.sf-tl{list-style:none;position:relative;padding:0;}
+.sf-tl::before{content:'';position:absolute;left:14px;top:0;bottom:0;
+  width:2px;background:var(--sf-border);}
+.sf-tl-item{padding:0 0 14px 36px;position:relative;}
+.sf-tl-dot{width:12px;height:12px;border-radius:50%;background:var(--sf-blue);
+  border:2px solid #fff;position:absolute;left:9px;top:3px;
+  box-shadow:0 0 0 2px var(--sf-blue);}
+.sf-tl-dot-g{background:var(--sf-green);box-shadow:0 0 0 2px var(--sf-green);}
+.sf-tl-dot-a{background:#D97706;box-shadow:0 0 0 2px #D97706;}
+.sf-tl-meta{font-size:10px;color:var(--sf-muted);margin-bottom:2px;}
+.sf-tl-text{font-size:12px;color:var(--sf-text);}
+
+/* ── QMS Panel ── */
+.qms-panel{background:linear-gradient(135deg,#032D60,#014486);
+  border-radius:4px;overflow:hidden;border:1px solid #014486;margin-bottom:12px;}
+.qms-hdr{padding:12px 16px;display:flex;align-items:center;gap:10px;}
+.qms-logo{width:32px;height:32px;background:rgba(255,255,255,.15);
+  border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.qms-title{font-size:13px;font-weight:700;color:#fff;}
+.qms-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px;}
+.qms-connected{margin-left:auto;background:rgba(46,206,122,.2);color:#2ECE7A;
+  border:1px solid rgba(46,206,122,.3);border-radius:20px;
+  padding:2px 8px;font-size:10px;font-weight:700;}
+.qms-body{padding:14px 16px;background:rgba(0,0,0,.2);}
+.qms-field{margin-bottom:10px;}
+.qms-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;
+  color:rgba(255,255,255,.4);margin-bottom:3px;}
+.qms-val{font-size:11px;color:#fff;line-height:1.5;}
+.qms-val-hi{color:#60A5FA;font-weight:600;}
+.qms-div{height:1px;background:rgba(255,255,255,.1);margin:10px 0;}
+.qms-actions{padding:10px 16px;background:rgba(0,0,0,.15);display:flex;flex-direction:column;gap:6px;}
+.qms-btn{height:34px;border:none;border-radius:4px;font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:all .15s;
+  display:flex;align-items:center;justify-content:center;gap:6px;}
+.qms-btn-gen{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;}
+.qms-btn-gen:hover{filter:brightness(1.15);}
+.qms-btn-rca{background:linear-gradient(135deg,#0e7490,#0891b2);color:#fff;}
+.qms-btn-rca:hover{filter:brightness(1.15);}
+.qms-btn-view{background:rgba(255,255,255,.1);color:#fff;
+  border:1px solid rgba(255,255,255,.2);}
+.qms-btn-view:hover{background:rgba(255,255,255,.2);}
+.qms-btn-print{background:rgba(16,185,129,.15);color:#34D399;
+  border:1px solid rgba(46,206,122,.3);}
+.qms-btn-print:hover{background:rgba(46,206,122,.25);}
+
+/* ── CAPA result ── */
+.capa-result{display:none;padding:14px 16px;background:rgba(46,206,122,.05);
+  border-top:1px solid rgba(46,206,122,.2);}
+.capa-result.show{display:block;}
+.capa-result-title{font-size:10px;font-weight:700;color:#2ECE7A;
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+.capa-field{margin-bottom:8px;}
+.capa-lbl{font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:2px;}
+.capa-val{font-size:11px;color:rgba(255,255,255,.85);line-height:1.5;}
+.capa-id{font-family:monospace;font-size:11px;color:#2ECE7A;font-weight:700;}
+.capa-btns{margin-top:10px;display:flex;gap:6px;}
+
+/* ── RCA Panel ── */
+.rca-panel{display:none;padding:14px 16px;background:rgba(14,116,144,.08);
+  border-top:1px solid rgba(14,116,144,.3);}
+.rca-panel.show{display:block;}
+.rca-title{font-size:10px;font-weight:700;color:#67E8F9;
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
+/* RCA method tabs */
+.rca-tabs{display:flex;gap:4px;margin-bottom:10px;}
+.rca-tab{flex:1;padding:5px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+  color:rgba(255,255,255,.6);border-radius:4px;font-size:10px;font-weight:600;
+  cursor:pointer;text-align:center;transition:all .15s;}
+.rca-tab.active{background:rgba(14,116,144,.5);color:#fff;border-color:#0E7490;}
+/* 5-Why */
+.why-item{border-left:2px solid #0E7490;padding:5px 8px;margin-bottom:6px;
+  background:rgba(0,0,0,.2);border-radius:0 4px 4px 0;}
+.why-num{font-size:9px;font-weight:700;color:#67E8F9;text-transform:uppercase;margin-bottom:2px;}
+.why-text{font-size:10px;color:rgba(255,255,255,.85);}
+.why-input{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+  border-radius:3px;padding:4px 6px;font-size:10px;color:#fff;font-family:inherit;outline:none;}
+.why-input:focus{border-color:#0E7490;background:rgba(14,116,144,.2);}
+/* Fishbone */
+.fishbone-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.fb-cat{background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.1);
+  border-radius:4px;padding:6px 8px;}
+.fb-cat-title{font-size:9px;font-weight:700;color:#67E8F9;margin-bottom:4px;text-transform:uppercase;}
+.fb-cause{font-size:9.5px;color:rgba(255,255,255,.7);margin-bottom:2px;}
+/* Reassess */
+.reassess-score{display:flex;align-items:center;gap:8px;margin:8px 0;}
+.score-bar{flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;}
+.score-fill{height:100%;border-radius:3px;transition:width 1s ease;}
+/* Spinner */
+.spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.2);
+  border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;display:inline-block;}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--sf-green);color:#fff;
+  padding:12px 18px;border-radius:4px;font-size:12px;font-weight:600;
+  box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:200;
+  transform:translateY(100px);opacity:0;transition:all .3s;display:flex;align-items:center;gap:8px;}
+.toast.show{transform:translateY(0);opacity:1;}
+/* Related table */
+.rel-list{border:1px solid var(--sf-border);border-radius:4px;overflow:hidden;margin-bottom:12px;}
+.rel-list-hdr{background:#F3F2F2;padding:8px 14px;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid var(--sf-border);}
+.rel-list-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+.rel-cnt{background:var(--sf-blue);color:#fff;font-size:10px;font-weight:700;
+  border-radius:10px;padding:1px 7px;}
+.rel-table{width:100%;border-collapse:collapse;font-size:11px;}
+.rel-table th{padding:6px 14px;background:#fafafa;color:var(--sf-muted);
+  text-align:left;font-weight:700;font-size:10px;border-bottom:1px solid var(--sf-border);}
+.rel-table td{padding:7px 14px;border-bottom:1px solid #f4f4f4;}
+.rel-table tr:last-child td{border-bottom:none;}
+.rel-table tr:hover td{background:#f8f9fa;}
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<header class="sf-hdr">
+  <div style="display:flex;align-items:center;gap:10px;margin-right:8px;">
+    <div class="sf-logo">☁</div>
+    <div class="sf-brand">Salesforce <span>Health Cloud</span></div>
+  </div>
+  <nav class="sf-nav">
+    <a href="#">Home</a>
+    <a href="#" class="active">Cases</a>
+    <a href="#">Accounts</a>
+    <a href="#">Contacts</a>
+    <a href="#">Products</a>
+    <a href="#" class="qms">⚡ QMS GenAI</a>
+  </nav>
+  <div class="sf-right">
+    <div class="sf-sw"><input class="sf-search" placeholder="Search Salesforce…"/></div>
+    <button class="sf-icon-btn">🔔</button>
+    <button class="sf-icon-btn">⚙</button>
+    <div class="sf-avatar">QA</div>
+  </div>
+</header>
+
+<!-- ══ SUB NAV ══ -->
+<nav class="sf-subnav">
+  <div class="sf-tab">Recently Viewed</div>
+  <div class="sf-tab active">Open Cases</div>
+  <div class="sf-tab">My Cases</div>
+  <div class="sf-tab">All Cases</div>
+  <div class="sf-tab qms">⚡ CAPA Required (17)</div>
+</nav>
+
+<!-- ══ LAYOUT ══ -->
+<div class="sf-layout">
+  <!-- Sidebar -->
+  <aside class="sf-sidebar">
+    <div class="sf-sb-hdr">Case Navigation<span style="font-size:10px;color:var(--sf-blue);cursor:pointer;">New Case</span></div>
+    <div class="sf-sb-sec">Views</div>
+    <div class="sf-sb-item"><span class="sf-sb-ico">📋</span>All Open Cases<span class="sf-sb-cnt">21</span></div>
+    <div class="sf-sb-item active"><span class="sf-sb-ico">⚡</span>CAPA Required<span class="sf-sb-cnt">17</span></div>
+    <div class="sf-sb-item"><span class="sf-sb-ico">🔴</span>Critical Priority<span class="sf-sb-cnt">8</span></div>
+    <div class="sf-sb-item"><span class="sf-sb-ico">✅</span>Approved CAPAs<span class="sf-sb-cnt">6</span></div>
+    <div class="sf-sb-sec" style="margin-top:8px;">By Source Type</div>
+    <div class="sf-sb-item"><span class="sf-sb-ico">💊</span>Complaints<span class="sf-sb-cnt">12</span></div>
+    <div class="sf-sb-item"><span class="sf-sb-ico">⚠</span>Deviations<span class="sf-sb-cnt">5</span></div>
+    <div class="sf-sb-item"><span class="sf-sb-ico">🔄</span>Change Control<span class="sf-sb-cnt">4</span></div>
+    <div class="sf-sb-sec" style="margin-top:8px;">QMS Tools</div>
+    <div class="sf-sb-item" style="color:var(--sf-purple);font-weight:600;"><span class="sf-sb-ico">🧠</span>AI CAPA Generator</div>
+    <div class="sf-sb-item"><span class="sf-sb-ico">🔬</span>RCA Analysis</div>
+    <div class="sf-sb-item"><span class="sf-sb-ico">📊</span>Analytics</div>
+    <div class="sf-sb-item"><span class="sf-sb-ico">📋</span>Audit Trail</div>
+  </aside>
+
+  <!-- Main -->
+  <main class="sf-main">
+    <!-- Record header -->
+    <div class="sf-rec-hdr">
+      <div class="sf-rec-top">
+        <div class="sf-rec-icon">💊</div>
+        <div class="sf-rec-meta">
+          <h1>CMP-2024-0891 — IV Infusion Set Luer Lock Failure</h1>
+          <p>Case · Medical Device · Site A – Mumbai · Nov 10, 2024 · J. Martinez</p>
+        </div>
+        <div class="sf-rec-status">
+          <div style="display:flex;gap:6px;">
+            <span class="sf-badge sf-badge-crit">🔴 Critical</span>
+            <span class="sf-badge sf-badge-open">⏳ CAPA Required</span>
+          </div>
+          <div style="font-size:10px;color:var(--sf-muted);margin-top:4px;text-align:right;">
+            Age: 194 days · Batch: 22B-4401
+          </div>
+        </div>
+      </div>
+      <div class="sf-rec-actions">
+        <button class="sf-btn sf-btn-primary">✏ Edit</button>
+        <button class="sf-btn sf-btn-neutral">📎 Files</button>
+        <button class="sf-btn sf-btn-neutral">🔗 Related</button>
+        <button class="sf-btn sf-btn-ai" onclick="generateCapa()">🤖 Generate CAPA with AI</button>
+        <button class="sf-btn sf-btn-teal" onclick="openRCA()">🔬 Run RCA Analysis</button>
+        <button class="sf-btn sf-btn-neutral" onclick="openInQMS()" style="margin-left:auto;">
+          🔗 Open in QMS GenAI →
+        </button>
+        <button class="sf-btn sf-btn-dest">🗑 Close Case</button>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div class="sf-detail">
+      <!-- Left -->
+      <div>
+        <div class="sf-card">
+          <div class="sf-card-hdr">
+            <span class="sf-card-title">Case Information</span>
+            <button class="sf-card-expand">Edit</button>
+          </div>
+          <div class="sf-card-body">
+            <div class="sf-fields">
+              <div><div class="sf-field-lbl">Case Record Type</div><div class="sf-field-val">Quality Complaint</div></div>
+              <div><div class="sf-field-lbl">Case Origin</div><div class="sf-field-val">Post-Market Surveillance</div></div>
+              <div><div class="sf-field-lbl">Priority</div><div class="sf-field-val" style="color:var(--sf-red);font-weight:600;">🔴 Critical</div></div>
+              <div><div class="sf-field-lbl">Status</div><div class="sf-field-val" style="color:var(--sf-amber);font-weight:600;">⏳ CAPA Required</div></div>
+              <div><div class="sf-field-lbl">Account Name</div><div class="sf-field-val"><a>Apollo Hospitals Group</a></div></div>
+              <div><div class="sf-field-lbl">Contact</div><div class="sf-field-val"><a>Dr. Priya Nair</a></div></div>
+              <div><div class="sf-field-lbl">Product Family</div><div class="sf-field-val">IV Administration Sets</div></div>
+              <div><div class="sf-field-lbl">Batch / Lot No.</div><div class="sf-field-val" style="font-family:monospace;">22B-4401</div></div>
+              <div><div class="sf-field-lbl">Detected Date</div><div class="sf-field-val">2024-11-10</div></div>
+              <div><div class="sf-field-lbl">Regulatory Ref.</div><div class="sf-field-val" style="font-size:10px;">21 CFR 820.198, 21 CFR 803.50, ISO 13485 §8.2.2</div></div>
+            </div>
+            <div style="margin-top:12px;">
+              <div class="sf-field-lbl">Description</div>
+              <div class="sf-field-val" style="margin-top:4px;line-height:1.6;font-size:12px;color:#444;">
+                Multiple customer reports of luer lock connector failure during infusion, resulting in product leakage and potential patient harm. Batch 22B-4401 implicated across three hospital sites in the APAC region.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity -->
+        <div class="sf-card">
+          <div class="sf-card-hdr">
+            <span class="sf-card-title">Activity Timeline</span>
+            <button class="sf-card-expand">+ New Activity</button>
+          </div>
+          <div class="sf-card-body">
+            <ul class="sf-tl">
+              <li class="sf-tl-item">
+                <div class="sf-tl-dot sf-tl-dot-a" id="latestDot"></div>
+                <div class="sf-tl-meta">Today · QMS GenAI System</div>
+                <div class="sf-tl-text" id="latestActivity">⏳ Awaiting AI processing…</div>
+              </li>
+              <li class="sf-tl-item">
+                <div class="sf-tl-dot"></div>
+                <div class="sf-tl-meta">Nov 22, 2024 · J. Martinez</div>
+                <div class="sf-tl-text">7 field sample units collected from Apollo Hospitals. Sent to QC lab for analysis.</div>
+              </li>
+              <li class="sf-tl-item">
+                <div class="sf-tl-dot"></div>
+                <div class="sf-tl-meta">Nov 15, 2024 · PMS System</div>
+                <div class="sf-tl-text">Batch 22B-4401 quarantined. 1,240 units on hold across 3 distribution centres.</div>
+              </li>
+              <li class="sf-tl-item">
+                <div class="sf-tl-dot sf-tl-dot-g"></div>
+                <div class="sf-tl-meta">Nov 10, 2024 · Complaint System</div>
+                <div class="sf-tl-text">Case CMP-2024-0891 created. Initial triage: Critical priority.</div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Related CAPAs -->
+        <div class="rel-list">
+          <div class="rel-list-hdr">
+            <span class="rel-list-title">Related CAPA Records</span>
+            <span class="rel-cnt" id="relCnt">0</span>
+          </div>
+          <table class="rel-table">
+            <thead><tr><th>CAPA ID</th><th>Status</th><th>Risk</th><th>Owner</th><th>Target</th><th>Actions</th></tr></thead>
+            <tbody id="relTable">
+              <tr><td colspan="6" style="text-align:center;padding:16px;color:var(--sf-muted);">
+                No CAPAs yet. Use the QMS GenAI panel →
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right: QMS Panel -->
+      <div>
+        <div class="qms-panel" id="qmsPanel">
+          <div class="qms-hdr">
+            <div class="qms-logo">🧠</div>
+            <div>
+              <div class="qms-title">QMS GenAI</div>
+              <div class="qms-sub">TrackWise® AI Platform · localhost:5000</div>
+            </div>
+            <div class="qms-connected" id="connStatus">● Connected</div>
+          </div>
+
+          <div class="qms-body">
+            <div class="qms-field"><div class="qms-lbl">Record Loaded</div><div class="qms-val qms-val-hi">CMP-2024-0891</div></div>
+            <div class="qms-field"><div class="qms-lbl">Type / Sector</div><div class="qms-val">Complaint · Medical Device</div></div>
+            <div class="qms-field"><div class="qms-lbl">Priority</div><div class="qms-val" style="color:#f87171;font-weight:600;">🔴 Critical</div></div>
+            <div class="qms-div"></div>
+            <div class="qms-field"><div class="qms-lbl">AI Model</div><div class="qms-val">Claude Sonnet 4 · Mock Mode</div></div>
+            <div class="qms-field"><div class="qms-lbl">Regulatory Mapping</div><div class="qms-val" style="font-size:10px;color:rgba(255,255,255,.7);">21 CFR 820.198 · 21 CFR 803.50<br/>ISO 13485:2016 §8.2.2 · MDR 2017/745</div></div>
+            <div class="qms-div"></div>
+            <div class="qms-field"><div class="qms-lbl">Time Saving vs Manual</div><div class="qms-val" style="color:#2ECE7A;font-weight:700;font-size:14px;">11h 52m saved per event</div></div>
+          </div>
+
+          <div class="qms-actions">
+            <button class="qms-btn qms-btn-gen" id="genBtn" onclick="generateCapa()">🤖 Generate CAPA with AI</button>
+            <button class="qms-btn qms-btn-rca" id="rcaBtn" onclick="openRCA()">🔬 Run RCA Analysis</button>
+            <button class="qms-btn qms-btn-view" onclick="openInQMS()">🔗 Open full record in QMS GenAI →</button>
+          </div>
+
+          <!-- Loading -->
+          <div id="loadingState" style="display:none;padding:16px;text-align:center;">
+            <div class="spin" style="margin:0 auto;width:20px;height:20px;border-width:2px;"></div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:10px;" id="loadTxt">Processing…</div>
+          </div>
+
+          <!-- CAPA result -->
+          <div class="capa-result" id="capaResult">
+            <div class="capa-result-title">✅ CAPA Draft Generated</div>
+            <div class="capa-field"><div class="capa-lbl">CAPA ID</div><div class="capa-val capa-id" id="capaId">—</div></div>
+            <div class="capa-field"><div class="capa-lbl">Root Cause</div><div class="capa-val" id="capaRC">—</div></div>
+            <div class="capa-field"><div class="capa-lbl">Immediate Action</div><div class="capa-val" id="capaIA">—</div></div>
+            <div class="capa-field"><div class="capa-lbl">Corrective Action</div><div class="capa-val" id="capaCA">—</div></div>
+            <div class="capa-field"><div class="capa-lbl">Risk · Est. Closure</div><div class="capa-val" id="capaMeta">—</div></div>
+            <div class="capa-btns">
+              <button class="qms-btn qms-btn-gen" style="flex:1;" onclick="approveCapa()">✓ Approve & Save</button>
+              <button class="qms-btn qms-btn-view" style="flex:1;" onclick="editInQMS()">✏ Edit in QMS →</button>
+            </div>
+            <div style="margin-top:6px;">
+              <button class="qms-btn qms-btn-print" onclick="printCapa()">🖨 Print CAPA Record</button>
+            </div>
+          </div>
+
+          <!-- RCA Panel -->
+          <div class="rca-panel" id="rcaPanel">
+            <div class="rca-title">🔬 Root Cause Analysis</div>
+            <div class="rca-tabs">
+              <div class="rca-tab active" id="tab5why" onclick="switchRCA('5why')">5-Why</div>
+              <div class="rca-tab" id="tabFish" onclick="switchRCA('fishbone')">Fishbone</div>
+            </div>
+
+            <!-- 5-Why -->
+            <div id="rca5why">
+              <div id="whyItems"></div>
+              <div style="margin-top:8px;">
+                <div class="reassess-score">
+                  <div style="font-size:10px;color:rgba(255,255,255,.6);width:80px;">Accuracy</div>
+                  <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%;background:#10b981;"></div></div>
+                  <div style="font-size:10px;font-weight:700;color:#2ECE7A;width:36px;text-align:right;" id="scoreText">—</div>
+                </div>
+                <div style="display:flex;gap:5px;margin-top:6px;">
+                  <button class="qms-btn qms-btn-rca" style="flex:1;font-size:10px;" onclick="reassessRCA()">🔄 Reassess</button>
+                  <button class="qms-btn qms-btn-view" style="flex:1;font-size:10px;" onclick="openRCAInQMS()">↗ Open in QMS</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fishbone -->
+            <div id="rcaFishbone" style="display:none;">
+              <div class="fishbone-grid" id="fishboneGrid"></div>
+              <div style="margin-top:8px;">
+                <div class="reassess-score">
+                  <div style="font-size:10px;color:rgba(255,255,255,.6);width:80px;">Confidence</div>
+                  <div class="score-bar"><div class="score-fill" id="fbScoreFill" style="width:0%;background:#3b82f6;"></div></div>
+                  <div style="font-size:10px;font-weight:700;color:#60A5FA;width:36px;text-align:right;" id="fbScoreText">—</div>
+                </div>
+                <div style="display:flex;gap:5px;margin-top:6px;">
+                  <button class="qms-btn qms-btn-rca" style="flex:1;font-size:10px;" onclick="reassessRCA()">🔄 Reassess</button>
+                  <button class="qms-btn qms-btn-view" style="flex:1;font-size:10px;" onclick="openRCAInQMS()">↗ Open in QMS</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Confidence -->
+        <div class="sf-card" id="confCard" style="display:none;">
+          <div class="sf-card-hdr"><span class="sf-card-title">AI Confidence Score</span></div>
+          <div class="sf-card-body">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="font-size:28px;font-weight:700;color:var(--sf-green);" id="confScore">87%</div>
+              <div>
+                <div style="font-size:11px;font-weight:600;">High Confidence</div>
+                <div style="font-size:10px;color:var(--sf-muted);">Based on 14 similar complaint records</div>
+              </div>
+            </div>
+            <div style="margin-top:8px;background:#E8F5E9;border-radius:4px;padding:8px 10px;font-size:11px;color:#1B5E20;">
+              💡 Root cause (Supplier/Material) matched 91% of similar luer lock failures in training data.
+            </div>
+          </div>
+        </div>
+
+        <!-- ROI -->
+        <div class="sf-card">
+          <div class="sf-card-hdr"><span class="sf-card-title">Automation Value — YTD</span></div>
+          <div class="sf-card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="text-align:center;background:#F0FDF4;border-radius:4px;padding:8px;">
+                <div style="font-size:20px;font-weight:700;color:var(--sf-green);" id="ytdCapas">21</div>
+                <div style="font-size:10px;color:var(--sf-muted);">CAPAs Generated</div>
+              </div>
+              <div style="text-align:center;background:#EFF6FF;border-radius:4px;padding:8px;">
+                <div style="font-size:20px;font-weight:700;color:var(--sf-blue);">249h</div>
+                <div style="font-size:10px;color:var(--sf-muted);">Hours Saved</div>
+              </div>
+              <div style="text-align:center;background:#FFF7ED;border-radius:4px;padding:8px;">
+                <div style="font-size:20px;font-weight:700;color:var(--sf-amber);">$18.7K</div>
+                <div style="font-size:10px;color:var(--sf-muted);">Cost Saved (USD)</div>
+              </div>
+              <div style="text-align:center;background:#FDF4FF;border-radius:4px;padding:8px;">
+                <div style="font-size:20px;font-weight:700;color:#7C3AED;">38d→22d</div>
+                <div style="font-size:10px;color:var(--sf-muted);">Avg Cycle Time</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">✅ Action completed</div>
+
+<!-- Print template (hidden) -->
+<div id="printTemplate" style="display:none;">
+  <style>
+    @media print {
+      body > *:not(#printTemplate){ display:none !important; }
+      #printTemplate{ display:block !important; }
+    }
+    .pt-header{ background:#032D60;color:white;padding:20px 28px;display:flex;justify-content:space-between;align-items:center; }
+    .pt-logo{ font-size:22px;font-weight:800; }
+    .pt-sub{ font-size:11px;opacity:.7; }
+    .pt-title{ font-size:18px;font-weight:700;padding:18px 28px;border-bottom:2px solid #e2e8f0; }
+    .pt-body{ padding:18px 28px; }
+    .pt-grid{ display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px; }
+    .pt-field label{ font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;display:block;margin-bottom:3px; }
+    .pt-field p{ font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:4px; }
+    .pt-section{ margin-bottom:16px; }
+    .pt-section h3{ font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+      color:#1756b8;border-left:4px solid #1756b8;padding-left:8px;margin-bottom:8px; }
+    .pt-section p{ font-size:12px;color:#334155;line-height:1.7;border:1px solid #e2e8f0;padding:10px;border-radius:4px; }
+    .pt-footer{ border-top:2px solid #e2e8f0;padding:12px 28px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between; }
+    .pt-stamp{ background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:8px 16px;
+      font-size:11px;color:#065f46;font-weight:600;text-align:center;margin-top:12px; }
+  </style>
+  <div class="pt-header">
+    <div><div class="pt-logo">TrackWise® GenAI</div><div class="pt-sub">Quality Management System · AI-Powered CAPA</div></div>
+    <div style="text-align:right;font-size:11px;opacity:.7;" id="ptDate"></div>
+  </div>
+  <div class="pt-title">CAPA Record — <span id="ptCapaId"></span></div>
+  <div class="pt-body">
+    <div class="pt-grid">
+      <div class="pt-field"><label>Source Record ID</label><p>CMP-2024-0891</p></div>
+      <div class="pt-field"><label>Record Type</label><p>Complaint · Medical Device</p></div>
+      <div class="pt-field"><label>Priority</label><p>🔴 Critical</p></div>
+      <div class="pt-field"><label>Status</label><p id="ptStatus">Under Review</p></div>
+      <div class="pt-field"><label>Site</label><p>Site A – Mumbai</p></div>
+      <div class="pt-field"><label>Product / Batch</label><p>IV Administration Sets · 22B-4401</p></div>
+      <div class="pt-field"><label>Created By</label><p id="ptCreatedBy">Quality Lead</p></div>
+      <div class="pt-field"><label>Created At</label><p id="ptCreatedAt"></p></div>
+    </div>
+    <div class="pt-section"><h3>Issue Title</h3><p>IV Infusion Set Luer Lock Failure — APAC Region, 3 Hospital Sites</p></div>
+    <div class="pt-section"><h3>Root Cause</h3><p id="ptRC"></p></div>
+    <div class="pt-section"><h3>Immediate Action</h3><p id="ptIA"></p></div>
+    <div class="pt-section"><h3>Corrective Action</h3><p id="ptCA"></p></div>
+    <div class="pt-section"><h3>Preventive Action</h3><p>Implement enhanced supplier change management programme requiring QA sign-off for any raw material specification change. Add connector hardness testing to annual product quality review. Update FMEA for IV administration sets.</p></div>
+    <div class="pt-section"><h3>Regulatory References</h3><p>21 CFR 820.198 · 21 CFR 803.50 · 21 CFR 820.50 · ISO 13485:2016 §8.2.2 · MDR 2017/745 Art.87</p></div>
+    <div class="pt-stamp" id="ptStamp">CAPA DRAFT — Pending Approval</div>
+  </div>
+  <div class="pt-footer">
+    <span>QMS GenAI · TrackWise® Digital · Cognizant</span>
+    <span>Generated via Salesforce Health Cloud Integration</span>
+    <span id="ptFooterDate"></span>
+  </div>
+</div>
+
+<script>
+// ── QMS API base URL — points to your local QMS app ──────────
+const QMS_BASE = 'http://localhost:5000';
+const RECORD_ID = 'CMP-2024-0891';
+
+const MOCK_CAPA = {
+  id: 'CAPA-2026-' + Math.floor(Math.random()*9000+1000),
+  rootCause: 'Luer lock connector material failed to meet minimum hardness specification (Shore D 72 vs required 76). Incoming inspection at Site A did not include hardness testing. Supplier change 6 months prior introduced a formulation change not flagged through the approved supplier change notification process.',
+  immediateAction: 'Quarantine all units of Batch 22B-4401. Issue Field Safety Corrective Action (FSCA) to all affected hospital accounts. Recall Class II initiated. Notify 21 CFR 803 and MDR 2017/745 Art.87.',
+  correctiveAction: 'Revise incoming inspection protocol for IV set connectors to include Shore D hardness testing. Audit supplier change notification process. Conduct full supplier audit within 30 days.',
+  preventiveAction: 'Implement enhanced supplier change management programme. Add hardness testing to annual PQR. Update FMEA for IV sets.',
+  risk: 'Critical', closure: 45,
+};
+
+const MOCK_5WHY = [
+  ['Why 1','Luer lock connector failed during infusion','Equipment / Material'],
+  ['Why 2','Connector hardness below specification (Shore D 72 vs 76)','Specification Failure'],
+  ['Why 3','Incoming inspection did not include hardness testing','Process Gap'],
+  ['Why 4','Supplier changed formulation without notifying QA','Supplier Management'],
+  ['Why 5','Supplier change notification SOP not enforced at CMO level','Root Cause → SOP / Governance'],
+];
+
+const MOCK_FISHBONE = [
+  ['Material',['Connector hardness below spec','Formulation change by supplier','No incoming hardness test']],
+  ['Method',['SOP not enforced at CMO','Change notification process gap','No supplier audit trigger']],
+  ['Machine',['No automated hardness tester','Manual inspection only','No inline QC check']],
+  ['Management',['Supplier change not escalated to QA','Risk assessment not performed','FMEA not updated']],
+];
+
+let capaGenerated = false, rcaShown = false, currentRCAMethod = '5why';
+
+// ── Loading helper ────────────────────────────────────────────
+function showLoading(msg){
+  document.getElementById('loadingState').style.display='block';
+  document.getElementById('loadTxt').textContent=msg;
+}
+function hideLoading(){ document.getElementById('loadingState').style.display='none'; }
+
+function animateStep(steps, idx, cb){
+  if(idx>=steps.length){ cb(); return; }
+  document.getElementById('loadTxt').textContent=steps[idx];
+  setTimeout(()=>animateStep(steps,idx+1,cb), 700);
+}
+
+// ── Generate CAPA ─────────────────────────────────────────────
+function generateCapa(){
+  if(capaGenerated){ document.getElementById('capaResult').scrollIntoView({behavior:'smooth'}); return; }
+  document.getElementById('genBtn').disabled=true;
+  showLoading('Connecting to QMS GenAI…');
+
+  animateStep([
+    'Connecting to QMS GenAI…',
+    'Loading record CMP-2024-0891…',
+    'Mapping regulatory requirements…',
+    'Generating CAPA draft…',
+    'Finalising…'
+  ], 0, ()=>{
+    hideLoading();
+    // Populate CAPA
+    document.getElementById('capaId').textContent   = MOCK_CAPA.id;
+    document.getElementById('capaRC').textContent   = MOCK_CAPA.rootCause;
+    document.getElementById('capaIA').textContent   = MOCK_CAPA.immediateAction;
+    document.getElementById('capaCA').textContent   = MOCK_CAPA.correctiveAction;
+    document.getElementById('capaMeta').textContent = `${MOCK_CAPA.risk} · ${MOCK_CAPA.closure} days`;
+    document.getElementById('capaResult').classList.add('show');
+    document.getElementById('confCard').style.display='block';
+    document.getElementById('latestActivity').innerHTML =
+      `✅ <strong>AI CAPA draft generated</strong> — ${MOCK_CAPA.id} · Root cause: Supplier material specification failure`;
+    document.getElementById('latestDot').className='sf-tl-dot sf-tl-dot-g';
+    capaGenerated=true;
+  });
+}
+
+// ── RCA ────────────────────────────────────────────────────────
+function openRCA(){
+  const panel=document.getElementById('rcaPanel');
+  if(panel.classList.contains('show')){ panel.classList.remove('show'); return; }
+  showLoading('Running RCA analysis…');
+  animateStep([
+    'Connecting to QMS GenAI RCA engine…',
+    'Analysing quality event…',
+    'Building 5-Why chain…',
+    'Scoring accuracy…',
+  ], 0, ()=>{
+    hideLoading();
+    render5Why();
+    renderFishbone();
+    panel.classList.add('show');
+    rcaShown=true;
+    // Animate score
+    setTimeout(()=>{
+      animateScore('scoreFill','scoreText',87,'#10b981');
+      animateScore('fbScoreFill','fbScoreText',82,'#3b82f6');
+    },300);
+  });
+}
+
+function switchRCA(method){
+  currentRCAMethod=method;
+  document.getElementById('tab5why').classList.toggle('active',method==='5why');
+  document.getElementById('tabFish').classList.toggle('active',method==='fishbone');
+  document.getElementById('rca5why').style.display      = method==='5why'?'':'none';
+  document.getElementById('rcaFishbone').style.display  = method==='fishbone'?'':'none';
+}
+
+function render5Why(){
+  const container=document.getElementById('whyItems');
+  container.innerHTML=MOCK_5WHY.map(([num,finding,cat],i)=>`
+    <div class="why-item">
+      <div class="why-num">${num} — ${cat}</div>
+      <input class="why-input" value="${finding}"
+             onchange="updateWhy(${i},this.value)" />
+    </div>`).join('');
+}
+
+function updateWhy(idx,val){
+  MOCK_5WHY[idx][1]=val;
+  showToast('5-Why updated — click Reassess to re-score');
+}
+
+function renderFishbone(){
+  const grid=document.getElementById('fishboneGrid');
+  grid.innerHTML=MOCK_FISHBONE.map(([cat,causes])=>`
+    <div class="fb-cat">
+      <div class="fb-cat-title">${cat}</div>
+      ${causes.map(c=>`<div class="fb-cause">· ${c}</div>`).join('')}
+    </div>`).join('');
+}
+
+function reassessRCA(){
+  showLoading('Reassessing RCA accuracy…');
+  setTimeout(()=>{
+    hideLoading();
+    const newScore = Math.min(95, Math.floor(Math.random()*10)+85);
+    animateScore('scoreFill','scoreText',newScore,'#10b981');
+    animateScore('fbScoreFill','fbScoreText',newScore-5,'#3b82f6');
+    showToast(`RCA reassessed — accuracy: ${newScore}%`);
+  },1800);
+}
+
+function animateScore(fillId, textId, target, color){
+  const fill=document.getElementById(fillId);
+  const text=document.getElementById(textId);
+  fill.style.background=color;
+  fill.style.width=target+'%';
+  text.textContent=target+'%';
+}
+
+// ── Approve ───────────────────────────────────────────────────
+function approveCapa(){
+  const capaId=document.getElementById('capaId').textContent;
+  const today=new Date().toLocaleDateString('en-GB');
+  const target=new Date(Date.now()+MOCK_CAPA.closure*864e5).toLocaleDateString('en-GB');
+  document.getElementById('relTable').innerHTML=`
+    <tr>
+      <td style="color:#0176D3;font-family:monospace;font-weight:600;">${capaId}</td>
+      <td><span style="background:#E8F5E9;color:#1B5E20;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;">Under Review</span></td>
+      <td style="color:#BA0517;font-weight:600;">Critical</td>
+      <td>J. Martinez</td>
+      <td>${target}</td>
+      <td>
+        <button onclick="editInQMS()" style="font-size:10px;color:#0176D3;background:none;border:none;cursor:pointer;font-weight:600;">Edit in QMS →</button>
+        <button onclick="printCapa()" style="font-size:10px;color:#065F46;background:none;border:none;cursor:pointer;font-weight:600;margin-left:6px;">🖨 Print</button>
+      </td>
+    </tr>`;
+  document.getElementById('relCnt').textContent='1';
+  document.getElementById('ytdCapas').textContent='22';
+  showToast(`✅ CAPA ${capaId} saved to Salesforce`);
+}
+
+// ── Open in QMS (redirects to QMS CAPA creation page) ────────
+function openInQMS(){
+  const url=`${QMS_BASE}/capa/create?id=${RECORD_ID}`;
+  window.open(url,'_blank');
+  showToast('Opening record in QMS GenAI…');
+}
+
+function editInQMS(){
+  const url=`${QMS_BASE}/capa/create?id=${RECORD_ID}`;
+  window.open(url,'_blank');
+  showToast('Opening CAPA editor in QMS GenAI…');
+}
+
+function openRCAInQMS(){
+  const url=`${QMS_BASE}/rca/analyze?id=${RECORD_ID}`;
+  window.open(url,'_blank');
+  showToast('Opening RCA page in QMS GenAI…');
+}
+
+// ── Print ─────────────────────────────────────────────────────
+function printCapa(){
+  if(!capaGenerated){ alert('Generate a CAPA first before printing.'); return; }
+  const capaId=document.getElementById('capaId').textContent;
+  const now=new Date().toLocaleString('en-GB');
+  document.getElementById('ptCapaId').textContent   = capaId;
+  document.getElementById('ptRC').textContent       = MOCK_CAPA.rootCause;
+  document.getElementById('ptIA').textContent       = MOCK_CAPA.immediateAction;
+  document.getElementById('ptCA').textContent       = MOCK_CAPA.correctiveAction;
+  document.getElementById('ptStatus').textContent   = 'Under Review';
+  document.getElementById('ptCreatedBy').textContent= 'Quality Lead (via Salesforce)';
+  document.getElementById('ptCreatedAt').textContent= now;
+  document.getElementById('ptDate').textContent     = 'Printed: '+now;
+  document.getElementById('ptFooterDate').textContent= now;
+  document.getElementById('ptStamp').textContent    = 'CAPA DRAFT — Pending Approval · Generated via QMS GenAI AI';
+  document.getElementById('printTemplate').style.display='block';
+  window.print();
+  document.getElementById('printTemplate').style.display='none';
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3500);
+}
+</script>
+</body>
+</html>

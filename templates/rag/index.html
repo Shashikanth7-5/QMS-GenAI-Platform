@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% set active_tab = "rag" %}
+{% block title %}QMS GenAI · RAG Extract{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">🧠 RAG Extract</div>
+    <div class="page-subtitle">Upload quality documents — AI extracts structured records automatically</div>
+  </div>
+</div>
+
+<div class="banner banner--info" id="banner">
+  <span>ℹ</span> Upload a QMS document to extract a quality record using AI.
+  Supported: PDF, Excel, CSV, Word, Images, TXT.
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+
+  <!-- Upload panel -->
+  <div class="panel">
+    <div class="panel__header">
+      <div class="panel__title">📎 Upload Document</div>
+      <div class="panel__subtitle">Drop a QMS file or click to browse</div>
+    </div>
+    <div class="panel__body">
+
+      <div class="drop-zone" id="dropZone"
+           onclick="document.getElementById('ragFileInput').click()"
+           ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <div class="drop-zone__icon">📄</div>
+        <div class="drop-zone__text">Drop your QMS document here or click to browse</div>
+        <div class="drop-zone__hint">AI extracts: complaint, deviation, change control, audit, non-conformance</div>
+        <div class="drop-zone__formats">
+          <span class="fmt-badge">PDF</span><span class="fmt-badge">Excel</span>
+          <span class="fmt-badge">CSV</span><span class="fmt-badge">PNG/JPG</span>
+          <span class="fmt-badge">Word</span><span class="fmt-badge">TXT</span>
+        </div>
+      </div>
+      <input type="file" id="ragFileInput" style="display:none;"
+             accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.bmp,.tiff,.docx,.txt"
+             onchange="onFileSelected(this)">
+
+      <!-- File preview -->
+      <div class="upload-preview" id="uploadPreview">
+        <div class="upload-preview__icon" id="previewIcon">📄</div>
+        <div>
+          <div class="upload-preview__name" id="previewName">—</div>
+          <div class="upload-preview__size" id="previewSize">—</div>
+        </div>
+        <button class="upload-preview__remove" onclick="clearFile()" title="Remove">✕</button>
+      </div>
+
+      <!-- Status -->
+      <div class="upload-status" id="uploadStatus"></div>
+
+      <!-- Insufficient document warning -->
+      <div id="insufficientWarning" style="display:none;margin-top:14px;
+           background:var(--amber-pale);border:1px solid #fde68a;border-left:4px solid var(--amber);
+           border-radius:var(--r);padding:12px 14px;">
+        <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:6px;">
+          ⚠ Insufficient QMS Document
+        </div>
+        <div id="insufficientReason" style="font-size:12px;color:#78350f;line-height:1.5;"></div>
+        <div style="margin-top:10px;font-size:11px;color:#92400e;">
+          Please upload one of: complaint report, deviation form, change control document,
+          audit finding, non-conformance report, or similar QMS record.
+        </div>
+      </div>
+
+      <div class="upload-modal__footer" style="margin-top:16px;">
+        <button class="btn btn--secondary" id="btnProcess" onclick="processUpload()" style="display:none;">
+          🤖 Extract with AI
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Extracted record panel -->
+  <div class="panel" id="extractedPanel" style="display:none;">
+    <div class="panel__header">
+      <div class="panel__title">✅ Extracted Record</div>
+      <div class="panel__subtitle">Review and edit before saving</div>
+    </div>
+    <div class="panel__body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label class="field-label">Record ID</label>
+          <input class="field-input" id="extId" readonly style="background:#f4f5f7;"/>
+        </div>
+        <div>
+          <label class="field-label">Type</label>
+          <select class="field-select" id="extType">
+            <option value="complaint">Complaint</option>
+            <option value="deviation">Deviation</option>
+            <option value="cc">Change Control</option>
+            <option value="nc">Non-Conformance</option>
+            <option value="audit">Audit</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Priority</label>
+          <select class="field-select" id="extPriority">
+            <option>Critical</option><option>High</option>
+            <option>Medium</option><option>Low</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Sector</label>
+          <select class="field-select" id="extSector">
+            <option>Medical Device</option>
+            <option>BioPharma</option>
+            <option>General</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label class="field-label">Issue Title</label>
+          <input class="field-input" id="extTitle"/>
+        </div>
+        <div>
+          <label class="field-label">Site</label>
+          <input class="field-input" id="extSite"/>
+        </div>
+        <div>
+          <label class="field-label">Owner</label>
+          <input class="field-input" id="extOwner"/>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label class="field-label">Description</label>
+          <textarea class="field-textarea" id="extDesc" rows="3"></textarea>
+        </div>
+      </div>
+      <div id="saveStatus" style="margin-top:12px;"></div>
+    </div>
+    <div class="panel__footer">
+      <button class="btn btn--primary" id="btnSaveExt" onclick="saveRecord()">✅ Save Record</button>
+      <button class="btn btn--secondary" onclick="clearAll()">Clear</button>
+      <span id="saveNote" style="font-size:11px;color:var(--text-muted);margin-left:auto;"></span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Previously extracted records -->
+<div style="margin-top:24px;">
+  <div style="font-size:12px;font-weight:700;color:var(--navy);
+              text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">
+    📁 Your Extracted Records
+    <span id="ragCount" style="background:var(--blue);color:#fff;
+          border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">0</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width:130px">Record ID</th>
+          <th>Title</th>
+          <th style="width:100px">Type</th>
+          <th style="width:85px">Priority</th>
+          <th style="width:120px">Status</th>
+          <th style="width:120px">Action</th>
+        </tr>
+      </thead>
+      <tbody id="ragTableBody">
+        <tr><td colspan="6" class="table__empty">No extracted records yet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow);}
+  .panel__header{padding:14px 18px;background:linear-gradient(135deg,#1e2d5f 0%,var(--navy) 100%);}
+  .panel__title{font-size:13px;font-weight:600;color:#fff;}
+  .panel__subtitle{font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;}
+  .panel__body{padding:18px;}
+  .panel__footer{padding:12px 18px;background:#f7f8fa;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;}
+  .field-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);display:block;margin-bottom:4px;}
+  .field-input,.field-select,.field-textarea{font-family:var(--font);font-size:12px;color:var(--text);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;width:100%;outline:none;background:#f9fafb;}
+  .field-input:focus,.field-select:focus,.field-textarea:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,.1);}
+  .field-textarea{resize:vertical;}
+  .drop-zone{border:2px dashed #cbd5e1;border-radius:10px;padding:36px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#f8faff;}
+  .drop-zone:hover,.drop-zone.drag-over{border-color:var(--blue);background:#eff6ff;}
+  .drop-zone__icon{font-size:2.2rem;margin-bottom:10px;}
+  .drop-zone__text{font-size:13px;font-weight:500;color:var(--navy);}
+  .drop-zone__hint{font-size:11px;color:#94a3b8;margin-top:5px;}
+  .drop-zone__formats{margin-top:10px;display:flex;justify-content:center;gap:6px;flex-wrap:wrap;}
+  .fmt-badge{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;}
+  .upload-preview{display:none;margin-top:14px;background:#f8faff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;align-items:center;gap:10px;}
+  .upload-preview.show{display:flex;}
+  .upload-preview__icon{font-size:1.5rem;}
+  .upload-preview__name{font-size:12px;font-weight:600;color:var(--navy);}
+  .upload-preview__size{font-size:11px;color:#94a3b8;}
+  .upload-preview__remove{background:none;border:none;cursor:pointer;color:#ef4444;font-size:16px;margin-left:auto;}
+  .upload-status{margin-top:14px;font-size:12px;padding:10px 14px;border-radius:8px;display:none;}
+  .upload-status.show{display:block;}
+  .upload-status--processing{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
+  .upload-status--success{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;}
+  .upload-status--error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  let _file=null, _record=null;
+  const CAN_CAPA = {{ 'true' if current_user.can_create_capa() else 'false' }};
+
+  function fileIcon(n){
+    const e=n.split('.').pop().toLowerCase();
+    return {pdf:'📄',xlsx:'📊',xls:'📊',csv:'📊',png:'🖼',jpg:'🖼',jpeg:'🖼',docx:'📝',doc:'📝',txt:'📃'}[e]||'📄';
+  }
+
+  function onDragOver(e){e.preventDefault();document.getElementById('dropZone').classList.add('drag-over');}
+  function onDragLeave(){document.getElementById('dropZone').classList.remove('drag-over');}
+  function onDrop(e){e.preventDefault();onDragLeave();if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);}
+  function onFileSelected(i){if(i.files[0])setFile(i.files[0]);}
+
+  function setFile(f){
+    _file=f;
+    document.getElementById('previewIcon').textContent=fileIcon(f.name);
+    document.getElementById('previewName').textContent=f.name;
+    document.getElementById('previewSize').textContent=(f.size/1024).toFixed(1)+' KB';
+    document.getElementById('uploadPreview').classList.add('show');
+    document.getElementById('btnProcess').style.display='';
+    document.getElementById('insufficientWarning').style.display='none';
+    setStatus('','');
+  }
+
+  function clearFile(){
+    _file=null;
+    document.getElementById('uploadPreview').classList.remove('show');
+    document.getElementById('btnProcess').style.display='none';
+    document.getElementById('insufficientWarning').style.display='none';
+    document.getElementById('ragFileInput').value='';
+    setStatus('','');
+  }
+
+  function clearAll(){clearFile();document.getElementById('extractedPanel').style.display='none';_record=null;}
+
+  function setStatus(msg,type){
+    const el=document.getElementById('uploadStatus');
+    if(!msg){el.classList.remove('show');return;}
+    el.className=`upload-status show upload-status--${type}`;
+    el.textContent=msg;
+  }
+
+  async function processUpload(){
+    if(!_file) return;
+    const btn=document.getElementById('btnProcess');
+    btn.disabled=true;btn.textContent='⏳ Extracting…';
+    setStatus('🤖 Sending to AI for extraction…','processing');
+    document.getElementById('insufficientWarning').style.display='none';
+
+    try{
+      const fd=new FormData();
+      fd.append('file',_file);
+      const res=await fetch('/api/rag/extract',{method:'POST',body:fd});
+      const data=await res.json();
+
+      if(res.status===422 && data.insufficient){
+        document.getElementById('insufficientWarning').style.display='block';
+        document.getElementById('insufficientReason').textContent=data.reason||'Document is not a QMS record.';
+        setStatus('❌ Insufficient document — see details above','error');
+        btn.disabled=false;btn.textContent='🤖 Extract with AI';
+        return;
+      }
+      if(!res.ok||data.error){
+        setStatus('❌ '+( data.error||'Upload failed'),'error');
+        btn.disabled=false;btn.textContent='🤖 Extract with AI';
+        return;
+      }
+
+      _record=data.record;
+      populateForm(_record);
+      setStatus('✅ '+data.message,'success');
+      document.getElementById('extractedPanel').style.display='';
+      btn.style.display='none';
+      loadRagRecords();
+    }catch(err){
+      setStatus('❌ Network error: '+err.message,'error');
+      btn.disabled=false;btn.textContent='🤖 Extract with AI';
+    }
+  }
+
+  function populateForm(r){
+    document.getElementById('extId').value   =r.id||'';
+    document.getElementById('extTitle').value=r.title||'';
+    document.getElementById('extSite').value =r.site||'';
+    document.getElementById('extOwner').value=r.owner||'';
+    document.getElementById('extDesc').value =r.description||'';
+    const sel=(id,v)=>{const e=document.getElementById(id);for(let o of e.options)if(o.value===v||o.text===v){o.selected=true;break;}};
+    sel('extType',r.type);sel('extPriority',r.priority);sel('extSector',r.sector);
+  }
+
+  function saveRecord(){
+    if(!_record) return;
+    _record.title      =document.getElementById('extTitle').value;
+    _record.type       =document.getElementById('extType').value;
+    _record.priority   =document.getElementById('extPriority').value;
+    _record.sector     =document.getElementById('extSector').value;
+    _record.site       =document.getElementById('extSite').value;
+    _record.owner      =document.getElementById('extOwner').value;
+    _record.description=document.getElementById('extDesc').value;
+
+    document.getElementById('saveStatus').innerHTML=
+      `<div style="background:var(--green-pale);border:1px solid #a7f3d0;border-radius:var(--r);
+          padding:10px 14px;font-size:12px;color:#065f46;">
+        ✅ Record <strong>${_record.id}</strong> saved.
+        ${CAN_CAPA?`<a href="/capa/create?id=${_record.id}" style="color:var(--green);font-weight:600;margin-left:8px;">→ Create CAPA</a>`:''}
+      </div>`;
+    loadRagRecords();
+  }
+
+  function loadRagRecords(){
+    fetch('/api/rag/records')
+      .then(r=>r.json())
+      .then(d=>{
+        const recs=d.records||[];
+        document.getElementById('ragCount').textContent=recs.length;
+        const tbody=document.getElementById('ragTableBody');
+        if(!recs.length){tbody.innerHTML='<tr><td colspan="6" class="table__empty">No extracted records yet.</td></tr>';return;}
+        const pCls={Critical:'badge--critical',High:'badge--high',Medium:'badge--medium',Low:'badge--low'};
+        const tLbl={complaint:'Complaint',deviation:'Deviation',cc:'Change Ctrl',nc:'NC',audit:'Audit'};
+        const sCls={'Draft Generated':'badge--draft','Under Review':'badge--review','Approved':'badge--approved'};
+        tbody.innerHTML=recs.map(r=>`
+          <tr>
+            <td class="table__id">${r.id}</td>
+            <td style="font-size:12px;">${r.title}</td>
+            <td><span class="badge badge--${r.type||'other'}">${tLbl[r.type]||r.type||'—'}</span></td>
+            <td><span class="badge ${pCls[r.priority]||''}">${r.priority||'—'}</span></td>
+            <td><span class="badge ${sCls[r.status]||''}">${r.status||'—'}</span></td>
+            <td>${CAN_CAPA||r.createdBy==='{{ current_user.username }}'
+              ?`<a href="/capa/create?id=${r.id}" style="color:var(--blue);font-size:11px;font-weight:500;">Open →</a>`
+              :`<span style="font-size:11px;color:var(--text-muted);">View only</span>`
+            }</td>
+          </tr>`).join('');
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', loadRagRecords);
+</script>
+{% endblock %}

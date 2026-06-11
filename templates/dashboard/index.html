@@ -1,0 +1,521 @@
+{% extends "base.html" %}
+{% set active_tab = "dashboard" %}
+{% block title %}QMS GenAI · Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">CAPA Agent Dashboard</div>
+    <div class="page-subtitle">
+      AI-powered corrective &amp; preventive action generation
+    </div>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn--secondary" onclick="loadAll()">🔄 Refresh</button>
+    {# Only admin sees the batch agent button #}
+    {% if current_user.is_admin() %}
+    <button class="btn btn--primary" id="btnRunAll">▶ Run Agent on All Eligible</button>
+    {% endif %}
+  </div>
+</div>
+
+<div class="banner banner--info" id="banner">
+  <span>ℹ</span>
+  {% if current_user.sees_all_records() %}
+    Connecting to QMS and loading all quality records…
+  {% else %}
+    Showing your records. Use the search box below to look up any record by ID.
+  {% endif %}
+</div>
+
+<!-- Metric Cards -->
+<div class="metrics">
+  <div class="metric-card metric-card--blue">
+    <div class="metric-card__label">{% if current_user.sees_all_records() %}Total Records{% else %}My Records{% endif %}</div>
+    <div class="metric-card__value metric-card__value--blue" id="mTotal">—</div>
+  </div>
+  <div class="metric-card metric-card--green">
+    <div class="metric-card__label">Draft Eligible</div>
+    <div class="metric-card__value metric-card__value--green" id="mEligible">—</div>
+  </div>
+  <div class="metric-card metric-card--amber">
+    <div class="metric-card__label">Under Review</div>
+    <div class="metric-card__value metric-card__value--amber" id="mReview">—</div>
+  </div>
+  <div class="metric-card metric-card--red">
+    <div class="metric-card__label">Critical</div>
+    <div class="metric-card__value metric-card__value--red" id="mCritical">—</div>
+  </div>
+  {% if current_user.sees_all_records() %}
+  <div class="metric-card metric-card--purple">
+    <div class="metric-card__label">Med. Device</div>
+    <div class="metric-card__value metric-card__value--purple" id="mMedDev">—</div>
+  </div>
+  <div class="metric-card metric-card--blue">
+    <div class="metric-card__label">BioPharma</div>
+    <div class="metric-card__value metric-card__value--blue" id="mBio">—</div>
+  </div>
+  <div class="metric-card metric-card--amber">
+    <div class="metric-card__label">Change Ctrl</div>
+    <div class="metric-card__value metric-card__value--amber" id="mCC">—</div>
+  </div>
+  {% endif %}
+  <div class="metric-card metric-card--green">
+    <div class="metric-card__label">CAPA Drafts</div>
+    <div class="metric-card__value metric-card__value--green" id="mCAPAs">—</div>
+  </div>
+</div>
+
+<!-- Section Tabs -->
+<div style="display:flex;gap:0;margin-bottom:16px;
+            background:var(--surface);border:1px solid var(--border);
+            border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-sm);">
+  <button class="section-tab section-tab--active" id="tabQuality"
+          onclick="showSection('quality')">
+    📋 Quality Records
+    <span id="qualityCount" style="background:var(--blue);color:#fff;
+          border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">—</span>
+  </button>
+  <button class="section-tab" id="tabCAPAs" onclick="showSection('capas')">
+    ✅ CAPA Records
+    <span id="capaCount" style="background:var(--green);color:#fff;
+          border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">—</span>
+  </button>
+</div>
+
+<!-- Quality Records Section -->
+<div id="sectionQuality">
+
+  {% if not current_user.sees_all_records() %}
+  <!-- User role: ID lookup panel -->
+  <div style="background:var(--blue-pale);border:1px solid var(--blue-border);
+              border-radius:var(--r-lg);padding:14px 18px;margin-bottom:16px;
+              display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:12px;font-weight:600;color:#1e40af;">🔍 Look up any record by ID:</span>
+    <input type="text" id="idLookupInput" class="search-input"
+           placeholder="e.g. CMP-2024-0891"
+           style="width:220px;"
+           onkeydown="if(event.key==='Enter') lookupById()"/>
+    <button class="btn btn--primary btn--sm" onclick="lookupById()">Search</button>
+    <span id="lookupStatus" style="font-size:11px;color:var(--text-muted);"></span>
+  </div>
+  {% endif %}
+
+  <!-- Filters (admin/quality only) -->
+  {% if current_user.sees_all_records() %}
+  <div class="filters">
+    <div class="filter-group">
+      <div class="filter-label">Source Type</div>
+      <div class="pills" id="filterType">
+        <button class="pill pill--active" data-val="all">All Sources</button>
+        <button class="pill" data-val="complaint">Complaints</button>
+        <button class="pill" data-val="deviation">Deviations</button>
+        <button class="pill" data-val="cc">Change Control</button>
+      </div>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Priority</div>
+      <div class="pills" id="filterPriority">
+        <button class="pill pill--active" data-val="all">All</button>
+        <button class="pill" data-val="Critical">Critical</button>
+        <button class="pill" data-val="High">High</button>
+        <button class="pill" data-val="Medium">Medium</button>
+      </div>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Sector</div>
+      <div class="pills" id="filterSector">
+        <button class="pill pill--active" data-val="all">All Sectors</button>
+        <button class="pill" data-val="Medical Device">Med. Device</button>
+        <button class="pill" data-val="BioPharma">BioPharma</button>
+      </div>
+    </div>
+    <div class="filter-group filter-group--right">
+      <div class="filter-label">Search records</div>
+      <input class="search-input" type="text" id="searchInput"
+             placeholder="Record ID, title, site, owner…"/>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width:120px">Record ID</th>
+          <th>Title</th>
+          <th style="width:110px">Type</th>
+          <th style="width:90px">Sector</th>
+          <th style="width:85px">Priority</th>
+          <th style="width:120px">Status</th>
+          <th style="width:120px">Site</th>
+          <th style="width:70px">Age</th>
+          <th style="width:130px">Action</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="9" class="table__empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CAPA Records Section -->
+<div id="sectionCAPAs" style="display:none;">
+  <div class="filters">
+    <div class="filter-group">
+      <div class="filter-label">CAPA Status</div>
+      <div class="pills" id="filterCapaStatus">
+        <button class="pill pill--active" data-val="all">All</button>
+        <button class="pill" data-val="Under Review">Under Review</button>
+        <button class="pill" data-val="Approved">Approved</button>
+        <button class="pill" data-val="Rejected">Rejected</button>
+        <button class="pill" data-val="Closed">Closed</button>
+      </div>
+    </div>
+    <div class="filter-group filter-group--right">
+      <div class="filter-label">Search CAPAs</div>
+      <input class="search-input" type="text" id="capaSearchInput" placeholder="CAPA ID, record ID…"/>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width:140px">CAPA ID</th>
+          <th style="width:120px">Source Record</th>
+          <th>Issue Title</th>
+          <th style="width:110px">Type</th>
+          <th style="width:85px">Priority</th>
+          <th style="width:120px">CAPA Status</th>
+          <th style="width:110px">Created By</th>
+          <th style="width:100px">Created At</th>
+          <th style="width:140px">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="capaTableBody">
+        <tr><td colspan="9" class="table__empty">No CAPA drafts yet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .section-tab {
+    flex:1;padding:13px 20px;font-size:13px;font-weight:600;
+    border:none;background:none;cursor:pointer;color:var(--text-muted);
+    transition:all 0.12s;font-family:var(--font);
+    display:flex;align-items:center;justify-content:center;
+    border-right:1px solid var(--border);
+  }
+  .section-tab:last-child{border-right:none;}
+  .section-tab--active{color:var(--blue);background:var(--blue-pale);font-weight:700;}
+  .btn--sm{height:30px;padding:0 12px;font-size:11px;}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  /* ── State ── */
+  const USER_ROLE     = "{{ current_user.role }}";
+  const SEES_ALL      = {{ 'true' if current_user.sees_all_records() else 'false' }};
+  const CAN_APPROVE   = {{ 'true' if current_user.can_approve_capa() else 'false' }};
+  const CAN_CAPA      = {{ 'true' if current_user.can_create_capa() else 'false' }};
+  const CAN_BATCH     = {{ 'true' if current_user.can_run_batch() else 'false' }};
+
+  let allRecs=[], allCapas=[];
+  let typeFilter='all', prioFilter='all', sectorFilter='all';
+  let searchQuery='', capaStatus='all', capaSearch='';
+
+  const PRIO_CLS = {
+    Critical:'badge badge--critical', High:'badge badge--high',
+    Medium:'badge badge--medium',     Low:'badge badge--low',
+  };
+
+  function typeBadge(t){
+    const m={complaint:'complaint',deviation:'deviation',cc:'cc',nc:'nc',audit:'audit'};
+    const l={complaint:'Complaint',deviation:'Deviation',cc:'Change Ctrl',nc:'NC',audit:'Audit'};
+    return `<span class="badge badge--${m[t]||'other'}">${l[t]||t}</span>`;
+  }
+  function prioBadge(p){return `<span class="${PRIO_CLS[p]||'badge'}">${p||'—'}</span>`;}
+  function statBadge(s){
+    const m={
+      'Draft Generated':'badge--draft','Under Review':'badge--review',
+      'Pending Approval':'badge--pending','Approved':'badge--approved'
+    };
+    return `<span class="badge ${m[s]||''}">${s||'—'}</span>`;
+  }
+  function capaStatBadge(s){
+    const m={'Under Review':'badge--review','Approved':'badge--approved',
+             'Rejected':'badge--critical','Closed':'badge--low'};
+    return `<span class="badge ${m[s]||''}">${s}</span>`;
+  }
+  function ageBadge(d){
+    if(!d) return '<span style="color:var(--text-muted);font-size:11px;">—</span>';
+    const cls = d>30?'color:var(--red)':d>14?'color:var(--amber)':'color:var(--text-muted)';
+    return `<span style="font-size:11px;${cls}">${d}d</span>`;
+  }
+
+  /* ── Load ── */
+  function loadAll(){ loadRecords(); loadCapas(); loadMetrics(); }
+
+  function loadRecords(){
+    fetch('/api/records')
+      .then(r=>r.json())
+      .then(d=>{
+        allRecs = d.records||[];
+        document.getElementById('qualityCount').textContent = allRecs.length;
+        applyFilters();
+        setBanner(`✓ ${allRecs.length} record(s) loaded`,'success');
+      })
+      .catch(()=>setBanner('Error loading records','error'));
+  }
+
+  function loadCapas(){
+    fetch('/api/capas')
+      .then(r=>r.json())
+      .then(d=>{
+        allCapas = d.capas||[];
+        document.getElementById('capaCount').textContent = allCapas.length;
+        renderCapaTable();
+      });
+  }
+
+  function loadMetrics(){
+    fetch('/api/metrics')
+      .then(r=>r.json())
+      .then(d=>{
+        const s=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+        s('mTotal',    d.total);
+        s('mEligible', d.eligible);
+        s('mReview',   d.under_review);
+        s('mCritical', d.critical);
+        s('mMedDev',   d.medical_device);
+        s('mBio',      d.biopharma);
+        s('mCC',       d.change_ctrl);
+        s('mCAPAs',    d.capa_drafts||'—');
+      });
+  }
+
+  /* ── Section tabs ── */
+  function showSection(s){
+    document.getElementById('sectionQuality').style.display = s==='quality'?'':'none';
+    document.getElementById('sectionCAPAs').style.display   = s==='capas'?'':'none';
+    document.getElementById('tabQuality').classList.toggle('section-tab--active',s==='quality');
+    document.getElementById('tabCAPAs').classList.toggle('section-tab--active',s==='capas');
+  }
+
+  /* ── Filters (admin/quality) ── */
+  function applyFilters(){
+    let recs = [...allRecs];
+    if(typeFilter  !=='all') recs=recs.filter(r=>r.type    ===typeFilter);
+    if(prioFilter  !=='all') recs=recs.filter(r=>r.priority===prioFilter);
+    if(sectorFilter!=='all') recs=recs.filter(r=>r.sector  ===sectorFilter);
+    if(searchQuery){
+      const q=searchQuery.toLowerCase();
+      recs=recs.filter(r=>
+        (r.id||'').toLowerCase().includes(q)||
+        (r.title||'').toLowerCase().includes(q)||
+        (r.site||'').toLowerCase().includes(q)||
+        (r.owner||'').toLowerCase().includes(q)
+      );
+    }
+    renderTable(recs);
+  }
+
+  /* ── ID lookup (user role) ── */
+  function lookupById(){
+    const id = (document.getElementById('idLookupInput')?.value||'').trim();
+    if(!id) return;
+    const st = document.getElementById('lookupStatus');
+    st.textContent = 'Searching…';
+    fetch(`/api/records/${encodeURIComponent(id)}`)
+      .then(r=>{
+        if(!r.ok) throw new Error('Not found');
+        return r.json();
+      })
+      .then(rec=>{
+        st.textContent = '';
+        renderTable([rec]);
+        setBanner(`✓ Record ${rec.id} found`,'success');
+      })
+      .catch(()=>{
+        st.textContent = '❌ Record not found';
+        renderTable([]);
+      });
+  }
+
+  /* ── Render quality records table ── */
+  function renderTable(recs){
+    const tbody = document.getElementById('tableBody');
+    if(!recs.length){
+      tbody.innerHTML = SEES_ALL
+        ? '<tr><td colspan="9" class="table__empty">No records match filters.</td></tr>'
+        : '<tr><td colspan="9" class="table__empty">No records found. Enter a Record ID above to search.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = recs.map(r=>{
+      const canAct = true;
+      let action = '';
+      if(canAct){
+        if(r.status==='Draft Generated'){
+          action = `<button class="btn--run" onclick="window.location.href='/capa/create?id=${r.id}'">▶ Generate CAPA</button>`;
+        } else {
+          action = `<a href="/capa/create?id=${r.id}" style="color:var(--blue);font-size:11px;font-weight:500;">View / Edit</a>`;
+        }
+      }
+      return `
+      <tr class="${r.status==='Under Review'?'row--review':r.status==='Approved'?'row--approved':''}">
+        <td class="table__id">${r.id}</td>
+        <td style="font-size:12px;line-height:1.4;">${r.title}
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${r.sector||''}</div>
+        </td>
+        <td>${typeBadge(r.type)}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${r.sector||'—'}</td>
+        <td>${prioBadge(r.priority)}</td>
+        <td>${statBadge(r.status)}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${r.site||'—'}</td>
+        <td>${ageBadge(r.age||0)}</td>
+        <td>${action}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ── Render CAPA table ── */
+  function renderCapaTable(){
+    const tbody = document.getElementById('capaTableBody');
+    let capas = [...allCapas];
+    if(capaStatus!=='all') capas=capas.filter(c=>c.status===capaStatus);
+    if(capaSearch){
+      const q=capaSearch.toLowerCase();
+      capas=capas.filter(c=>
+        (c.capaId||'').toLowerCase().includes(q)||
+        (c.sourceRecordId||'').toLowerCase().includes(q)||
+        (c.sourceRecordTitle||'').toLowerCase().includes(q)
+      );
+    }
+    if(!capas.length){
+      tbody.innerHTML=`<tr><td colspan="9" class="table__empty">${
+        allCapas.length===0?'No CAPA drafts yet.':'No CAPAs match filters.'
+      }</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = capas.map(c=>{
+      const date = c.createdAt?new Date(c.createdAt).toLocaleDateString('en-GB'):'—';
+      const prio = c.priority||'—';
+      /* Admin-only approve/reject/close buttons */
+      let statusBtns = '';
+      if(CAN_APPROVE){
+        if(c.status==='Under Review'){
+          statusBtns = `
+            <button class="btn--run" style="background:var(--green-pale);color:var(--green);border-color:#a3d4b5;"
+                    onclick="updateCapaStatus('${c.capaId}','Approved')">✓ Approve</button>
+            <button class="btn--run" style="background:var(--red-pale);color:var(--red);border-color:#fecaca;"
+                    onclick="updateCapaStatus('${c.capaId}','Rejected')">✗ Reject</button>`;
+        } else if(c.status==='Approved'){
+          statusBtns = `<button class="btn--run" style="background:var(--blue-pale);color:var(--blue);"
+                    onclick="updateCapaStatus('${c.capaId}','Closed')">🔒 Close</button>`;
+        }
+      }
+      return `
+      <tr class="${c.status==='Approved'?'row--approved':c.status==='Under Review'?'row--review':''}">
+        <td style="font-family:monospace;font-size:11px;color:var(--green);font-weight:700;">${c.capaId}</td>
+        <td style="font-family:monospace;font-size:10px;color:var(--blue);">${c.sourceRecordId}</td>
+        <td style="font-size:12px;max-width:200px;">${c.sourceRecordTitle||'—'}
+          <div style="font-size:10px;color:var(--text-muted);">${c.sector||''}</div>
+        </td>
+        <td><span class="badge badge--${(c.sourceRecordType||'').toLowerCase()}">${c.sourceRecordType||'—'}</span></td>
+        <td><span class="${PRIO_CLS[prio]||'badge'}">${prio}</span></td>
+        <td>${capaStatBadge(c.status||'Under Review')}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${c.createdBy||'—'}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${date}</td>
+        <td style="display:flex;gap:5px;flex-wrap:wrap;">
+          ${statusBtns}
+          <a href="/capa/create?id=${c.sourceRecordId}"
+             style="font-size:11px;color:var(--blue);font-weight:500;">View →</a>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ── Update CAPA status (admin only) ── */
+  function updateCapaStatus(capaId, newStatus){
+    fetch(`/api/capas/${capaId}/status`,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({status:newStatus}),
+    }).then(r=>r.json())
+      .then(()=>{loadCapas();loadMetrics();setBanner(`✓ CAPA ${capaId} → ${newStatus}`,'success');})
+      .catch(err=>setBanner('Error: '+err.message,'error'));
+  }
+
+  /* ── Batch agent (admin only) ── */
+  {% if current_user.is_admin() %}
+  document.addEventListener('DOMContentLoaded',()=>{
+    const btn = document.getElementById('btnRunAll');
+    if(btn) btn.addEventListener('click',()=>{
+      btn.disabled=true;
+      btn.textContent='⏳ Running…';
+      setBanner('Batch agent running — generating CAPAs for all eligible records…','info');
+      fetch('/api/capa/run-batch',{method:'POST',headers:{'Content-Type':'application/json'}})
+        .then(r=>r.json())
+        .then(data=>{
+          btn.disabled=false;
+          btn.textContent='▶ Run Agent on All Eligible';
+          setBanner(`✓ ${data.message}`,'success');
+          loadAll();
+        })
+        .catch(err=>{
+          btn.disabled=false;
+          btn.textContent='▶ Run Agent on All Eligible';
+          setBanner('Batch agent error: '+err.message,'error');
+        });
+    });
+  });
+  {% endif %}
+
+  /* ── Pill binding ── */
+  function bindPills(id, cb){
+    const g=document.getElementById(id);
+    if(!g) return;
+    g.addEventListener('click',e=>{
+      const p=e.target.closest('.pill');
+      if(!p) return;
+      g.querySelectorAll('.pill').forEach(x=>x.classList.remove('pill--active'));
+      p.classList.add('pill--active');
+      cb(p.dataset.val);
+    });
+  }
+
+  function setBanner(msg,type){
+    const b=document.getElementById('banner');
+    const icons={info:'ℹ',success:'✓',warning:'⚠',error:'✗'};
+    b.className=`banner banner--${type}`;
+    b.innerHTML=`<span>${icons[type]||'ℹ'}</span> ${msg}`;
+  }
+
+  /* ── Boot ── */
+  document.addEventListener('DOMContentLoaded',()=>{
+    const urlType = new URLSearchParams(window.location.search).get('type');
+    if(urlType) typeFilter=urlType;
+
+    loadAll();
+
+    if(SEES_ALL){
+      bindPills('filterType',     v=>{typeFilter=v;   applyFilters();});
+      bindPills('filterPriority', v=>{prioFilter=v;   applyFilters();});
+      bindPills('filterSector',   v=>{sectorFilter=v; applyFilters();});
+      const si=document.getElementById('searchInput');
+      if(si) si.addEventListener('input',e=>{searchQuery=e.target.value.toLowerCase().trim();applyFilters();});
+    }
+
+    bindPills('filterCapaStatus',v=>{capaStatus=v;renderCapaTable();});
+    const ci=document.getElementById('capaSearchInput');
+    if(ci) ci.addEventListener('input',e=>{capaSearch=e.target.value.toLowerCase().trim();renderCapaTable();});
+
+    if(new URLSearchParams(window.location.search).get('section')==='capas') showSection('capas');
+  });
+</script>
+{% endblock %}

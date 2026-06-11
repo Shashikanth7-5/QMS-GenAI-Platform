@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>QMS GenAI · Request Access</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--blue:#1756b8;--blue2:#1d4ed8;--font:'Inter',sans-serif;}
+    body{font-family:var(--font);min-height:100vh;
+      background:linear-gradient(135deg,#0f172a,#1e1b4b 40%,#0f172a);
+      display:flex;align-items:center;justify-content:center;padding:20px;}
+    body::before{content:'';position:fixed;inset:0;
+      background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+      background-size:50px 50px;pointer-events:none;}
+    .card{background:#fff;border-radius:20px;padding:40px 36px;max-width:440px;width:100%;
+      box-shadow:0 25px 80px rgba(0,0,0,.45);position:relative;z-index:1;animation:su .4s ease;}
+    @keyframes su{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .logo-row{display:flex;align-items:center;gap:10px;margin-bottom:24px;}
+    .logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--blue),var(--blue2));
+      display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;}
+    .logo-name{font-size:14px;font-weight:700;color:#0f172a;}
+    .logo-tag{font-size:10px;color:#64748b;}
+    h1{font-size:20px;font-weight:800;color:#0f172a;margin-bottom:5px;}
+    .sub{font-size:12px;color:#64748b;margin-bottom:24px;line-height:1.5;}
+    .error-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;
+      padding:9px 13px;font-size:12px;color:#b91c1c;margin-bottom:16px;display:flex;gap:7px;}
+    .success-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;
+      padding:16px;font-size:13px;color:#15803d;margin-bottom:16px;text-align:center;line-height:1.6;}
+    .success-icon{font-size:32px;margin-bottom:8px;}
+    .form-group{margin-bottom:15px;}
+    .form-label{display:block;font-size:11px;font-weight:600;color:#374151;
+      margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;}
+    .form-input,.form-select{width:100%;height:42px;padding:0 13px;font-size:13px;
+      font-family:var(--font);border:1.5px solid #e2e8f0;border-radius:9px;
+      background:#f8fafc;color:#0f172a;outline:none;transition:all .15s;}
+    .form-input:focus,.form-select:focus{border-color:var(--blue);background:#fff;
+      box-shadow:0 0 0 3px rgba(59,130,246,.1);}
+    .role-desc{margin-top:6px;font-size:11px;color:#64748b;line-height:1.5;
+      background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:8px 10px;}
+    .btn{width:100%;height:44px;background:linear-gradient(135deg,var(--blue),var(--blue2));
+      color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:600;
+      font-family:var(--font);cursor:pointer;transition:all .15s;margin-top:4px;}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(59,130,246,.35);}
+    .info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;
+      padding:10px 13px;font-size:11px;color:#1e40af;margin-bottom:18px;line-height:1.6;}
+    .back-link{text-align:center;margin-top:16px;font-size:12px;color:#64748b;}
+    .back-link a{color:var(--blue);font-weight:500;text-decoration:none;}
+    .back-link a:hover{text-decoration:underline;}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-row">
+    <div class="logo">TW</div>
+    <div>
+      <div class="logo-name">TrackWise® GenAI</div>
+      <div class="logo-tag">Quality Management Platform</div>
+    </div>
+  </div>
+
+  {% if success %}
+  <div class="success-box">
+    <div class="success-icon">✅</div>
+    <strong>Request submitted!</strong><br/>
+    {{ success }}<br/><br/>
+    <a href="/login" style="color:#15803d;font-weight:600;">← Back to login</a>
+  </div>
+  {% else %}
+  <h1>Request access</h1>
+  <div class="sub">Fill in your details. An admin will review and approve your account.</div>
+
+  {% if error %}
+  <div class="error-box"><span>⚠</span><span>{{ error }}</span></div>
+  {% endif %}
+
+  <div class="info-box">
+    ℹ Once submitted, your account will be <strong>pending approval</strong>.
+    The admin will be notified and can approve or reject your request.
+  </div>
+
+  <form method="POST" action="/register">
+    <div class="form-group">
+      <label class="form-label" for="full_name">Full name</label>
+      <input class="form-input" type="text" id="full_name" name="full_name"
+             placeholder="Your full name" required/>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="username">Username</label>
+      <input class="form-input" type="text" id="username" name="username"
+             placeholder="Choose a username" required autocomplete="username"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="password">Password</label>
+      <input class="form-input" type="password" id="password" name="password"
+             placeholder="Minimum 4 characters" required autocomplete="new-password"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="role">Requested role</label>
+      <select class="form-select" id="role" name="role" onchange="updateRoleDesc(this.value)">
+        <option value="user">User — own records only</option>
+        <option value="quality">Quality Lead — full record access, CAPA creation</option>
+      </select>
+      <div class="role-desc" id="roleDesc">
+        <strong>User:</strong> Can upload documents, manage your own quality records,
+        create CAPA drafts for your own records. Cannot view other users' records.
+      </div>
+    </div>
+    <button class="btn" type="submit">Submit Access Request →</button>
+  </form>
+
+  <div class="back-link">Already have an account? <a href="/login">Sign in</a></div>
+  {% endif %}
+</div>
+<script>
+  const descs = {
+    user:    '<strong>User:</strong> Can upload documents, manage your own quality records, create CAPA drafts for your own records. Cannot view other users\' records.',
+    quality: '<strong>Quality Lead:</strong> Can view <em>all</em> quality records system-wide, create CAPA drafts on any record, run RCA and decision tree analysis. Cannot approve/reject CAPAs (admin only).',
+  };
+  function updateRoleDesc(v){ document.getElementById('roleDesc').innerHTML = descs[v]||''; }
+</script>
+</body>
+</html>

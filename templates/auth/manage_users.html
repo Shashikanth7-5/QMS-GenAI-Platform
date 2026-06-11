@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% set active_tab = "manage_users" %}
+{% block title %}QMS GenAI · Manage Users{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .mu-wrap{padding:0;}
+  .mu-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:28px;}
+  .mu-header h1{font-size:1.35rem;font-weight:700;color:var(--navy);margin:0 0 4px;}
+  .mu-header p{color:var(--text-muted);font-size:12px;margin:0;}
+  .mu-stats{display:flex;gap:10px;flex-wrap:wrap;}
+  .mu-stat{border:1px solid var(--border);border-radius:8px;padding:10px 18px;text-align:center;min-width:80px;background:#fff;}
+  .mu-stat__num{font-size:1.3rem;font-weight:700;line-height:1;}
+  .mu-stat__lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-top:3px;}
+  .mu-stat--pending  .mu-stat__num{color:#b45309;}
+  .mu-stat--approved .mu-stat__num{color:#1e6b3a;}
+  .mu-stat--rejected .mu-stat__num{color:#c0392b;}
+  .mu-flash{border-radius:8px;padding:10px 16px;margin-bottom:18px;font-size:12px;display:flex;align-items:center;gap:8px;}
+  .mu-flash--success{background:#e8f5ed;border:1px solid #a3d4b5;color:#1e6b3a;}
+  .mu-flash--error{background:#fef2f2;border:1px solid #fecaca;color:#c0392b;}
+  .mu-tabs{display:flex;gap:2px;background:#f1f5f9;border:1px solid var(--border);border-radius:9px;padding:3px;width:fit-content;margin-bottom:20px;}
+  .mu-tab{padding:7px 18px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text-muted);border:none;background:transparent;transition:all .18s;display:flex;align-items:center;gap:6px;font-family:var(--font);}
+  .mu-tab .badge{background:#b45309;color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 6px;}
+  .mu-tab.active{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.12);}
+  .mu-tab:hover:not(.active){color:var(--navy);}
+  .mu-card{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .mu-card__bar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
+  .mu-card__title{font-size:12px;font-weight:700;color:var(--navy);}
+  .mu-search-wrap{position:relative;}
+  .mu-search{border:1px solid var(--border);border-radius:7px;padding:6px 12px 6px 28px;font-size:12px;font-family:var(--font);color:var(--navy);width:210px;outline:none;background:#f8faff;transition:border-color .2s;}
+  .mu-search:focus{border-color:var(--blue);background:#fff;}
+  .mu-search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:12px;pointer-events:none;}
+  .user-table{width:100%;border-collapse:collapse;}
+  .user-table th{padding:9px 14px;background:#f8faff;color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;text-align:left;border-bottom:1px solid var(--border);}
+  .user-table td{padding:11px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+  .user-table tbody tr:last-child td{border-bottom:none;}
+  .user-table tbody tr:hover td{background:#f8faff;}
+  .mu-avatar{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff;flex-shrink:0;}
+  .mu-user-cell{display:flex;align-items:center;gap:9px;}
+  .mu-user-cell__name{font-weight:600;color:var(--navy);font-size:12px;}
+  .mu-user-cell__id{font-size:10px;color:var(--text-muted);}
+  .status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:10px;font-weight:700;border:1px solid transparent;text-transform:uppercase;letter-spacing:.04em;}
+  .status-pill::before{content:'';width:5px;height:5px;border-radius:50%;}
+  .status--pending{background:#fffbeb;color:#b45309;border-color:#fde68a;}.status--pending::before{background:#b45309;}
+  .status--approved{background:#e8f5ed;color:#1e6b3a;border-color:#a3d4b5;}.status--approved::before{background:#1e6b3a;}
+  .status--rejected{background:#fef2f2;color:#c0392b;border-color:#fecaca;}.status--rejected::before{background:#c0392b;}
+  /* Role badges */
+  .role-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+  .role-badge--admin{background:#ede9fe;color:#6d28d9;border:1px solid #c4b5fd;}
+  .role-badge--quality{background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;}
+  .role-badge--user{background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;}
+  .btn-sm{padding:5px 13px;font-size:11px;font-weight:600;border:1px solid transparent;border-radius:6px;cursor:pointer;font-family:var(--font);transition:all .15s;white-space:nowrap;}
+  .btn-approve{background:#e8f5ed;color:#1e6b3a;border-color:#a3d4b5;}.btn-approve:hover{background:#1e6b3a;color:#fff;}
+  .btn-reject{background:#fef2f2;color:#c0392b;border-color:#fecaca;}.btn-reject:hover{background:#c0392b;color:#fff;}
+  .mu-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .reject-comment{background:#fef2f2;border:1px solid #fecaca;border-radius:5px;padding:3px 9px;font-size:11px;color:#c0392b;font-style:italic;max-width:180px;}
+  .no-comment{color:#94a3b8;font-size:11px;}
+  .mu-empty{padding:44px 20px;text-align:center;color:var(--text-muted);}
+  .mu-empty__icon{font-size:2rem;margin-bottom:8px;opacity:.5;}
+  .mu-empty__text{font-size:12px;}
+  .tab-panel{display:none;}.tab-panel.active{display:block;}
+  /* Role change select */
+  .role-select{height:28px;padding:0 8px;font-size:11px;font-family:var(--font);border:1px solid var(--border);border-radius:6px;background:#f8fafc;color:var(--navy);outline:none;cursor:pointer;}
+  .role-select:focus{border-color:var(--blue);}
+  /* Reject Modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:1000;align-items:center;justify-content:center;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:#fff;border-radius:12px;padding:26px 24px;width:100%;max-width:420px;box-shadow:0 20px 50px rgba(0,0,0,.25);animation:modalIn .2s ease;}
+  @keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(6px)}to{opacity:1;transform:scale(1) translateY(0)}}
+  .modal__hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .modal__title{font-size:14px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:7px;}
+  .modal__close{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:16px;padding:2px 6px;border-radius:5px;line-height:1;}
+  .modal__close:hover{color:var(--navy);}
+  .modal__user{background:#f8faff;border:1px solid var(--border);border-radius:8px;padding:10px 13px;display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+  .mu-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;}
+  .mu-textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font);font-size:12px;color:var(--navy);resize:vertical;min-height:90px;outline:none;transition:border-color .2s;background:#f8faff;}
+  .mu-textarea:focus{border-color:var(--blue);background:#fff;}
+  .modal__footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+  .btn-cancel{padding:7px 16px;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text-muted);cursor:pointer;font-family:var(--font);}
+  .btn-cancel:hover{border-color:#94a3b8;color:var(--navy);}
+  .btn-confirm-reject{padding:7px 18px;font-size:12px;font-weight:600;background:#c0392b;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--font);}
+  .btn-confirm-reject:hover{background:#a93226;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mu-wrap">
+  <div class="mu-header">
+    <div>
+      <h1>👥 Manage Users</h1>
+      <p>Review access requests, approve accounts, and assign roles.</p>
+    </div>
+    <div class="mu-stats">
+      <div class="mu-stat mu-stat--pending"><div class="mu-stat__num">{{ pending|length }}</div><div class="mu-stat__lbl">Pending</div></div>
+      <div class="mu-stat mu-stat--approved"><div class="mu-stat__num">{{ approved|length }}</div><div class="mu-stat__lbl">Approved</div></div>
+      <div class="mu-stat mu-stat--rejected"><div class="mu-stat__num">{{ rejected|length }}</div><div class="mu-stat__lbl">Rejected</div></div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for cat, msg in messages %}
+      <div class="mu-flash mu-flash--{{ cat }}">{% if cat=='success' %}✅{% else %}❌{% endif %} {{ msg }}</div>
+    {% endfor %}{% endif %}
+  {% endwith %}
+
+  <div class="mu-tabs">
+    <button class="mu-tab active" onclick="switchTab('pending',this)">
+      ⏳ Pending{% if pending|length > 0 %}<span class="badge">{{ pending|length }}</span>{% endif %}
+    </button>
+    <button class="mu-tab" onclick="switchTab('approved',this)">✅ Approved</button>
+    <button class="mu-tab" onclick="switchTab('rejected',this)">✗ Rejected</button>
+  </div>
+
+  <!-- PENDING -->
+  <div id="tab-pending" class="tab-panel active">
+    <div class="mu-card">
+      <div class="mu-card__bar">
+        <span class="mu-card__title">⏳ Access Requests Awaiting Approval</span>
+        <div class="mu-search-wrap">
+          <span class="mu-search-icon">🔍</span>
+          <input class="mu-search" type="text" placeholder="Search name / username…" oninput="filterTable('pending-tbody',this.value)">
+        </div>
+      </div>
+      {% if pending %}
+      <table class="user-table">
+        <thead><tr><th>Full Name</th><th>Username</th><th>Requested Role</th><th>Requested At</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="pending-tbody">
+          {% for u in pending %}
+          <tr data-search="{{ u.full_name|lower }} {{ u.username|lower }}">
+            <td>
+              <div class="mu-user-cell">
+                <div class="mu-avatar" style="background:{{ (loop.index0 % 6)|avatarcolor }};">{{ u.full_name[0]|upper }}</div>
+                <div><div class="mu-user-cell__name">{{ u.full_name }}</div><div class="mu-user-cell__id">ID #{{ u.id }}</div></div>
+              </div>
+            </td>
+            <td style="font-family:monospace;color:var(--blue);">{{ u.username }}</td>
+            <td><span class="role-badge role-badge--{{ u.role }}">{{ u.role }}</span></td>
+            <td style="color:var(--text-muted);">{{ u.created_at }}</td>
+            <td><span class="status-pill status--pending">Pending</span></td>
+            <td>
+              <div class="mu-actions">
+                <form method="POST" action="/admin/users/{{ u.id }}/approve" style="display:inline;">
+                  <button type="submit" class="btn-sm btn-approve">✓ Approve</button>
+                </form>
+                <button type="button" class="btn-sm btn-reject"
+                        onclick="openRejectModal('{{ u.id }}','{{ u.full_name }}','{{ u.username }}')">✕ Reject</button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="mu-empty"><div class="mu-empty__icon">🎉</div><div class="mu-empty__text">No pending requests — you're all caught up!</div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- APPROVED -->
+  <div id="tab-approved" class="tab-panel">
+    <div class="mu-card">
+      <div class="mu-card__bar">
+        <span class="mu-card__title">✅ Users with Active Access</span>
+        <div class="mu-search-wrap">
+          <span class="mu-search-icon">🔍</span>
+          <input class="mu-search" type="text" placeholder="Search…" oninput="filterTable('approved-tbody',this.value)">
+        </div>
+      </div>
+      {% if approved %}
+      <table class="user-table">
+        <thead><tr><th>Full Name</th><th>Username</th><th>Role</th><th>Change Role</th><th>Approved At</th><th>Actions</th></tr></thead>
+        <tbody id="approved-tbody">
+          {% for u in approved %}
+          <tr data-search="{{ u.full_name|lower }} {{ u.username|lower }}">
+            <td>
+              <div class="mu-user-cell">
+                <div class="mu-avatar" style="background:{{ (loop.index0 % 6)|avatarcolor }};">{{ u.full_name[0]|upper }}</div>
+                <div><div class="mu-user-cell__name">{{ u.full_name }}</div><div class="mu-user-cell__id">ID #{{ u.id }}</div></div>
+              </div>
+            </td>
+            <td style="font-family:monospace;color:var(--blue);">{{ u.username }}</td>
+            <td><span class="role-badge role-badge--{{ u.role }}">{{ u.role }}</span></td>
+            <td>
+              <form method="POST" action="/admin/users/{{ u.id }}/role" style="display:flex;gap:6px;align-items:center;">
+                <select class="role-select" name="role">
+                  <option value="user"    {% if u.role=='user'    %}selected{% endif %}>user</option>
+                  <option value="quality" {% if u.role=='quality' %}selected{% endif %}>quality</option>
+                  <option value="admin"   {% if u.role=='admin'   %}selected{% endif %}>admin</option>
+                </select>
+                <button type="submit" class="btn-sm btn-approve" style="padding:4px 10px;">Save</button>
+              </form>
+            </td>
+            <td style="color:var(--text-muted);">{{ u.created_at }}</td>
+            <td>
+              <button type="button" class="btn-sm btn-reject"
+                      onclick="openRejectModal('{{ u.id }}','{{ u.full_name }}','{{ u.username }}')">Revoke</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="mu-empty"><div class="mu-empty__icon">👤</div><div class="mu-empty__text">No approved registered users yet.</div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- REJECTED -->
+  <div id="tab-rejected" class="tab-panel">
+    <div class="mu-card">
+      <div class="mu-card__bar">
+        <span class="mu-card__title">✗ Rejected / Revoked</span>
+        <div class="mu-search-wrap">
+          <span class="mu-search-icon">🔍</span>
+          <input class="mu-search" type="text" placeholder="Search…" oninput="filterTable('rejected-tbody',this.value)">
+        </div>
+      </div>
+      {% if rejected %}
+      <table class="user-table">
+        <thead><tr><th>Full Name</th><th>Username</th><th>Role</th><th>Rejection Reason</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="rejected-tbody">
+          {% for u in rejected %}
+          <tr data-search="{{ u.full_name|lower }} {{ u.username|lower }}">
+            <td>
+              <div class="mu-user-cell">
+                <div class="mu-avatar" style="background:#e2e8f0;color:#64748b;">{{ u.full_name[0]|upper }}</div>
+                <div><div class="mu-user-cell__name" style="color:var(--text-muted);">{{ u.full_name }}</div><div class="mu-user-cell__id">ID #{{ u.id }}</div></div>
+              </div>
+            </td>
+            <td style="font-family:monospace;color:#94a3b8;">{{ u.username }}</td>
+            <td><span class="role-badge role-badge--{{ u.role }}">{{ u.role }}</span></td>
+            <td>{% if u.reject_comment %}<div class="reject-comment">"{{ u.reject_comment }}"</div>{% else %}<span class="no-comment">—</span>{% endif %}</td>
+            <td><span class="status-pill status--rejected">Rejected</span></td>
+            <td>
+              <form method="POST" action="/admin/users/{{ u.id }}/approve" style="display:inline;">
+                <button type="submit" class="btn-sm btn-approve">Re-approve</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="mu-empty"><div class="mu-empty__icon">📋</div><div class="mu-empty__text">No rejected users.</div></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal-overlay" id="rejectModal" onclick="closeOnBackdrop(event)">
+  <div class="modal">
+    <div class="modal__hdr">
+      <div class="modal__title">⚠️ Reject / Revoke Access</div>
+      <button class="modal__close" onclick="closeRejectModal()">✕</button>
+    </div>
+    <div class="modal__user">
+      <div class="mu-avatar" id="modalAvatar" style="background:#fecaca;color:#c0392b;width:34px;height:34px;">?</div>
+      <div><div id="modalName" style="font-weight:600;font-size:13px;color:var(--navy);">—</div>
+           <div id="modalUname" style="font-size:11px;color:var(--text-muted);font-family:monospace;">—</div></div>
+    </div>
+    <form method="POST" id="rejectForm">
+      <label class="mu-label" for="rejectComment">Reason <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;">(optional)</span></label>
+      <textarea class="mu-textarea" id="rejectComment" name="comment"
+                placeholder="e.g. Duplicate request, not a valid employee…"></textarea>
+      <div class="modal__footer">
+        <button type="button" class="btn-cancel" onclick="closeRejectModal()">Cancel</button>
+        <button type="submit" class="btn-confirm-reject">✕ Confirm</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function switchTab(name,el){
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.mu-tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById('tab-'+name).classList.add('active');
+    el.classList.add('active');
+  }
+  function filterTable(tbodyId,q){
+    document.querySelectorAll('#'+tbodyId+' tr[data-search]').forEach(r=>{
+      r.style.display=r.dataset.search.includes(q.toLowerCase())?'':'none';
+    });
+  }
+  function openRejectModal(uid,name,uname){
+    document.getElementById('modalName').textContent=name;
+    document.getElementById('modalUname').textContent='@'+uname;
+    document.getElementById('modalAvatar').textContent=name[0].toUpperCase();
+    document.getElementById('rejectForm').action='/admin/users/'+uid+'/reject';
+    document.getElementById('rejectComment').value='';
+    document.getElementById('rejectModal').classList.add('open');
+  }
+  function closeRejectModal(){document.getElementById('rejectModal').classList.remove('open');}
+  function closeOnBackdrop(e){if(e.target===document.getElementById('rejectModal'))closeRejectModal();}
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeRejectModal();});
+</script>
+{% endblock %}

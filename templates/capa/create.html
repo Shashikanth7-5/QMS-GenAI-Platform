@@ -1,0 +1,2252 @@
+{% extends "base.html" %}
+{% set active_tab = "capa" %}
+{% block title %}QMS GenAI · CAPA Creation{% endblock %}
+
+<!-- ═══════════════════════════════════════════════════════
+     EXTRA STYLES
+════════════════════════════════════════════════════════ -->
+{% block extra_styles %}
+<style>
+ /* NEW — stacks vertically on smaller screens */
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1400px) {
+  .workspace { grid-template-columns: 1fr; }
+}
+
+  /* ── Panel card ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .panel__header {
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #1e2d5f 0%, var(--navy) 100%);
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 10px;
+  }
+  .panel__title {
+    font-size: 13px; font-weight: 600;
+    color: #fff; display: flex;
+    align-items: center; gap: 8px;
+  }
+  .panel__subtitle {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 2px;
+  }
+  .panel__body { padding: 18px; }
+  .panel__footer {
+    padding: 12px 18px;
+    background: #f7f8fa;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px;
+    align-items: center; flex-wrap: wrap;
+  }
+
+  /* ── Record selector ── */
+  .record-selector {
+    display: flex; gap: 10px;
+    align-items: center; margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .record-select {
+    flex: 1; min-width: 200px;
+    height: 36px; padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12px; font-family: var(--font);
+    color: var(--text); background: #fff;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .record-select:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(23,86,184,0.1);
+  }
+
+  /* ── Record info strip ── */
+  .record-info {
+    background: var(--blue-pale);
+    border: 1px solid #b3cef5;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .record-info.visible { display: block; }
+  .record-info__title {
+    font-size: 13px; font-weight: 600;
+    color: var(--navy); margin-bottom: 6px;
+  }
+  .record-info__meta {
+    display: flex; flex-wrap: wrap;
+    gap: 8px; font-size: 11px;
+    color: var(--text-mid);
+  }
+  .record-info__chip {
+    background: #fff;
+    border: 1px solid #b3cef5;
+    border-radius: 20px;
+    padding: 2px 10px;
+  }
+
+  /* ── RCA method toggle ── */
+  .method-toggle {
+    display: flex; gap: 8px;
+    margin-bottom: 16px;
+  }
+  .method-btn {
+    flex: 1; padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: #fff; cursor: pointer;
+    font-family: var(--font);
+    font-size: 12px; font-weight: 500;
+    color: var(--text-mid);
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .method-btn:hover {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: var(--blue-pale);
+  }
+  .method-btn--active {
+    border-color: var(--blue);
+    background: var(--blue);
+    color: #fff;
+  }
+  .method-btn__icon { font-size: 18px; display: block; margin-bottom: 4px; }
+
+  /* ── 5-Why chain ── */
+  .why-chain { display: flex; flex-direction: column; gap: 0; }
+  .why-step {
+    display: flex; gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+  .why-step:last-child { border-bottom: none; }
+  @keyframes fadeIn {
+    from { opacity:0; transform: translateY(-6px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+  .why-num {
+    width: 26px; height: 26px;
+    border-radius: 50%; flex-shrink: 0;
+    background: var(--blue); color: #fff;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+  }
+  .why-num--root { background: var(--red); }
+  .why-content { flex: 1; }
+  .why-question {
+    font-size: 11px; font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .why-answer {
+    font-size: 12px; color: var(--text);
+    line-height: 1.5;
+  }
+  .why-root-tag {
+    display: inline-block;
+    background: var(--red-pale);
+    color: var(--red);
+    border: 1px solid #f5b8b3;
+    border-radius: 3px;
+    font-size: 10px; font-weight: 700;
+    padding: 1px 7px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ── Fishbone diagram ── */
+  .fishbone-wrap {
+    overflow-x: auto;
+    margin-bottom: 12px;
+  }
+  .fishbone-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .fishbone-cat {
+    background: #f7f8fc;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blue);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+  }
+  .fishbone-cat--primary { border-left-color: var(--red); }
+  .fishbone-cat__title {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-mid);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .fishbone-cat__icon { font-size: 13px; }
+  .fishbone-cause {
+    font-size: 11px; color: var(--text);
+    padding: 3px 0 3px 10px;
+    border-left: 2px solid #e0e4ec;
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+  .fishbone-cause--primary {
+    color: var(--red);
+    border-left-color: var(--red);
+    font-weight: 500;
+  }
+
+  /* ── Root cause summary box ── */
+  .rca-summary {
+    background: var(--red-pale);
+    border: 1px solid #f5b8b3;
+    border-left: 4px solid var(--red);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-top: 14px;
+    display: none;
+  }
+  .rca-summary.visible { display: block; }
+  .rca-summary__label {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--red);
+    margin-bottom: 6px;
+  }
+  .rca-summary__text {
+    font-size: 12px; color: var(--text);
+    line-height: 1.6;
+  }
+  .rca-summary__use-btn {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--blue);
+    background: none; border: none;
+    cursor: pointer; font-family: var(--font);
+    text-decoration: underline; padding: 0;
+  }
+
+  /* ── CAPA form fields ── */
+  .form-section {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-section:last-of-type {
+    border-bottom: none; margin-bottom: 0;
+  }
+  .form-section__title {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--navy);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .form-section__num {
+    width: 20px; height: 20px;
+    background: var(--blue); color: #fff;
+    border-radius: 50%;
+    font-size: 10px; font-weight: 700;
+    display: flex; align-items: center;
+    justify-content: center;
+  }
+  .ai-tag {
+    margin-left: auto;
+    font-size: 10px; font-weight: 500;
+    background: var(--purple-pale);
+    color: var(--purple);
+    border: 1px solid #c5bff5;
+    border-radius: 20px;
+    padding: 2px 9px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .form-grid { display: grid; gap: 12px; }
+  .form-grid--2 { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 600px) {
+    .form-grid--2 { grid-template-columns: 1fr; }
+  }
+  .form-field { display: flex; flex-direction: column; gap: 5px; }
+  .form-field--full { grid-column: 1 / -1; }
+  .field-label {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+  .field-req { color: var(--red); margin-left: 2px; }
+  .field-input, .field-textarea, .field-select {
+    font-family: var(--font);
+    font-size: 12px; color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 11px;
+    outline: none;
+    background: #f9fafb;
+    transition: all 0.15s;
+    width: 100%;
+  }
+  .field-textarea { resize: vertical; }
+  .field-input:focus, .field-textarea:focus, .field-select:focus {
+    border-color: var(--blue);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(23,86,184,0.1);
+  }
+  .field-input--ai, .field-textarea--ai {
+    background: #fffff8;
+    border-color: #d4c252;
+  }
+  .field-input--ai:focus, .field-textarea--ai:focus {
+    border-color: var(--blue); background: #fff;
+  }
+  .field-hint {
+    font-size: 11px; color: var(--text-muted);
+    font-style: italic;
+  }
+  .field-input[readonly], .field-textarea[readonly] {
+    background: #f4f5f7;
+    color: var(--text-mid);
+    cursor: default;
+    border-color: #e0e3ea;
+  }
+
+  /* ── Regulatory ref tags ── */
+  .ref-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .ref-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #eef3ff; color: #1a4b8c;
+    border: 1px solid #b3cef5;
+    border-radius: 3px; font-size: 11px;
+    font-family: 'Consolas', monospace;
+    padding: 3px 8px;
+  }
+  .ref-tag__remove {
+    background: none; border: none;
+    color: #6b8fc9; cursor: pointer;
+    font-size: 13px; line-height: 1; padding: 0;
+  }
+  .ref-tag__remove:hover { color: var(--red); }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid #e0e4ec;
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 20px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Success / status strip ── */
+  .status-strip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 12px; margin-top: 12px;
+    animation: fadeIn 0.3s ease;
+  }
+  .status-strip--success {
+    background: var(--green-pale);
+    border: 1px solid #a3d4b5;
+    color: var(--green);
+  }
+  .status-strip--error {
+    background: var(--red-pale);
+    border: 1px solid #f5b8b3;
+    color: var(--red);
+  }
+
+
+  /* ── AI Improve Modal (inline CAPA page) ── */
+  .ai-improve-overlay {
+    display: none; position: fixed; inset: 0; z-index: 400;
+    background: rgba(15,23,42,.75); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .ai-improve-overlay.open { display: flex; animation: fadeIn .2s ease; }
+  .ai-improve-modal {
+    background: var(--surface); border-radius: 16px;
+    width: 100%; max-width: 760px; max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 25px 80px rgba(0,0,0,.4);
+    animation: slideUp .25s ease;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .ai-modal-hdr {
+    padding: 20px 24px 16px;
+    background: linear-gradient(135deg,#1e293b,#0f172a);
+    border-radius: 16px 16px 0 0;
+    display: flex; align-items: flex-start; justify-content: space-between;
+  }
+  .ai-modal-hdr h3 { font-size:16px;font-weight:800;color:#fff;margin:0 0 3px; }
+  .ai-modal-hdr p  { font-size:11px;color:rgba(255,255,255,.5);margin:0; }
+  .ai-modal-close  {
+    background:rgba(255,255,255,.1);border:none;width:28px;height:28px;
+    border-radius:50%;color:rgba(255,255,255,.7);font-size:14px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .ai-models-grid {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 12px;
+    padding: 20px 24px;
+  }
+  @media(max-width:650px) { .ai-models-grid { grid-template-columns: 1fr; } }
+  .ai-model-card {
+    border: 2px solid var(--border); border-radius: var(--radius-lg);
+    padding: 14px; cursor: pointer; transition: all .15s; background: #f9fafb;
+    position: relative; text-align: center;
+  }
+  .ai-model-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .ai-model-card--selected { border-color: var(--blue); background: var(--blue-pale); }
+  .ai-model-card--a:hover,.ai-model-card--a.ai-model-card--selected { border-color:#1d4ed8; }
+  .ai-model-card--b:hover,.ai-model-card--b.ai-model-card--selected { border-color:#ca8a04; }
+  .ai-model-card--c:hover,.ai-model-card--c.ai-model-card--selected { border-color:#16a34a; }
+  .ai-model-card__check { position:absolute;top:10px;right:10px;display:none;font-size:14px; }
+  .ai-model-card--selected .ai-model-card__check { display:block; }
+  .ai-model-card__icon  { font-size:26px;margin-bottom:6px; }
+  .ai-model-card__name  { font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px; }
+  .ai-model-card__score {
+    display:inline-block;padding:2px 9px;border-radius:20px;
+    font-size:11px;font-weight:700;margin-bottom:6px;
+    background:#ede9fe;color:#6d28d9;
+  }
+  .ai-model-card--a .ai-model-card__score { background:#dbeafe;color:#1d4ed8; }
+  .ai-model-card--b .ai-model-card__score { background:#fef9c3;color:#ca8a04; }
+  .ai-model-card--c .ai-model-card__score { background:#dcfce7;color:#16a34a; }
+  .ai-model-card__badge { font-size:10px;color:var(--text-muted);margin-bottom:5px;font-weight:600; }
+  .ai-model-card__desc  { font-size:10px;color:var(--text-muted);line-height:1.5; }
+  .ai-modal-footer {
+    display:flex;gap:8px;justify-content:flex-end;align-items:center;
+    padding:14px 24px;border-top:1px solid var(--border);
+    background:#f7f8fa;border-radius:0 0 16px 16px;
+  }
+  .ai-modal-footer span { font-size:11px;color:var(--text-muted);flex:1; }
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+  }
+  .empty-state__icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state__text { font-size: 13px; line-height: 1.6; }
+</style>
+{% endblock %}
+
+
+<!-- ═══════════════════════════════════════════════════════
+     CONTENT
+════════════════════════════════════════════════════════ -->
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <div class="page-title">CAPA Creation &amp; RCA Analysis</div>
+    <div class="page-subtitle">
+      Select a quality record → run Root Cause Analysis →
+      AI generates and pre-fills your CAPA draft
+    </div>
+  </div>
+  <div class="page-actions">
+    <a href="/" class="btn btn--secondary">← Back to Dashboard</a>
+  </div>
+</div>
+
+<!-- Banner -->
+<div class="banner banner--info" id="banner">
+  <span>ℹ</span>
+  Select a quality record below to begin RCA and CAPA generation.
+</div>
+
+<!-- Record Selector (full width) -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">📂 Select Quality Record</div>
+      <div class="panel__subtitle">Choose a record to pre-fill all fields</div>
+    </div>
+  </div>
+  <div class="panel__body">
+    <div class="record-selector">
+      <select class="record-select" id="recordSelect">
+        <option value="">— Select a quality record —</option>
+      </select>
+      <button class="btn btn--primary" id="btnLoad">
+        Load Record
+      </button>
+      <button class="btn btn--secondary" id="btnUpload"
+              onclick="document.getElementById('mainUploadInput').click()"
+              style="display:flex;align-items:center;gap:6px;">
+        📎 Upload Document
+      </button>
+      <!-- Hidden file input — triggers file explorer directly from button -->
+      <input type="file" id="mainUploadInput" style="display:none"
+             accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.bmp,.tiff,.docx,.txt"
+             onchange="if(this.files[0]){ openUploadModal(); setUploadFile(this.files[0]); }">
+    </div>
+    <!-- Record info strip -->
+    <div class="record-info" id="recordInfo">
+      <div class="record-info__title" id="infoTitle">—</div>
+      <div class="record-info__meta" id="infoMeta"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Two-column workspace ───────────────────────────── -->
+<div class="workspace">
+
+  <!-- ══ LEFT · RCA PANEL ══════════════════════════════ -->
+  <div>
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">🔍 Root Cause Analysis</div>
+          <div class="panel__subtitle">5-Why chain · Fishbone (Ishikawa)</div>
+        </div>
+        <span class="ai-tag" style="color:#a0e0b8;border-color:#a0e0b8;background:rgba(255,255,255,0.1);">
+          🤖 AI Assisted
+        </span>
+      </div>
+      <div class="panel__body">
+
+        <!-- Method toggle -->
+        <div class="method-toggle">
+          <button class="method-btn method-btn--active"
+                  id="btnFiveWhy"
+                  onclick="selectMethod('5why')">
+            <span class="method-btn__icon">❓</span>
+            5-Why Analysis
+          </button>
+          <button class="method-btn"
+                  id="btnFishbone"
+                  onclick="selectMethod('fishbone')">
+            <span class="method-btn__icon">🐟</span>
+            Fishbone (Ishikawa)
+          </button>
+        </div>
+
+        <!-- RCA content area -->
+        <div id="rcaContent">
+          <div class="empty-state">
+            <div class="empty-state__icon">🔎</div>
+            <div class="empty-state__text">
+              Select a record and click<br/>
+              <strong>Run RCA Analysis</strong> to begin
+            </div>
+          </div>
+        </div>
+
+        <!-- Root cause summary -->
+        <div class="rca-summary" id="rcaSummary">
+          <div class="rca-summary__label">✦ Identified Root Cause</div>
+          <div class="rca-summary__text" id="rcaSummaryText">—</div>
+          <button class="rca-summary__use-btn"
+                  onclick="useRootCause()">
+            → Use this as Root Cause in CAPA form
+          </button>
+        </div>
+
+      </div>
+      <div class="panel__footer">
+        <button class="btn btn--secondary" id="btnRunRca"
+                onclick="runRCA()" disabled>
+          🔍 Run RCA Analysis
+        </button>
+        <button class="btn btn--secondary btn--sm"
+                id="btnEditRCA"
+                onclick="toggleInlineEdit()" disabled
+                style="display:none;">
+          ✏️ Edit RCA
+        </button>
+        <button class="btn btn--primary btn--sm"
+                id="btnReassessRCA"
+                onclick="reassessInline()" disabled
+                style="display:none;">
+          🔄 Reassess Score
+        </button>
+        <button class="btn btn--secondary btn--sm"
+                id="btnAIImproveRCA"
+                onclick="openAIImproveInline()" disabled
+                style="display:none;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;">
+          🤖 AI Improve
+        </button>
+        <button class="btn btn--secondary btn--sm"
+                id="btnClearRca"
+                onclick="clearRCA()">
+          Clear
+        </button>
+        <span id="rcaStatus"
+              style="font-size:11px;color:var(--text-muted);margin-left:auto;">
+          No record selected
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT · CAPA FORM PANEL ═══════════════════════ -->
+  <div>
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">📋 CAPA Creation Form</div>
+          <div class="panel__subtitle">AI pre-fills · you review &amp; edit</div>
+        </div>
+        <span class="ai-tag"
+              style="color:#a0e0b8;border-color:#a0e0b8;background:rgba(255,255,255,0.1);">
+          🤖 AI Generated
+        </span>
+      </div>
+      <div class="panel__body">
+
+        <!-- Section 1: Source Record (read-only) -->
+        <div class="form-section">
+          <div class="form-section__title">
+            <span class="form-section__num">1</span>
+            Source Record
+          </div>
+          <div class="form-grid form-grid--2">
+            <div class="form-field">
+              <label class="field-label">Record ID</label>
+              <input class="field-input" id="fRecordId"
+                     readonly placeholder="—"/>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Type</label>
+              <input class="field-input" id="fRecordType"
+                     readonly placeholder="—"/>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Priority</label>
+              <input class="field-input" id="fPriority"
+                     readonly placeholder="—"/>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Site</label>
+              <input class="field-input" id="fSite"
+                     readonly placeholder="—"/>
+            </div>
+            <div class="form-field form-field--full">
+              <label class="field-label">Issue Title</label>
+              <input class="field-input" id="fTitle"
+                     readonly placeholder="—"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Root Cause (AI + editable) -->
+        <div class="form-section">
+          <div class="form-section__title">
+            <span class="form-section__num">2</span>
+            Root Cause Analysis
+            <span class="ai-tag">🤖 AI Generated</span>
+          </div>
+          <div class="form-field">
+            <label class="field-label">
+              Root Cause Statement
+              <span class="field-req">*</span>
+            </label>
+            <textarea class="field-textarea field-textarea--ai"
+                      id="fRootCause" rows="3"
+                      placeholder="Run RCA or Generate CAPA to auto-fill…">
+            </textarea>
+            <div class="field-hint">
+              Tip: Use 5-Why or Fishbone to derive this statement
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: CAPA Actions -->
+        <div class="form-section">
+          <div class="form-section__title">
+            <span class="form-section__num">3</span>
+            CAPA Actions
+            <span class="ai-tag">🤖 AI Generated</span>
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="field-label">
+                Immediate / Containment Action
+                <span class="field-req">*</span>
+              </label>
+              <textarea class="field-textarea field-textarea--ai"
+                        id="fImmediateAction" rows="2"
+                        placeholder="Auto-filled after generation…">
+              </textarea>
+            </div>
+            <div class="form-field">
+              <label class="field-label">
+                Corrective Action
+                <span class="field-req">*</span>
+              </label>
+              <textarea class="field-textarea field-textarea--ai"
+                        id="fCorrectiveAction" rows="3"
+                        placeholder="Auto-filled after generation…">
+              </textarea>
+            </div>
+            <div class="form-field">
+              <label class="field-label">
+                Preventive Action
+                <span class="field-req">*</span>
+              </label>
+              <textarea class="field-textarea field-textarea--ai"
+                        id="fPreventiveAction" rows="3"
+                        placeholder="Auto-filled after generation…">
+              </textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Assignment -->
+        <div class="form-section">
+          <div class="form-section__title">
+            <span class="form-section__num">4</span>
+            Assignment &amp; Timeline
+          </div>
+          <div class="form-grid form-grid--2">
+            <div class="form-field">
+              <label class="field-label">
+                CAPA Owner
+                <span class="field-req">*</span>
+              </label>
+              <input class="field-input field-input--ai"
+                     id="fCapaOwner" type="text"
+                     placeholder="Name or role…"/>
+            </div>
+            <div class="form-field">
+              <label class="field-label">
+                Target Closure Date
+                <span class="field-req">*</span>
+              </label>
+              <input class="field-input field-input--ai"
+                     id="fClosureDate" type="date"/>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Risk Rating</label>
+              <select class="field-select field-input--ai"
+                      id="fRiskRating">
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Est. Closure (days)</label>
+              <input class="field-input"
+                     id="fClosureDays" readonly
+                     placeholder="Auto-calculated…"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 5: Regulatory + Effectiveness -->
+        <div class="form-section">
+          <div class="form-section__title">
+            <span class="form-section__num">5</span>
+            Regulatory &amp; Effectiveness
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="field-label">Regulatory References</label>
+              <div class="ref-tags" id="refTagsRow"></div>
+              <input class="field-input field-input--ai"
+                     id="refInput" type="text"
+                     placeholder="Add ref (e.g. 21 CFR 820.100) and press Enter"/>
+              <div class="field-hint">Press Enter to add a tag</div>
+            </div>
+            <div class="form-field">
+              <label class="field-label">
+                Effectiveness Check
+                <span class="field-req">*</span>
+              </label>
+              <textarea class="field-textarea field-textarea--ai"
+                        id="fEffectiveness" rows="3"
+                        placeholder="Auto-filled after generation…">
+              </textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 6: Notes -->
+        <div class="form-section">
+          <div class="form-section__title">
+            <span class="form-section__num">6</span>
+            Additional Notes
+          </div>
+          <div class="form-field">
+            <textarea class="field-textarea"
+                      id="fNotes" rows="3"
+                      placeholder="Any supporting context, observations, or reviewer instructions…">
+            </textarea>
+          </div>
+        </div>
+
+        <!-- Status strip after save -->
+        <div id="saveStatus"></div>
+
+      </div><!-- /.panel__body -->
+
+      <div class="panel__footer">
+        <button class="btn btn--primary"
+                id="btnGenerate"
+                onclick="generateCAPA()" disabled>
+          🤖 Generate CAPA
+        </button>
+        <button class="btn btn--success"
+                id="btnSave"
+                onclick="saveCAPA()" disabled>
+          ✓ Save Draft
+        </button>
+        <button class="btn btn--secondary btn--sm"
+                onclick="clearForm()">
+          Clear Form
+        </button>
+        <span id="capaStatus"
+              style="font-size:11px;color:var(--text-muted);margin-left:auto;">
+          No record selected
+        </span>
+      </div>
+    </div>
+  </div>
+</div><!-- /.workspace -->
+
+
+
+<!-- ══════════════════════════════════════════════════════
+     RECORD INQUIRY CHAT PANEL
+══════════════════════════════════════════════════════ -->
+<style>
+  .inquiry-panel {
+    display: none;
+    margin-bottom: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .inquiry-panel.visible { display: block; }
+
+  .inquiry-header {
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #1a3a5c 0%, #0f2744 100%);
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 10px;
+  }
+  .inquiry-header__title {
+    font-size: 13px; font-weight: 600; color: #fff;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .inquiry-header__sub {
+    font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px;
+  }
+  .inquiry-clear-btn {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.7); border-radius: var(--radius);
+    padding: 4px 10px; font-size: 11px; cursor: pointer;
+    font-family: var(--font); transition: all 0.15s;
+  }
+  .inquiry-clear-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+  .inquiry-messages {
+    height: 280px; overflow-y: auto;
+    padding: 16px 18px; display: flex;
+    flex-direction: column; gap: 12px;
+    background: #f7f9fc;
+  }
+  .inquiry-messages::-webkit-scrollbar { width: 5px; }
+  .inquiry-messages::-webkit-scrollbar-track { background: transparent; }
+  .inquiry-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+  .msg {
+    display: flex; gap: 10px; align-items: flex-start;
+    animation: fadeIn 0.2s ease;
+  }
+  .msg--user { flex-direction: row-reverse; }
+  .msg__avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+    background: var(--blue); color: #fff;
+  }
+  .msg--user .msg__avatar { background: var(--navy); }
+  .msg__bubble {
+    max-width: 75%; padding: 10px 13px;
+    border-radius: 12px; font-size: 12px;
+    line-height: 1.6; color: var(--text);
+    background: #fff; border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .msg--user .msg__bubble {
+    background: var(--blue); color: #fff;
+    border-color: var(--blue);
+  }
+  .msg__bubble strong { font-weight: 600; }
+  .msg__bubble code {
+    background: rgba(0,0,0,0.07); padding: 1px 5px;
+    border-radius: 3px; font-size: 11px;
+  }
+  .msg--typing .msg__bubble {
+    color: var(--text-muted); font-style: italic;
+  }
+
+  .inquiry-suggestions {
+    padding: 10px 18px; display: flex; gap: 6px; flex-wrap: wrap;
+    border-top: 1px solid var(--border); background: #f7f9fc;
+  }
+  .inquiry-suggestion {
+    background: #eef3ff; color: var(--blue);
+    border: 1px solid #b3cef5; border-radius: 20px;
+    padding: 4px 12px; font-size: 11px;
+    cursor: pointer; font-family: var(--font);
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .inquiry-suggestion:hover {
+    background: var(--blue); color: #fff;
+    border-color: var(--blue);
+  }
+
+  .inquiry-input-row {
+    display: flex; gap: 8px; padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    background: #fff; align-items: center;
+  }
+  .inquiry-input {
+    flex: 1; height: 38px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 12px; font-family: var(--font); color: var(--text);
+    outline: none; transition: all 0.15s; background: #f9fafb;
+  }
+  .inquiry-input:focus {
+    border-color: var(--blue); background: #fff;
+    box-shadow: 0 0 0 3px rgba(23,86,184,0.1);
+  }
+  .inquiry-send-btn {
+    height: 38px; padding: 0 16px;
+    background: var(--blue); color: #fff;
+    border: none; border-radius: var(--radius);
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: var(--font);
+    transition: background 0.15s; white-space: nowrap;
+  }
+  .inquiry-send-btn:hover { background: #1348a8; }
+  .inquiry-send-btn:disabled {
+    background: #94a3b8; cursor: not-allowed;
+  }
+
+  .inquiry-empty {
+    text-align: center; padding: 50px 20px;
+    color: var(--text-muted);
+  }
+  .inquiry-empty__icon { font-size: 32px; margin-bottom: 10px; }
+  .inquiry-empty__text { font-size: 12px; line-height: 1.6; }
+</style>
+
+<div class="inquiry-panel" id="inquiryPanel">
+  <div class="inquiry-header">
+    <div>
+      <div class="inquiry-header__title">💬 Ask About This Record</div>
+      <div class="inquiry-header__sub" id="inquiryRecordLabel">
+        Ask questions about the loaded record
+      </div>
+    </div>
+    <button class="inquiry-clear-btn" onclick="clearInquiry()">Clear Chat</button>
+  </div>
+
+  <!-- Message thread -->
+  <div class="inquiry-messages" id="inquiryMessages">
+    <div class="inquiry-empty" id="inquiryEmpty">
+      <div class="inquiry-empty__icon">💬</div>
+      <div class="inquiry-empty__text">
+        Ask anything about the loaded record.<br/>
+        The AI has read all extracted fields and will answer based on them.
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick suggestion chips -->
+  <div class="inquiry-suggestions" id="inquirySuggestions">
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What is the priority?</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Who is the owner?</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Which regulations apply?</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Summarise this record</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What batch is affected?</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What immediate actions are needed?</button>
+  </div>
+
+  <!-- Input row -->
+  <div class="inquiry-input-row">
+    <input class="inquiry-input" id="inquiryInput" type="text"
+           placeholder="Ask a question about this record…"
+           onkeydown="if(event.key==='Enter') sendInquiry()"/>
+    <button class="inquiry-send-btn" id="inquirySendBtn" onclick="sendInquiry()">
+      ↑ Ask
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     UPLOAD DOCUMENT MODAL
+══════════════════════════════════════════════════════ -->
+<style>
+  .upload-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(15,23,42,.6); backdrop-filter: blur(3px);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  .upload-overlay.open { display: flex; }
+  .upload-modal {
+    background: #fff; border-radius: 14px; padding: 28px 26px;
+    width: 100%; max-width: 500px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.3);
+    animation: modalIn .2s ease;
+  }
+  @keyframes modalIn {
+    from{opacity:0;transform:scale(.96) translateY(6px)}
+    to{opacity:1;transform:scale(1) translateY(0)}
+  }
+  .upload-modal__hdr {
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:18px;
+  }
+  .upload-modal__title {
+    font-size:15px;font-weight:700;color:var(--navy);
+    display:flex;align-items:center;gap:8px;
+  }
+  .upload-modal__close {
+    background:none;border:none;font-size:18px;cursor:pointer;
+    color:#94a3b8;padding:2px 6px;border-radius:5px;line-height:1;
+  }
+  .upload-modal__close:hover{color:var(--navy);}
+
+  .drop-zone {
+    border: 2px dashed #cbd5e1; border-radius: 10px;
+    padding: 36px 20px; text-align: center;
+    cursor: pointer; transition: all .2s;
+    background: #f8faff;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--blue); background: #eff6ff;
+  }
+  .drop-zone__icon { font-size: 2.2rem; margin-bottom: 10px; }
+  .drop-zone__text { font-size: 13px; font-weight: 500; color: var(--navy); }
+  .drop-zone__hint { font-size: 11px; color: #94a3b8; margin-top: 5px; }
+  .drop-zone__formats {
+    margin-top: 10px; display: flex; justify-content: center;
+    gap: 6px; flex-wrap: wrap;
+  }
+  .fmt-badge {
+    background: #f1f5f9; border: 1px solid #e2e8f0;
+    border-radius: 5px; padding: 2px 8px;
+    font-size: 10px; font-weight: 600; color: #64748b;
+    text-transform: uppercase;
+  }
+
+  .upload-file-input { display: none; }
+
+  .upload-preview {
+    display: none; margin-top: 14px;
+    background: #f8faff; border: 1px solid #e2e8f0;
+    border-radius: 8px; padding: 12px 14px;
+    display: none; align-items: center; gap: 10px;
+  }
+  .upload-preview.show { display: flex; }
+  .upload-preview__icon { font-size: 1.5rem; }
+  .upload-preview__name { font-size: 12px; font-weight: 600; color: var(--navy); flex:1; }
+  .upload-preview__size { font-size: 11px; color: #94a3b8; }
+  .upload-preview__remove {
+    background: none; border: none; cursor: pointer;
+    color: #ef4444; font-size: 16px; padding: 0 4px;
+  }
+
+  .upload-status {
+    margin-top: 14px; font-size: 12px; padding: 10px 14px;
+    border-radius: 8px; display: none;
+  }
+  .upload-status.show { display: block; }
+  .upload-status--processing { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+  .upload-status--success    { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+  .upload-status--error      { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+
+  .upload-extracted {
+    display: none; margin-top: 14px;
+    border: 1px solid #a7f3d0; border-radius: 8px;
+    background: #ecfdf5; padding: 14px;
+  }
+  .upload-extracted.show { display: block; }
+  .upload-extracted__title {
+    font-size: 12px; font-weight: 700; color: #065f46; margin-bottom: 10px;
+  }
+  .upload-extracted__grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .upload-extracted__field label {
+    font-size: 10px; text-transform: uppercase; letter-spacing:.05em;
+    color:#64748b; display:block; margin-bottom:2px;
+  }
+  .upload-extracted__field input,
+  .upload-extracted__field select {
+    width:100%; border:1px solid #d1fae5; border-radius:5px;
+    padding:5px 8px; font-size:11px; font-family:var(--font);
+    background:#fff; color:var(--navy); outline:none;
+  }
+  .upload-extracted__field.full { grid-column: span 2; }
+  .upload-extracted__field textarea {
+    width:100%; border:1px solid #d1fae5; border-radius:5px;
+    padding:5px 8px; font-size:11px; font-family:var(--font);
+    background:#fff; color:var(--navy); resize:vertical; min-height:60px; outline:none;
+  }
+
+  .upload-modal__footer {
+    display:flex;justify-content:flex-end;gap:8px;margin-top:18px;
+  }
+</style>
+
+<div class="upload-overlay" id="uploadOverlay" onclick="closeUploadOnBg(event)">
+  <div class="upload-modal">
+    <div class="upload-modal__hdr">
+      <div class="upload-modal__title">📎 Upload Quality Document</div>
+      <button class="upload-modal__close" onclick="closeUploadModal()">✕</button>
+    </div>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="dropZone"
+         onclick="document.getElementById('uploadFileInput').click()"
+         ondragover="onDragOver(event)"
+         ondragleave="onDragLeave(event)"
+         ondrop="onDrop(event)">
+      <div class="drop-zone__icon">📄</div>
+      <div class="drop-zone__text">Drop your file here or click to browse</div>
+      <div class="drop-zone__hint">AI will extract the quality record fields automatically</div>
+      <div class="drop-zone__formats">
+        <span class="fmt-badge">PDF</span>
+        <span class="fmt-badge">Excel</span>
+        <span class="fmt-badge">CSV</span>
+        <span class="fmt-badge">PNG/JPG</span>
+        <span class="fmt-badge">Word</span>
+        <span class="fmt-badge">TXT</span>
+      </div>
+    </div>
+    <input type="file" id="uploadFileInput" class="upload-file-input"
+           accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.bmp,.tiff,.docx,.txt"
+           onchange="onFileSelected(this)">
+
+    <!-- File preview -->
+    <div class="upload-preview" id="uploadPreview">
+      <div class="upload-preview__icon" id="previewIcon">📄</div>
+      <div class="upload-preview__name" id="previewName">—</div>
+      <div class="upload-preview__size" id="previewSize">—</div>
+      <button class="upload-preview__remove" onclick="clearUploadFile()" title="Remove">✕</button>
+    </div>
+
+    <!-- Status messages -->
+    <div class="upload-status" id="uploadStatus"></div>
+
+    <!-- Extracted record (editable before saving) -->
+    <div class="upload-extracted" id="uploadExtracted">
+      <div class="upload-extracted__title">✅ Extracted Record — Review & Edit Before Saving</div>
+      <div class="upload-extracted__grid">
+        <div class="upload-extracted__field">
+          <label>Record ID</label>
+          <input type="text" id="extId" readonly style="background:#f1f5f9;"/>
+        </div>
+        <div class="upload-extracted__field">
+          <label>Type</label>
+          <select id="extType">
+            <option value="complaint">Complaint</option>
+            <option value="deviation">Deviation</option>
+            <option value="cc">Change Control</option>
+            <option value="nc">Non-Conformance</option>
+            <option value="audit">Audit</option>
+          </select>
+        </div>
+        <div class="upload-extracted__field">
+          <label>Priority</label>
+          <select id="extPriority">
+            <option>Critical</option><option>High</option>
+            <option>Medium</option><option>Low</option>
+          </select>
+        </div>
+        <div class="upload-extracted__field">
+          <label>Sector</label>
+          <select id="extSector">
+            <option>Medical Device</option>
+            <option>BioPharma</option>
+            <option>General</option>
+          </select>
+        </div>
+        <div class="upload-extracted__field full">
+          <label>Issue Title</label>
+          <input type="text" id="extTitle"/>
+        </div>
+        <div class="upload-extracted__field">
+          <label>Site</label>
+          <input type="text" id="extSite"/>
+        </div>
+        <div class="upload-extracted__field">
+          <label>Owner</label>
+          <input type="text" id="extOwner"/>
+        </div>
+        <div class="upload-extracted__field full">
+          <label>Description</label>
+          <textarea id="extDesc"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="upload-modal__footer">
+      <button class="btn btn--secondary" onclick="closeUploadModal()">Cancel</button>
+      <button class="btn btn--secondary" id="btnProcess" onclick="processUpload()"
+              style="display:none;">
+        🤖 Extract with AI
+      </button>
+      <button class="btn btn--primary" id="btnSaveRecord" onclick="saveExtractedRecord()"
+              style="display:none;">
+        ✅ Save & Add to Records
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ AI IMPROVE MODAL ════════════════════════════════════ -->
+<div class="ai-improve-overlay" id="aiImproveModal"
+     onclick="if(event.target===this)closeAIImproveModal()">
+  <div class="ai-improve-modal">
+    <div class="ai-modal-hdr">
+      <div>
+        <h3>🤖 AI Improvement Models</h3>
+        <p>
+          Model A = 70% target · Model B = 80% target · Model C = 90% target<br/>
+          After applying: click <strong>Reassess Score</strong> then <strong>→ Sync Now</strong>
+        </p>
+      </div>
+      <button class="ai-modal-close" onclick="closeAIImproveModal()">✕</button>
+    </div>
+    <div class="ai-models-grid" id="aiModelsGrid">
+      <div class="spinner" style="grid-column:1/-1;margin:20px auto;width:28px;height:28px;border-width:3px;"></div>
+    </div>
+    <div class="ai-modal-footer">
+      <span>Select a model above, then click Apply to update your RCA</span>
+      <button class="btn btn--secondary" onclick="closeAIImproveModal()">Cancel</button>
+      <button class="btn btn--primary" id="btnApplyAIModel"
+              onclick="applyAIModelInline()" disabled>
+        ✅ Apply Selected Model
+      </button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+<!-- ═══════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════ -->
+{% block extra_scripts %}
+<script>
+  /* ── State ──────────────────────────────────────────────── */
+  let currentRecord  = null;
+  let currentCapa    = null;
+  let rcaData        = null;   // stores latest RCA result for edit/reassess/sync
+  let rcaAssessment  = null;   // stores latest assessment scores
+  let rcaMethod      = '5why'; // '5why' or 'fishbone'
+  let currentMethod  = '5why'; // alias kept in sync
+  const TYPE_LBL = {complaint:'Complaint',deviation:'Deviation',
+                    cc:'Change Ctrl',nc:'NC',audit:'Audit'};
+  const CAT_ICONS = {Man:'👤',Machine:'⚙️',Method:'📋',
+                     Material:'🧪',Measurement:'📏',Environment:'🌡️'};
+
+  /* ── Boot ───────────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    bindRefInput();
+
+    /* Load records first, THEN auto-select from URL */
+    loadRecordOptions().then(() => {
+      const params = new URLSearchParams(window.location.search);
+      const urlId  = params.get('id');
+      if (urlId) {
+        document.getElementById('recordSelect').value = urlId;
+        loadRecord(urlId).then(() => {
+          /* ── RCA transferred from RCA Analysis tab ── */
+          const rcaScore  = params.get('rca_score');
+          const rcaRC     = params.get('root_cause');
+          const rcaMethod = params.get('rca_method');
+          if (rcaScore || rcaRC) {
+            _applyTransferredRCA(rcaRC, rcaScore, rcaMethod);
+          }
+          /* ── Also try sessionStorage (approve path) ── */
+          try {
+            const stored = sessionStorage.getItem('approved_rca');
+            if (stored) {
+              const obj = JSON.parse(stored);
+              if (obj.record_id === urlId) {
+                _applyTransferredRCA(obj.root_cause, obj.score, obj.method, obj.rca_data);
+                sessionStorage.removeItem('approved_rca');
+              }
+            }
+          } catch(e) {}
+        });
+      }
+    });
+
+    document.getElementById('btnLoad').addEventListener('click', () => {
+      const id = document.getElementById('recordSelect').value;
+      if (id) loadRecord(id);
+    });
+  });
+
+  /* ── Apply transferred RCA data ─────────────────────────── */
+  function _applyTransferredRCA(rootCause, score, method, fullData) {
+    if (rootCause) {
+      const ta = document.getElementById('fRootCause');
+      if (ta) {
+        ta.value = decodeURIComponent(rootCause);
+        ta.style.borderColor = 'var(--green)';
+        setTimeout(() => ta.style.borderColor = '', 3000);
+      }
+    }
+    if (fullData) {
+      rcaData    = fullData;
+      currentMethod = method || rcaData.method || '5why';
+      rcaMethod     = currentMethod;
+      document.getElementById('btnFiveWhy')
+        ?.classList.toggle('method-btn--active', currentMethod === '5why');
+      document.getElementById('btnFishbone')
+        ?.classList.toggle('method-btn--active', currentMethod === 'fishbone');
+      if (currentMethod === '5why') render5Why(rcaData, false);
+      else renderFishbone(rcaData, false);
+      _showRCAButtons();
+    }
+    if (score) {
+      _showRCAScoreBadge(score);
+    }
+    const msg = score
+      ? `✓ RCA (${score}%) transferred from RCA Analysis — root cause pre-filled. Generate CAPA to complete.`
+      : '✓ RCA root cause transferred — review and generate CAPA.';
+    setBanner(msg, 'success');
+  }
+
+  /* ── Load all records into dropdown ────────────────────── */
+  function loadRecordOptions() {
+    return fetch('/api/records?limit=2000')
+      .then(r => r.json())
+      .then(data => {
+        const sel = document.getElementById('recordSelect');
+        (data.records || []).forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.id;
+          opt.textContent = `${r.id} · ${r.title.substring(0,55)}…`;
+          sel.appendChild(opt);
+        });
+      })
+      .catch(e => console.error('[QMS] Failed to load records:', e));
+  }
+
+  /* ── Load one record ────────────────────────────────────── */
+  function loadRecord(id) {
+    return fetch(`/api/records/${id}`)
+      .then(r => r.json())
+      .then(rec => {
+        currentRecord = rec;
+        populateRecordInfo(rec);
+        populateSourceFields(rec);
+        enableButtons();
+        showInquiryPanel(rec);
+        setBanner(`✓ Record ${rec.id} loaded — run RCA then Generate CAPA`, 'success');
+      })
+      .catch(() => setBanner('Error loading record', 'error'));
+  }
+
+  /* ── Show record info strip ─────────────────────────────── */
+  function populateRecordInfo(rec) {
+    document.getElementById('infoTitle').textContent = rec.title;
+    const meta = document.getElementById('infoMeta');
+    meta.innerHTML = [
+      `<span class="record-info__chip">🏷 ${TYPE_LBL[rec.type]||rec.type}</span>`,
+      `<span class="record-info__chip">⚠ ${rec.priority}</span>`,
+      `<span class="record-info__chip">🏭 ${rec.sector}</span>`,
+      `<span class="record-info__chip">📍 ${rec.site}</span>`,
+      `<span class="record-info__chip">👤 ${rec.owner}</span>`,
+    ].join('');
+    document.getElementById('recordInfo').classList.add('visible');
+  }
+
+  /* ── Fill source record fields (read-only) ──────────────── */
+  function populateSourceFields(rec) {
+    const s = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.value = v || '';
+    };
+    s('fRecordId',   rec.id);
+    s('fRecordType', TYPE_LBL[rec.type] || rec.type);
+    s('fPriority',   rec.priority);
+    s('fSite',       rec.site);
+    s('fTitle',      rec.title);
+  }
+
+  /* ── Enable buttons once record loaded ──────────────────── */
+  function enableButtons() {
+    ['btnRunRca','btnGenerate','btnSave'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = false;
+    });
+    document.getElementById('rcaStatus').textContent   = 'Ready to analyse';
+    document.getElementById('capaStatus').textContent  = 'Ready to generate';
+  }
+
+  /* ── RCA method toggle ──────────────────────────────────── */
+  function selectMethod(method) {
+    rcaMethod     = method;
+    currentMethod = method;
+    document.getElementById('btnFiveWhy').classList
+      .toggle('method-btn--active', method === '5why');
+    document.getElementById('btnFishbone').classList
+      .toggle('method-btn--active', method === 'fishbone');
+    clearRCA();
+  }
+
+  /* ── Run RCA ────────────────────────────────────────────── */
+  function runRCA() {
+    if (!currentRecord) return;
+
+    const content   = document.getElementById('rcaContent');
+    const statusEl  = document.getElementById('rcaStatus');
+    const summaryEl = document.getElementById('rcaSummary');
+
+    content.innerHTML   = '<div class="spinner"></div>';
+    statusEl.textContent = 'Running RCA…';
+    summaryEl.classList.remove('visible');
+
+    const endpoint = rcaMethod === '5why'
+      ? '/api/rca/five-why' : '/api/rca/fishbone';
+
+    fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({record: currentRecord}),
+    })
+    .then(r => r.json())
+    .then(data => {
+      rcaData       = data;
+      currentMethod = rcaMethod;
+      if (rcaMethod === '5why') render5Why(data, false);
+      else                       renderFishbone(data, false);
+      statusEl.textContent = `✓ ${rcaMethod === '5why' ? '5-Why' : 'Fishbone'} complete`;
+      _showRCAButtons();
+    })
+    .catch(err => {
+      content.innerHTML = `<div class="banner banner--error">Error: ${err.message}</div>`;
+      statusEl.textContent = 'Error';
+    });
+  }
+
+  /* ── Render 5-Why chain (editable + score badges) ─────────── */
+  function render5Why(data, scored) {
+    const steps = (scored && rcaAssessment?.assessed_steps)
+      ? rcaAssessment.assessed_steps : (data.chain || []);
+    const html = steps.map((s,i) => {
+      const score = s.score;
+      const badge = score
+        ? `<span style="background:${score.color==='green'?'var(--green-pale)':score.color==='amber'?'var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green'?'var(--green)':score.color==='amber'?'var(--amber)':'var(--red)'};border:1px solid;border-radius:20px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;">${score.overall}%</span>` : '';
+      const bars = score ? `<div style="margin-top:4px;font-size:10px;color:var(--text-muted);">
+        Specificity: ${score.specificity}% · Actionability: ${score.actionability}% · Completeness: ${score.completeness}%
+      </div>` : '';
+      return `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px dashed var(--border);">
+        <div style="width:26px;height:26px;border-radius:50%;background:${s.is_root?'var(--red)':'var(--blue)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;">${s.level}</div>
+        <div style="flex:1;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:3px;">${s.why}${badge}</div>
+          <div class="why-answer-display" style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:3px;">${s.because}</div>
+          <textarea class="why-answer-edit" data-idx="${i}" rows="2"
+            style="display:none;width:100%;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
+            placeholder="Edit this step — add SOP ref, equipment ID, date…">${s.because}</textarea>
+          ${s.is_root?'<span style="background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;">✦ Root Cause</span>':''}
+          ${bars}
+        </div>
+      </div>`;
+    }).join('');
+    document.getElementById('rcaContent').innerHTML = `<div id="rcaOutput">${html}</div>`;
+    if (data.root_cause || steps.some(s=>s.is_root)) {
+      const rc = data.root_cause || steps.find(s=>s.is_root)?.because || steps[steps.length-1]?.because || '';
+      document.getElementById('rcaSummaryText').textContent = rc;
+      document.getElementById('rcaSummary').classList.add('visible');
+    }
+    if (scored && rcaAssessment) _showRCAScoreBadge(rcaAssessment.overall_score);
+  }
+
+  /* ── Render Fishbone (editable + score badges + add field) ─ */
+  function renderFishbone(data, scored) {
+    const cats = (scored && rcaAssessment?.assessed_categories)
+      ? rcaAssessment.assessed_categories : (data.categories || {});
+    const html = Object.entries(cats).map(([cat, causes]) => {
+      const hasPrimary = causes.some(c=>c.primary);
+      const causesHtml = causes.map((c,i) => {
+        const score = c.score;
+        const badge = score
+          ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;background:${score.color==='green'?'var(--green-pale)':score.color==='amber'?'var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green'?'var(--green)':score.color==='amber'?'var(--amber)':'var(--red)'};">${score.overall}%</span>` : '';
+        return `<div class="cause-row" style="margin-bottom:8px;">
+          <div style="display:flex;align-items:flex-start;gap:6px;">
+            <input type="checkbox" style="margin-top:3px;accent-color:var(--blue);" ${c.primary?'checked':''}
+              onchange="toggleFBPrimary('${cat}',${i},this.checked)"/>
+            <span class="fishbone-cause ${c.primary?'fishbone-cause--primary':''}" style="flex:1;font-size:12px;">${c.primary?'⚡ ':'• '}${c.text}${badge}</span>
+          </div>
+          <textarea class="cause-edit-area" data-cat="${cat}" data-idx="${i}" rows="2"
+            style="display:none;width:100%;margin-top:5px;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
+            placeholder="Edit cause — add SOP ref, equipment ID, date…">${c.text}</textarea>
+        </div>`;
+      }).join('');
+      return `<div class="fishbone-cat ${hasPrimary?'fishbone-cat--primary':''}">
+        <div class="fishbone-cat__title"><span class="fishbone-cat__icon">${CAT_ICONS[cat]||'•'}</span>${cat}</div>
+        ${causesHtml}
+        <button onclick="addFBCause('${cat}')"
+          style="display:none;width:100%;margin-top:4px;padding:4px;border:1px dashed var(--border);border-radius:var(--r);background:none;color:var(--text-muted);font-size:11px;font-family:var(--font);cursor:pointer;"
+          class="add-cause-btn">+ Add cause for ${cat}</button>
+      </div>`;
+    }).join('');
+    document.getElementById('rcaContent').innerHTML =
+      `<div id="rcaOutput" class="fishbone-grid">${html}</div>`;
+    const primaries = Object.values(cats).flat().filter(c=>c.primary).map(c=>c.text);
+    if (primaries.length) {
+      const summary = primaries.slice(0,2).join('; ') + '.';
+      document.getElementById('rcaSummaryText').textContent = summary;
+      document.getElementById('rcaSummary').classList.add('visible');
+      if (rcaData) rcaData.root_cause = summary;
+    }
+    if (scored && rcaAssessment) _showRCAScoreBadge(rcaAssessment.overall_score);
+  }
+
+  function addFBCause(cat) {
+    if (!rcaData?.categories?.[cat]) return;
+    rcaData.categories[cat].push({text:'',primary:false});
+    renderFishbone(rcaData,false);
+    document.getElementById('rcaOutput')?.classList.add('edit-mode');
+    _inlineEditMode=true;
+    document.getElementById('btnEditRCA').textContent='👁 View Mode';
+  }
+
+  function toggleFBPrimary(cat,idx,checked) {
+    if(rcaData?.categories?.[cat]?.[idx]!==undefined)
+      rcaData.categories[cat][idx].primary=checked;
+  }
+
+  /* ── Use root cause in CAPA form ────────────────────────── */
+  function useRootCause() {
+    const text = document.getElementById('rcaSummaryText').textContent;
+    const ta   = document.getElementById('fRootCause');
+    ta.value   = text;
+    ta.style.borderColor = 'var(--green)';
+    ta.scrollIntoView({behavior:'smooth', block:'nearest'});
+    setTimeout(() => ta.style.borderColor = '', 2000);
+  }
+
+  /* ── Generate CAPA from API ─────────────────────────────── */
+  function generateCAPA() {
+    if (!currentRecord) return;
+
+    const btn = document.getElementById('btnGenerate');
+    const statusEl = document.getElementById('capaStatus');
+    btn.disabled   = true;
+    btn.textContent = '⏳ Generating…';
+    statusEl.textContent = 'Calling AI…';
+
+    fetch('/api/capa/generate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({record: currentRecord}),
+    })
+    .then(r => r.json())
+    .then(capa => {
+      currentCapa = capa;
+      populateCAPAFields(capa);
+      btn.disabled    = false;
+      btn.textContent = '🤖 Regenerate';
+      statusEl.textContent = '✓ CAPA generated';
+      document.getElementById('btnSave').disabled = false;
+      setBanner('✓ CAPA draft generated — review fields and save', 'success');
+    })
+    .catch(err => {
+      btn.disabled    = false;
+      btn.textContent = '🤖 Generate CAPA';
+      statusEl.textContent = 'Error generating';
+      setBanner('Error: ' + err.message, 'error');
+    });
+  }
+
+  /* ── Populate CAPA form fields ──────────────────────────── */
+  function populateCAPAFields(capa) {
+    const s = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.value = v || '';
+    };
+    s('fRootCause',       capa.rootCause);
+    s('fImmediateAction', capa.immediateAction);
+    s('fCorrectiveAction',capa.correctiveAction);
+    s('fPreventiveAction',capa.preventiveAction);
+    s('fCapaOwner',       capa.proposedOwner);
+    s('fEffectiveness',   capa.effectivenessCheck);
+    s('fClosureDays',     (capa.estimatedClosureDays||30) + ' days');
+
+    /* Risk rating dropdown */
+    const rr = document.getElementById('fRiskRating');
+    if (rr) rr.value = capa.riskRating || currentRecord.priority;
+
+    /* Target closure date */
+    const cd = new Date();
+    cd.setDate(cd.getDate() + (capa.estimatedClosureDays || 30));
+    s('fClosureDate', cd.toISOString().split('T')[0]);
+
+    /* Regulatory ref tags */
+    const row = document.getElementById('refTagsRow');
+    row.innerHTML = '';
+    (capa.regulatoryRef || []).forEach(addRefTag);
+  }
+
+  /* ── Save CAPA draft ────────────────────────────────────── */
+ function saveCAPA() {
+    if (!currentRecord || !currentCapa) return;
+
+    const btn = document.getElementById('btnSave');
+    btn.disabled    = true;
+    btn.textContent = '⏳ Saving…';
+
+    /* Collect regulatory ref tags */
+    const refTags = Array.from(
+        document.querySelectorAll('#refTagsRow .ref-tag')
+    ).map(tag => tag.textContent.replace('×','').trim());
+
+    const payload = {
+        sourceRecordId:       currentRecord.id,
+        rootCause:            document.getElementById('fRootCause')?.value       || '',
+        immediateAction:      document.getElementById('fImmediateAction')?.value  || '',
+        correctiveAction:     document.getElementById('fCorrectiveAction')?.value || '',
+        preventiveAction:     document.getElementById('fPreventiveAction')?.value || '',
+        capaOwner:            document.getElementById('fCapaOwner')?.value        || '',
+        effectivenessCheck:   document.getElementById('fEffectiveness')?.value    || '',
+        notes:                document.getElementById('fNotes')?.value            || '',
+        riskRating:           document.getElementById('fRiskRating')?.value       || currentRecord.priority,
+        estimatedClosureDays: parseInt(document.getElementById('fClosureDays')?.value) || 30,
+        regulatoryRef:        refTags,
+    };
+
+    fetch('/api/capa/save', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(result => {
+        btn.disabled    = false;
+        btn.textContent = '✓ Save Draft';
+        document.getElementById('saveStatus').innerHTML = `
+            <div class="status-strip status-strip--success">
+                ✅ CAPA <strong>${result.capaId}</strong> saved!
+                Record status → Under Review
+                <a href="/?section=capas"
+                   style="margin-left:auto;font-size:11px;color:var(--green);font-weight:600;">
+                    → View in Dashboard CAPA Records
+                </a>
+            </div>`;
+        setBanner(`✓ ${result.capaId} saved — view it in Dashboard → CAPA Records tab`, 'success');
+    })
+    .catch(err => {
+        btn.disabled    = false;
+        btn.textContent = '✓ Save Draft';
+        document.getElementById('saveStatus').innerHTML = `
+            <div class="status-strip status-strip--error">
+                ✗ Error saving: ${err.message}
+            </div>`;
+    });
+}
+
+  /* ══════════════════════════════════════════════════════════
+     INQUIRY CHAT — grounded on the loaded record
+  ══════════════════════════════════════════════════════════ */
+  let _inquiryHistory = [];   // [{role, content}, …]
+
+  function showInquiryPanel(rec) {
+    const panel = document.getElementById('inquiryPanel');
+    panel.classList.add('visible');
+    document.getElementById('inquiryRecordLabel').textContent =
+      `${rec.id} · ${rec.title.substring(0,60)}${rec.title.length > 60 ? '…' : ''}`;
+  }
+
+  function clearInquiry() {
+    _inquiryHistory = [];
+    document.getElementById('inquiryMessages').innerHTML = `
+      <div class="inquiry-empty" id="inquiryEmpty">
+        <div class="inquiry-empty__icon">💬</div>
+        <div class="inquiry-empty__text">
+          Ask anything about the loaded record.<br/>
+          The AI has read all extracted fields and will answer based on them.
+        </div>
+      </div>`;
+  }
+
+  function askSuggestion(btn) {
+    document.getElementById('inquiryInput').value = btn.textContent;
+    sendInquiry();
+  }
+
+  function _appendMsg(role, text) {
+    const empty = document.getElementById('inquiryEmpty');
+    if (empty) empty.remove();
+    const box = document.getElementById('inquiryMessages');
+    const div = document.createElement('div');
+    div.className = `msg msg--${role}`;
+    const html = text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/`(.+?)`/g,'<code>$1</code>')
+      .replace(/\n/g,'<br>');
+    div.innerHTML = `
+      <div class="msg__avatar">${role === 'user' ? '👤' : '🤖'}</div>
+      <div class="msg__bubble">${html}</div>`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function sendInquiry() {
+    if (!currentRecord) return;
+    const input = document.getElementById('inquiryInput');
+    const btn   = document.getElementById('inquirySendBtn');
+    const q     = input.value.trim();
+    if (!q) return;
+
+    input.value  = '';
+    btn.disabled = true;
+    _appendMsg('user', q);
+    _inquiryHistory.push({ role: 'user', content: q });
+
+    // Typing indicator
+    const box = document.getElementById('inquiryMessages');
+    const typing = document.createElement('div');
+    typing.id = '_typingMsg';
+    typing.className = 'msg msg--assistant msg--typing';
+    typing.innerHTML = `<div class="msg__avatar">🤖</div><div class="msg__bubble">Analysing record…</div>`;
+    box.appendChild(typing);
+    box.scrollTop = box.scrollHeight;
+
+    try {
+      const res  = await fetch('/api/records/inquire', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          question: q,
+          record:   currentRecord,
+          history:  _inquiryHistory.slice(0, -1),
+        }),
+      });
+      const data = await res.json();
+      const t = document.getElementById('_typingMsg');
+      if (t) t.remove();
+
+      const answer = data.error ? `⚠️ ${data.error}` : (data.answer || 'No response.');
+      _appendMsg('assistant', answer);
+      if (!data.error) _inquiryHistory.push({ role: 'assistant', content: answer });
+    } catch (err) {
+      const t = document.getElementById('_typingMsg');
+      if (t) t.remove();
+      _appendMsg('assistant', `⚠️ Network error: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+      input.focus();
+    }
+  }
+
+
+  /* ── Inline RCA edit & reassess ─────────────────────────── */
+  let _inlineEditMode = false;
+
+  function toggleInlineEdit() {
+    _inlineEditMode = !_inlineEditMode;
+    const btn    = document.getElementById('btnEditRCA');
+    const output = document.getElementById('rcaOutput');
+    if (!output) { setBanner('Run RCA first, then click Edit', 'warning'); return; }
+
+    if (_inlineEditMode) {
+      // Show all edit textareas + add-cause buttons
+      output.querySelectorAll('.why-answer-edit, .cause-edit-area')
+        .forEach(ta => { ta.style.display = 'block'; });
+      output.querySelectorAll('.add-cause-btn')
+        .forEach(b  => { b.style.display  = 'block'; });
+      // Pre-populate if empty
+      output.querySelectorAll('.cause-edit-area').forEach(ta => {
+        if (!ta.value.trim()) {
+          const disp = ta.closest('.cause-row')?.querySelector('.fishbone-cause');
+          if (disp) ta.value = disp.textContent.replace(/^[⚡•]\s*/,'').trim();
+        }
+      });
+      output.querySelectorAll('.why-answer-edit').forEach(ta => {
+        if (!ta.value.trim()) {
+          const disp = ta.closest('div')?.querySelector('.why-answer-display');
+          if (disp) ta.value = disp.textContent.trim();
+        }
+      });
+      btn.textContent = '👁 View Mode';
+      setBanner('✏️ Edit mode — update any RCA field, add causes, then click Reassess Score', 'info');
+    } else {
+      output.querySelectorAll('.why-answer-edit, .cause-edit-area')
+        .forEach(ta => { ta.style.display = 'none'; });
+      output.querySelectorAll('.add-cause-btn')
+        .forEach(b  => { b.style.display  = 'none'; });
+      btn.textContent = '✏️ Edit RCA';
+    }
+  }
+
+  function reassessInline() {
+    if (!rcaData || !currentRecord) return;
+    // Read edited values
+    const output = document.getElementById('rcaOutput');
+    if (output) {
+      if (currentMethod === 'fishbone') {
+        const cats = rcaData.categories || {};
+        Object.keys(cats).forEach(cat => {
+          cats[cat].forEach((cause, i) => {
+            const ta = output.querySelector(`.cause-edit-area[data-cat="${cat}"][data-idx="${i}"]`);
+            if (ta && ta.value.trim()) cause.text = ta.value.trim();
+          });
+        });
+      } else {
+        (rcaData.chain || []).forEach((step, i) => {
+          const ta = output.querySelector(`.why-answer-edit[data-idx="${i}"]`);
+          if (ta && ta.value.trim()) step.because = ta.value.trim();
+        });
+      }
+    }
+    // Re-render then reassess
+    if (_inlineEditMode) toggleInlineEdit();
+    if (currentMethod === '5why') render5Why(rcaData, false);
+    else renderFishbone(rcaData, false);
+
+    const btn = document.getElementById('btnReassessRCA');
+    btn.disabled = true; btn.textContent = '⏳ Scoring…';
+
+    fetch('/api/rca/assess', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ rca_data: rcaData, method: currentMethod, record: currentRecord }),
+    })
+    .then(r => r.json())
+    .then(d => {
+      rcaAssessment = d;
+      btn.disabled = false; btn.textContent = '🔄 Reassess Score';
+      const score   = d.overall_score || 0;
+      const verdict = score >= 75 ? 'Strong RCA' : score >= 55 ? 'Moderate RCA' : 'Needs Improvement';
+      const color   = score >= 75 ? 'var(--green)' : score >= 55 ? 'var(--amber)' : 'var(--red)';
+
+      // Re-render with scores
+      if (currentMethod === '5why') render5Why(rcaData, true);
+      else renderFishbone(rcaData, true);
+
+      _showRCAScoreBadge(score);
+
+      // Auto-show Sync Now if score ≥ 55
+      if (score >= 55) {
+        const rcaSummary = document.getElementById('rcaSummary');
+        const existing   = document.getElementById('rcaSyncBanner');
+        if (rcaSummary && !existing) {
+          const sb = document.createElement('div');
+          sb.id = 'rcaSyncBanner';
+          sb.style.cssText = 'margin-top:8px;padding:8px 12px;background:var(--green-pale);border:1px solid #a3d4b5;border-radius:var(--r);display:flex;align-items:center;justify-content:space-between;';
+          sb.innerHTML = `<span style="font-size:11px;color:var(--green);font-weight:600;">✓ Score ${score}% — click to sync root cause to CAPA form</span>
+            <button onclick="useRootCause();document.getElementById('rcaSyncBanner')?.remove();"
+              style="background:var(--green);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font);">→ Sync Now</button>`;
+          rcaSummary.appendChild(sb);
+        }
+      }
+      setBanner(`✓ Reassessment: ${verdict} (${score}%)`, score>=75?'success':'warning');
+    })
+    .catch(() => {
+      btn.disabled = false; btn.textContent = '🔄 Reassess Score';
+      setBanner('Reassessment error — check console', 'error');
+    });
+  }
+
+  /* ── Show RCA buttons after run ────────────────────────── */
+  function _showRCAButtons() {
+    ['btnEditRCA','btnReassessRCA','btnAIImproveRCA'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.style.display = ''; el.disabled = false; }
+    });
+  }
+
+  /* ── Show RCA score badge below RCA panel header ────────── */
+  function _showRCAScoreBadge(score) {
+    const existing = document.getElementById('rcaScoreBadge');
+    if (existing) existing.remove();
+    const color = score >= 75 ? 'var(--green)' : score >= 55 ? 'var(--amber)' : 'var(--red)';
+    const label = score >= 75 ? 'Strong' : score >= 55 ? 'Moderate' : 'Weak';
+    const badge = document.createElement('div');
+    badge.id = 'rcaScoreBadge';
+    badge.style.cssText = `display:flex;align-items:center;justify-content:space-between;
+      padding:8px 14px;border-radius:var(--r);border:1px solid ${color};
+      background:${color}22;margin-bottom:10px;`;
+    badge.innerHTML = `
+      <span style="font-size:12px;font-weight:600;color:${color}">
+        RCA Assessment: ${label}
+      </span>
+      <span style="font-size:22px;font-weight:800;color:${color}">${score}%</span>`;
+    const content = document.getElementById('rcaContent');
+    if (content) content.insertBefore(badge, content.firstChild);
+  }
+
+  /* ── Clear helpers ──────────────────────────────────────── */
+  function clearRCA() {
+    document.getElementById('rcaContent').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state__icon">🔎</div>
+        <div class="empty-state__text">
+          Click <strong>Run RCA Analysis</strong> to begin
+        </div>
+      </div>`;
+    document.getElementById('rcaSummary').classList.remove('visible');
+    document.getElementById('rcaStatus').textContent =
+      currentRecord ? 'Ready to analyse' : 'No record selected';
+  }
+
+  function clearForm() {
+    ['fRootCause','fImmediateAction','fCorrectiveAction',
+     'fPreventiveAction','fEffectiveness','fNotes','fCapaOwner']
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+    document.getElementById('refTagsRow').innerHTML = '';
+    document.getElementById('saveStatus').innerHTML = '';
+    currentCapa = null;
+  }
+
+  /* ── Regulatory ref tag input ───────────────────────────── */
+  function bindRefInput() {
+    const input = document.getElementById('refInput');
+    if (!input) return;
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const v = input.value.trim();
+        if (v) { addRefTag(v); input.value = ''; }
+      }
+    });
+  }
+
+  function addRefTag(text) {
+    const row = document.getElementById('refTagsRow');
+    const tag = document.createElement('span');
+    tag.className = 'ref-tag';
+    tag.innerHTML = `${text}
+      <button class="ref-tag__remove" type="button"
+              onclick="this.parentElement.remove()">×</button>`;
+    row.appendChild(tag);
+  }
+
+  /* ── Banner helper ──────────────────────────────────────── */
+  function setBanner(msg, type) {
+    const b = document.getElementById('banner');
+    const icons = {info:'ℹ',success:'✓',warning:'⚠',error:'✗'};
+    b.className = `banner banner--${type}`;
+    b.innerHTML = `<span>${icons[type]}</span> ${msg}`;
+  }
+</script>
+
+
+<script>
+  /* ── Upload Modal State ── */
+  let _uploadFile   = null;
+  let _extractedRec = null;
+
+  function openUploadModal() {
+    document.getElementById('uploadOverlay').classList.add('open');
+  }
+  function closeUploadModal() {
+    document.getElementById('uploadOverlay').classList.remove('open');
+    clearUploadFile();
+  }
+  function closeUploadOnBg(e) {
+    if (e.target === document.getElementById('uploadOverlay')) closeUploadModal();
+  }
+
+  /* ── Drag & Drop ── */
+  function onDragOver(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').classList.add('drag-over');
+  }
+  function onDragLeave(e) {
+    document.getElementById('dropZone').classList.remove('drag-over');
+  }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) setUploadFile(file);
+  }
+  function onFileSelected(input) {
+    if (input.files[0]) setUploadFile(input.files[0]);
+  }
+
+  /* ── File icons by extension ── */
+  function fileIcon(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    const m = {pdf:'📄',xlsx:'📊',xls:'📊',csv:'📊',
+               png:'🖼',jpg:'🖼',jpeg:'🖼',bmp:'🖼',tiff:'🖼',
+               docx:'📝',doc:'📝',txt:'📃'};
+    return m[ext] || '📄';
+  }
+
+  function setUploadFile(file) {
+    _uploadFile = file;
+    // Show preview
+    const p = document.getElementById('uploadPreview');
+    document.getElementById('previewIcon').textContent = fileIcon(file.name);
+    document.getElementById('previewName').textContent = file.name;
+    document.getElementById('previewSize').textContent =
+      (file.size / 1024).toFixed(1) + ' KB';
+    p.classList.add('show');
+    // Show extract button
+    document.getElementById('btnProcess').style.display = '';
+    document.getElementById('btnSaveRecord').style.display = 'none';
+    document.getElementById('uploadExtracted').classList.remove('show');
+    setUploadStatus('', '');
+  }
+
+  function clearUploadFile() {
+    _uploadFile   = null;
+    _extractedRec = null;
+    document.getElementById('uploadPreview').classList.remove('show');
+    document.getElementById('uploadExtracted').classList.remove('show');
+    document.getElementById('btnProcess').style.display = 'none';
+    document.getElementById('btnSaveRecord').style.display = 'none';
+    document.getElementById('uploadFileInput').value = '';
+    setUploadStatus('', '');
+  }
+
+  function setUploadStatus(msg, type) {
+    const el = document.getElementById('uploadStatus');
+    if (!msg) { el.classList.remove('show'); return; }
+    el.className = `upload-status show upload-status--${type}`;
+    el.textContent = msg;
+  }
+
+  /* ── Process Upload → AI Extraction ── */
+  async function processUpload() {
+    if (!_uploadFile) return;
+    const btn = document.getElementById('btnProcess');
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing…';
+    setUploadStatus('🤖 Sending to AI for extraction…', 'processing');
+
+    try {
+      const fd = new FormData();
+      fd.append('file', _uploadFile);
+      const res  = await fetch('/api/records/upload', { method:'POST', body: fd });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setUploadStatus('❌ ' + (data.error || 'Upload failed'), 'error');
+        btn.disabled = false; btn.textContent = '🤖 Extract with AI';
+        return;
+      }
+
+      _extractedRec = data.record;
+      populateExtractedForm(_extractedRec);
+      setUploadStatus('✅ ' + data.message, 'success');
+      document.getElementById('uploadExtracted').classList.add('show');
+      document.getElementById('btnSaveRecord').style.display = '';
+      btn.style.display = 'none';
+
+    } catch(err) {
+      setUploadStatus('❌ Network error: ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = '🤖 Extract with AI';
+    }
+  }
+
+  function populateExtractedForm(r) {
+    document.getElementById('extId').value    = r.id      || '';
+    document.getElementById('extTitle').value = r.title   || '';
+    document.getElementById('extSite').value  = r.site    || '';
+    document.getElementById('extOwner').value = r.owner   || '';
+    document.getElementById('extDesc').value  = r.description || '';
+    const setSelect = (id, val) => {
+      const el = document.getElementById(id);
+      for (let o of el.options) if (o.value === val || o.text === val) { o.selected=true; break; }
+    };
+    setSelect('extType',     r.type);
+    setSelect('extPriority', r.priority);
+    setSelect('extSector',   r.sector);
+  }
+
+  /* ── Save & add to dropdown ── */
+  function saveExtractedRecord() {
+    if (!_extractedRec) return;
+
+    // Merge edits from form back into record
+    _extractedRec.title       = document.getElementById('extTitle').value;
+    _extractedRec.type        = document.getElementById('extType').value;
+    _extractedRec.priority    = document.getElementById('extPriority').value;
+    _extractedRec.sector      = document.getElementById('extSector').value;
+    _extractedRec.site        = document.getElementById('extSite').value;
+    _extractedRec.owner       = document.getElementById('extOwner').value;
+    _extractedRec.description = document.getElementById('extDesc').value;
+
+    // Add to dropdown immediately
+    const sel = document.getElementById('recordSelect');
+    const opt = document.createElement('option');
+    opt.value = _extractedRec.id;
+    opt.text  = `${_extractedRec.id} · ${_extractedRec.title.substring(0,50)}…`;
+    sel.appendChild(opt);
+    sel.value = _extractedRec.id;
+
+    // Store for loadRecord()
+    window._uploadedRecords = window._uploadedRecords || {};
+    window._uploadedRecords[_extractedRec.id] = _extractedRec;
+
+    setUploadStatus('✅ Record added to the dropdown. Select it and click Load Record.', 'success');
+    document.getElementById('btnSaveRecord').style.display = 'none';
+
+    // Also immediately set as currentRecord and show inquiry panel
+    window._uploadedRecords[_extractedRec.id] = _extractedRec;
+    currentRecord = _extractedRec;
+    populateRecordInfo(_extractedRec);
+    populateSourceFields(_extractedRec);
+    enableButtons();
+    showInquiryPanel(_extractedRec);
+
+    // Close modal after 1.5s
+    setTimeout(() => closeUploadModal(), 1500);
+  }
+
+
+  /* ══════════════════════════════════════════════════════════
+     AI IMPROVE MODAL — inline CAPA page
+  ══════════════════════════════════════════════════════════ */
+  let _aiProposedModels = null;
+  let _aiSelectedModelId = null;
+
+  function openAIImproveInline() {
+    if (!currentRecord) {
+      setBanner('Load a record and run RCA first.', 'warning');
+      return;
+    }
+    if (!rcaData) {
+      setBanner('Run RCA Analysis first, then click AI Improve.', 'warning');
+      return;
+    }
+    document.getElementById('aiImproveModal').classList.add('open');
+    loadAIModels();
+  }
+
+  function closeAIImproveModal() {
+    document.getElementById('aiImproveModal').classList.remove('open');
+    _aiSelectedModelId = null;
+  }
+
+  function loadAIModels() {
+    const grid = document.getElementById('aiModelsGrid');
+    grid.innerHTML = '<div class="spinner" style="margin:20px auto;width:28px;height:28px;border-width:3px;"></div>';
+    _aiSelectedModelId = null;
+    document.getElementById('btnApplyAIModel').disabled = true;
+
+    fetch('/api/rca/propose', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ record: currentRecord, method: currentMethod }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      _aiProposedModels = data;
+      const clsMap = { basic: 'model-card--a', standard: 'model-card--b', enhanced: 'model-card--c' };
+      const icons  = { basic: '🔵', standard: '🟡', enhanced: '🟢' };
+      grid.innerHTML = data.models.map(m => `
+        <div class="ai-model-card ${clsMap[m.id] || ''}" id="aimc-${m.id}"
+             onclick="selectAIModel('${m.id}')">
+          <div class="ai-model-card__check">✅</div>
+          <div class="ai-model-card__icon">${m.icon || icons[m.id] || '🤖'}</div>
+          <div class="ai-model-card__name">${m.name}</div>
+          <div class="ai-model-card__score">~${m.estimated_score}%</div>
+          <div class="ai-model-card__badge">${m.badge}</div>
+          <div class="ai-model-card__desc">${m.description}</div>
+        </div>`).join('');
+    })
+    .catch(() => {
+      grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Error loading models. Try again.</div>';
+    });
+  }
+
+  function selectAIModel(id) {
+    _aiSelectedModelId = id;
+    document.querySelectorAll('.ai-model-card').forEach(c => c.classList.remove('ai-model-card--selected'));
+    document.getElementById('aimc-' + id)?.classList.add('ai-model-card--selected');
+    document.getElementById('btnApplyAIModel').disabled = false;
+  }
+
+  function applyAIModelInline() {
+    if (!_aiSelectedModelId || !_aiProposedModels) return;
+    const model = _aiProposedModels.models.find(m => m.id === _aiSelectedModelId);
+    if (!model) return;
+
+    if (currentMethod === 'fishbone') {
+      if (model.categories) {
+        rcaData.categories = model.categories;
+        renderFishbone(rcaData, false);
+      }
+    } else {
+      // 5-Why: use chain if available, else build from categories
+      if (model.chain && model.chain.length > 0) {
+        rcaData.chain      = model.chain;
+        rcaData.root_cause = model.chain[model.chain.length - 1]?.because || '';
+      } else if (model.categories) {
+        const primaries = Object.values(model.categories)
+          .flat().filter(c => c.primary).slice(0, 5);
+        const whys = [
+          'Why did the quality event occur?',
+          'Why did this cause arise?',
+          'Why was this not prevented?',
+          'Why was the control missing?',
+          'Why was the root issue not addressed earlier?',
+        ];
+        if (primaries.length) {
+          rcaData.chain = primaries.map((c, i) => ({
+            level: i + 1, why: whys[i] || `Why ${i+1}?`,
+            because: c.text, is_root: i === primaries.length - 1,
+          }));
+          rcaData.root_cause = primaries[primaries.length - 1].text;
+        }
+      }
+      render5Why(rcaData, false);
+    }
+
+    closeAIImproveModal();
+    _showRCAButtons();
+
+    // Show reassess prompt
+    const status = document.getElementById('rcaStatus');
+    if (status) status.textContent = `${model.name} applied — click Reassess Score`;
+    setBanner(
+      `✓ ${model.name} (~${model.estimated_score}%) applied — click Reassess Score to update accuracy, then Sync to CAPA form`,
+      'success'
+    );
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeUploadModal(); closeAIImproveModal(); }
+  });
+</script>
+{% endblock %}
