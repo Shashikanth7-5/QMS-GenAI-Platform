@@ -1,68 +1,17 @@
-# ══════════════════════════════════════════════════════════
-# QMS GenAI — .gitignore
-# NEVER commit secrets, data files, or compiled artifacts
-# ══════════════════════════════════════════════════════════
-
-# ── Secrets & config ──────────────────────────────────────
 .env
-*.env
-.env.*
-!.env.example
-secrets.json
-config_local.py
-
-# ── QMS data files (contain real quality records) ─────────
-uploaded_records.json
-capa_store.json
-users_data.json
-audit_log.json
-finetune_data.jsonl
-finetune_jobs.json
-*.lock
-
-# ── Python ────────────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-dist/
-*.egg-info/
-.eggs/
-
-# ── Virtual environment ───────────────────────────────────
 .venv/
-venv/
-ENV/
-env/
-.env/
-
-# ── IDEs ──────────────────────────────────────────────────
+*.pyc
+*.pyo
 .idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
-
-# ── Test & coverage ───────────────────────────────────────
 .pytest_cache/
-.coverage
-htmlcov/
-.tox/
-
-# ── Uploads (patient/device data — never commit) ─────────
-uploads/
-static/uploads/
-*.pdf
-*.xlsx
-*.docx
-
-# ── Logs ──────────────────────────────────────────────────
+audit_log.json
+capa_store.json
+uploaded_records.json
+users_data.json
 *.log
-logs/
-
-# ── Distribution ─────────────────────────────────────────
-*.zip
-*.tar.gz
+fix_capa.py
+test_gemini.py

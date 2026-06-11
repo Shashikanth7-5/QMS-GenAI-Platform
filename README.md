@@ -16,7 +16,7 @@ Built with Python · Flask · SQLAlchemy · Anthropic Claude · SSE Streaming
 - **Global Search** — Full-text search across 1000+ records with relevance scoring
 - **Audit Trail** — Every action logged with user, timestamp, and change detail
 - **Chat** — "Ask About This Record" answers questions from record fields
-- **Role-Based Access** — 6 roles: QA Admin, Manager, Analyst, Reviewer, Auditor, Developer
+- **Role-Based Access** — 3 roles: admin, quality analyst, user
 
 ## Tech Stack
 

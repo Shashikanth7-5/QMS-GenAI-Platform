@@ -1,4 +1,4 @@
-@"
+
 .env
 *.db
 *.db-shm
@@ -15,4 +15,3 @@ users_data.json
 *.log
 fix_capa.py
 test_gemini.py
-"@ | Set-Content .gitignore

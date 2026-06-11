@@ -31,7 +31,7 @@ pytest==8.2.2
 pytest-flask==1.3.0
 
 # ── Sprint 3 — Database (uncomment when PostgreSQL arrives) ────
-# sqlalchemy==2.0.31
+ sqlalchemy==2.0.31
 # psycopg2-binary==2.9.9
 
 # ── Sprint 3 — Fine-tuning (uncomment when API key available) ──
