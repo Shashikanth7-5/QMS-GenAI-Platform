@@ -1,8 +1,8 @@
 # services/ai_service.py
 # ─────────────────────────────────────────────────────────
 # AI SERVICE — Sprint 2
-# Retry + Exponential Backoff + Circuit Breaker + Gemini Fix
-# Providers: mock | gemini | anthropic | openai | azure | groq
+# Retry + Exponential Backoff + Circuit Breaker + Zscaler Detection
+# Providers: mock | gemini | anthropic | openai | azure | groq | bedrock
 # ─────────────────────────────────────────────────────────
 
 import json
@@ -13,36 +13,29 @@ from typing import Generator
 import httpx
 from dotenv import load_dotenv
 
-load_dotenv()   # ensure .env is loaded before reading any vars
+load_dotenv()
 
 from config import MOCK_MODE
 from services.capa_service import build_mock_capa
 
-# ── AI provider config — all from .env ───────────────────
 AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
 AI_API_KEY  = os.getenv("AI_API_KEY",  "")
-AI_MODEL    = os.getenv("AI_MODEL",    "gemini-2.0-flash")
+AI_MODEL    = os.getenv("AI_MODEL",    "llama-3.1-70b-versatile")
 AI_BASE_URL = os.getenv("AI_BASE_URL", "")
 
-# ── Retry settings ────────────────────────────────────────
 _MAX_RETRIES = 3
-_BACKOFF     = 2        # seconds — doubles each attempt: 2s, 4s, 8s
-_RETRY_ON    = {429, 500, 502, 503, 504}   # transient — worth retrying
-_FAIL_FAST   = {400, 401, 403}             # auth/bad request — stop immediately
+_BACKOFF     = 2
+_RETRY_ON    = {429, 500, 502, 503, 504}
+_FAIL_FAST   = {400, 401, 403}
 
 
-# ═════════════════════════════════════════════════════════
-# CIRCUIT BREAKER
-# Stops sending requests to a dead provider automatically.
-# States: CLOSED (normal) → OPEN (blocked) → HALF_OPEN (testing)
-# ═════════════════════════════════════════════════════════
 class _CircuitBreaker:
-    def __init__(self, threshold: int = 5, cooldown: int = 60):
-        self.failures   = 0
-        self.threshold  = threshold
-        self.cooldown   = cooldown
-        self.state      = "CLOSED"
-        self.opened_at  = None
+    def __init__(self, threshold: int = 5, cooldown: int = 10):
+        self.failures  = 0
+        self.threshold = threshold
+        self.cooldown  = cooldown
+        self.state     = "CLOSED"
+        self.opened_at = None
 
     def allow(self) -> bool:
         if self.state == "CLOSED":
@@ -53,11 +46,11 @@ class _CircuitBreaker:
                 print(f"[ai_service] Circuit HALF_OPEN — testing {AI_PROVIDER} again")
                 return True
             return False
-        return True  # HALF_OPEN — allow one test request
+        return True
 
     def record_success(self):
-        self.failures  = 0
-        self.state     = "CLOSED"
+        self.failures = 0
+        self.state    = "CLOSED"
 
     def record_failure(self):
         self.failures += 1
@@ -71,12 +64,7 @@ class _CircuitBreaker:
 _breaker = _CircuitBreaker(threshold=5, cooldown=10)
 
 
-# ═════════════════════════════════════════════════════════
-# PUBLIC FUNCTIONS — called by routes/ — signatures unchanged
-# ═════════════════════════════════════════════════════════
-
 def generate_capa(record: dict) -> dict:
-    """Non-streaming CAPA generation. Returns a CAPA dict."""
     if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
         time.sleep(0.5)
         return build_mock_capa(record)
@@ -84,7 +72,6 @@ def generate_capa(record: dict) -> dict:
 
 
 def stream_capa(record: dict) -> Generator[str, None, None]:
-    """Streaming CAPA generation — yields SSE events."""
     if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
         yield from _mock_stream(record)
     else:
@@ -92,39 +79,29 @@ def stream_capa(record: dict) -> Generator[str, None, None]:
 
 
 def generate_rca(record: dict, method: str) -> dict:
-    """Non-streaming RCA generation. Falls back to mock on any failure."""
     from services.rca_service import build_five_why, build_fishbone
-
-    # Always use mock if mock mode or no key
     if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
         time.sleep(0.4)
         return build_five_why(record) if method == "5why" else build_fishbone(record)
-
-    # Try live AI — _live_generate handles retry + fallback internally
     try:
         result = _live_generate(_build_rca_prompt(record, method))
-        # If we got fallback mock CAPA format, return proper RCA mock instead
         if result.get("_fallback") or "rootCause" in result:
             return build_five_why(record) if method == "5why" else build_fishbone(record)
         return result
     except Exception:
         return build_five_why(record) if method == "5why" else build_fishbone(record)
 
-# ═════════════════════════════════════════════════════════
-# LIVE GENERATION WITH RETRY + CIRCUIT BREAKER
-# ═════════════════════════════════════════════════════════
 
 def _live_generate(prompt: str) -> dict:
     print(f"[ai_service] Calling {AI_PROVIDER} | "
           f"URL: {AI_BASE_URL or 'default'} | "
           f"Model: {AI_MODEL} | "
           f"Key: {AI_API_KEY[:8]}...")
-    """
-    Non-streaming call with:
-    - Exponential backoff retry (2s, 4s, 8s)
-    - Circuit breaker (opens after 5 consecutive failures)
-    - Mock fallback when all retries exhausted
-    """
+
+    # ── Amazon Bedrock uses boto3, not httpx ──────────────
+    if AI_PROVIDER == "bedrock":
+        return _bedrock_generate(prompt)
+
     if not _breaker.allow():
         print("[ai_service] Circuit OPEN — returning mock fallback")
         result = build_mock_capa({})
@@ -137,52 +114,44 @@ def _live_generate(prompt: str) -> dict:
     for attempt in range(_MAX_RETRIES):
         try:
             headers, payload, url = _build_request(prompt, stream=False)
-           # resp = httpx.post(url, headers=headers, json=payload, timeout=60.0)
-            resp = httpx.post(url, headers=headers, json=payload, timeout=60.0, verify=False)
+            resp = httpx.post(url, headers=headers, json=payload,
+                              timeout=60.0, verify=False)
 
-
-            # Auth/bad request — check if it's Zscaler blocking
             if resp.status_code in _FAIL_FAST:
                 _breaker.record_failure()
-                # Zscaler returns 403 with HTML — treat as network block, return mock
                 if "zscaler" in resp.text.lower() or "<!doctype" in resp.text.lower():
-                    print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} — "
-                          f"BLOCKED BY ZSCALER — returning mock fallback")
+                    print("[ai_service] ZSCALER BLOCK — returning mock fallback")
                     result = build_mock_capa({})
                     result["_fallback"] = True
-                    result["_error"] = "Blocked by corporate proxy"
+                    result["_error"]    = "Blocked by corporate proxy (Zscaler)"
                     return result
                 raise RuntimeError(
-                    f"AI API fatal {resp.status_code}: {resp.text[:300]}"
-                )
+                    f"AI API fatal {resp.status_code}: {resp.text[:300]}")
 
-            # Transient error — retry with backoff
             if resp.status_code in _RETRY_ON:
                 wait = _BACKOFF ** (attempt + 1)
                 retry_after = resp.headers.get("Retry-After")
                 if retry_after:
                     wait = int(retry_after)
                 last_error = f"HTTP {resp.status_code}"
-                print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} "
+                print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} "
                       f"failed ({last_error}) — retrying in {wait}s")
                 time.sleep(wait)
                 continue
 
             resp.raise_for_status()
-
-            # Parse response
-            text = _extract_text(resp.json())
-            text = text.replace("```json", "").replace("```", "").strip()
+            text   = _extract_text(resp.json())
+            text   = text.replace("```json", "").replace("```", "").strip()
             result = json.loads(text)
             _breaker.record_success()
             print(f"[ai_service] Success — {AI_PROVIDER}/{AI_MODEL} "
-                  f"(attempt {attempt + 1})")
+                  f"(attempt {attempt+1})")
             return result
 
         except httpx.TimeoutException:
             last_error = "Timeout"
             wait = _BACKOFF ** (attempt + 1)
-            print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} "
+            print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} "
                   f"timed out — retrying in {wait}s")
             time.sleep(wait)
 
@@ -191,70 +160,31 @@ def _live_generate(prompt: str) -> dict:
             raise RuntimeError(f"AI returned invalid JSON: {e}") from e
 
         except RuntimeError:
-            raise  # re-raise fatal errors (auth etc.)
-
+            raise
 
         except Exception as e:
-
-            last_error = str(e)
-
+            last_error  = str(e)
+            error_type  = type(e).__name__
             _breaker.record_failure()
-
             wait = _BACKOFF ** (attempt + 1)
 
-            # Detailed error diagnosis
-
-            error_type = type(e).__name__
-
             if "WinError 10054" in str(e):
-
-                print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} — "
-
-                      f"CONNECTION RESET: Zscaler/firewall dropped the connection. "
-
-                      f"Try phone hotspot or proxy config.")
-
+                print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} — "
+                      f"CONNECTION RESET: Zscaler/firewall dropped the connection.")
             elif "CERTIFICATE_VERIFY_FAILED" in str(e):
-
-                print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} — "
-
-                      f"SSL BLOCKED: Zscaler intercepting HTTPS. verify=False should fix this.")
-
-            elif "403" in str(e) or "Forbidden" in str(e):
-
-                print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} — "
-
-                      f"BLOCKED BY PROXY: Zscaler returning 403. "
-
-                      f"API domain is blocked on office network.")
-
+                print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} — "
+                      f"SSL BLOCKED: verify=False should fix this.")
             elif "401" in str(e) or "Unauthorized" in str(e):
-
-                print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} — "
-
-                      f"AUTH FAILED: API key is wrong or expired.")
-
+                print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} — "
+                      f"AUTH FAILED: API key wrong or expired.")
             elif "ConnectError" in error_type or "ConnectionError" in error_type:
-
-                print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} — "
-
+                print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} — "
                       f"CANNOT CONNECT: DNS or network unreachable.")
-
-            elif "TimeoutException" in error_type:
-
-                print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} — "
-
-                      f"TIMEOUT: Request took too long.")
-
             else:
-
-                print(f"[ai_service] Attempt {attempt + 1}/{_MAX_RETRIES} — "
-
+                print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} — "
                       f"{error_type}: {e}")
-
             time.sleep(wait)
 
-    # All retries exhausted
     _breaker.record_failure()
     print(f"[ai_service] All {_MAX_RETRIES} retries failed "
           f"({last_error}) — returning mock fallback")
@@ -264,12 +194,55 @@ def _live_generate(prompt: str) -> dict:
     return result
 
 
+def _bedrock_generate(prompt: str) -> dict:
+    """
+    Amazon Bedrock via boto3 — HIPAA-eligible, data stays in AWS region.
+    To activate: pip install boto3
+    Configure AWS credentials: aws configure OR set AWS_ACCESS_KEY_ID env vars.
+    Set in .env: AI_PROVIDER=bedrock, AI_MODEL=anthropic.claude-3-haiku-20240307-v1:0
+    """
+    try:
+        import boto3  # noqa: F401 — checked at runtime
+        import json as _json
+
+        region = os.getenv("AWS_REGION", "us-east-1")
+        client = boto3.client("bedrock-runtime", region_name=region)
+
+        body = _json.dumps({
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens":        2000,
+            "messages": [{"role": "user", "content": prompt}],
+        })
+
+        response = client.invoke_model(
+            modelId=AI_MODEL,
+            body=body,
+            contentType="application/json",
+            accept="application/json",
+        )
+
+        response_body = _json.loads(response["body"].read())
+        text = response_body["content"][0]["text"]
+        text = text.replace("```json", "").replace("```", "").strip()
+        result = _json.loads(text)
+        print(f"[ai_service] Bedrock success — {AI_MODEL}")
+        return result
+
+    except ImportError:
+        print("[ai_service] boto3 not installed — run: pip install boto3")
+        result = build_mock_capa({})
+        result["_fallback"] = True
+        result["_error"]    = "boto3 not installed. Run: pip install boto3"
+        return result
+    except Exception as e:
+        print(f"[ai_service] Bedrock error: {e}")
+        result = build_mock_capa({})
+        result["_fallback"] = True
+        result["_error"]    = str(e)
+        return result
+
+
 def _live_stream(prompt: str) -> Generator[str, None, None]:
-    """
-    Streaming call with retry on connection errors.
-    Falls back to mock stream when all retries exhausted.
-    Handles Anthropic, OpenAI, Groq, and Gemini SSE formats.
-    """
     if not _breaker.allow():
         print("[ai_service] Circuit OPEN — streaming mock fallback")
         yield from _mock_stream({})
@@ -280,7 +253,6 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
             headers, payload, url = _build_request(prompt, stream=True)
             buffer = ""
 
-            # with httpx.Client(timeout=120.0) as client:
             with httpx.Client(timeout=120.0, verify=False) as client:
                 with client.stream("POST", url,
                                    headers=headers, json=payload) as resp:
@@ -293,16 +265,14 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
 
                     if resp.status_code in _RETRY_ON:
                         wait = _BACKOFF ** (attempt + 1)
-                        print(f"[ai_service] Stream attempt {attempt + 1} "
+                        print(f"[ai_service] Stream attempt {attempt+1} "
                               f"failed (HTTP {resp.status_code}) — retrying in {wait}s")
                         time.sleep(wait)
-                        break  # break inner loop to retry
+                        break
 
                     current_event = None
 
                     for line in resp.iter_lines():
-
-                        # ── Anthropic SSE: event: lines ──────────────
                         if line.startswith("event: "):
                             current_event = line[7:].strip()
                             if current_event in ("message_stop", "error"):
@@ -327,19 +297,15 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
                         try:
                             event_data = json.loads(raw)
                             delta = ""
-
-                            # Anthropic content_block_delta
                             if current_event == "content_block_delta":
                                 delta = (event_data.get("delta", {})
                                          .get("text", ""))
                             else:
                                 delta = _extract_delta(event_data)
-
                             if delta:
                                 buffer += delta
                                 yield (f"data: {json.dumps({'delta': delta, 'buffer': buffer})}"
                                        f"\n\n")
-
                         except (json.JSONDecodeError, KeyError):
                             pass
 
@@ -349,7 +315,7 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
 
         except httpx.TimeoutException:
             wait = _BACKOFF ** (attempt + 1)
-            print(f"[ai_service] Stream timeout attempt {attempt + 1} "
+            print(f"[ai_service] Stream timeout attempt {attempt+1} "
                   f"— retrying in {wait}s")
             time.sleep(wait)
 
@@ -360,14 +326,9 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
             yield "data: [DONE]\n\n"
             return
 
-    # All retries exhausted — fall back to mock
-    print(f"[ai_service] Stream retries exhausted — falling back to mock")
+    print("[ai_service] Stream retries exhausted — falling back to mock")
     yield from _mock_stream({})
 
-
-# ═════════════════════════════════════════════════════════
-# PROMPT BUILDERS
-# ═════════════════════════════════════════════════════════
 
 def _build_capa_prompt(record: dict) -> str:
     reg_refs = ', '.join(record.get('regulatoryRef', [])) or "21 CFR Part 820, ISO 13485"
@@ -412,15 +373,7 @@ def _build_rca_prompt(record: dict, method: str) -> str:
     )
 
 
-# ═════════════════════════════════════════════════════════
-# REQUEST BUILDER — one place that knows provider differences
-# ═════════════════════════════════════════════════════════
-
 def _build_request(prompt: str, stream: bool = False):
-    """
-    Returns (headers, payload, url) for the configured provider.
-    Add new providers here — nothing else in the codebase changes.
-    """
     if AI_PROVIDER == "anthropic":
         url     = "https://api.anthropic.com/v1/messages"
         headers = {
@@ -459,7 +412,6 @@ def _build_request(prompt: str, stream: bool = False):
         }
 
     elif AI_PROVIDER == "gemini":
-        # ── Gemini: separate endpoints for streaming vs non-streaming ──
         if stream:
             url = (
                 f"https://generativelanguage.googleapis.com/v1beta/models"
@@ -480,45 +432,42 @@ def _build_request(prompt: str, stream: bool = False):
             },
         }
 
+    elif AI_PROVIDER == "bedrock":
+        # Bedrock uses boto3 directly — see _bedrock_generate()
+        # This branch is never reached via _build_request
+        raise ValueError("Bedrock provider uses boto3 — handled in _bedrock_generate()")
+
     else:
         raise ValueError(
             f"Unknown AI_PROVIDER: '{AI_PROVIDER}'. "
-            f"Use: mock | gemini | anthropic | openai | azure | groq"
+            f"Use: mock | gemini | anthropic | openai | azure | groq | bedrock"
         )
 
     return headers, payload, url
 
 
-# ═════════════════════════════════════════════════════════
-# RESPONSE PARSERS
-# ═════════════════════════════════════════════════════════
-
 def _extract_text(response: dict) -> str:
-    """Extract text from provider response — handles all provider shapes."""
-    if "content" in response:                          # Anthropic
+    if "content" in response:
         return response["content"][0]["text"]
-    if "choices" in response:                          # OpenAI / Azure / Groq
+    if "choices" in response:
         return response["choices"][0]["message"]["content"]
-    if "candidates" in response:                       # Gemini
+    if "candidates" in response:
         try:
             return response["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError):
-            # Gemini sometimes returns a safety block
             if response.get("promptFeedback"):
                 raise RuntimeError(
-                    f"Gemini blocked prompt: {response['promptFeedback']}"
-                )
+                    f"Gemini blocked prompt: {response['promptFeedback']}")
             raise ValueError(f"Unexpected Gemini response: {response}")
     raise ValueError(f"Unrecognised API response shape: {list(response.keys())}")
 
 
 def _extract_delta(event: dict) -> str:
-    """Extract streaming delta token — handles all provider SSE shapes."""
-    if "choices" in event:                             # OpenAI / Azure / Groq
+    if "choices" in event:
         return event["choices"][0].get("delta", {}).get("content", "")
-    if "delta" in event:                               # Anthropic legacy
+    if "delta" in event:
         return event["delta"].get("text", "")
-    if "candidates" in event:                          # Gemini streaming
+    if "candidates" in event:
         try:
             return event["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError):
@@ -526,12 +475,7 @@ def _extract_delta(event: dict) -> str:
     return ""
 
 
-# ═════════════════════════════════════════════════════════
-# MOCK STREAM — used when MOCK_MODE=true or as fallback
-# ═════════════════════════════════════════════════════════
-
 def _mock_stream(record: dict) -> Generator[str, None, None]:
-    """Simulates streaming by yielding CAPA JSON character by character."""
     capa   = build_mock_capa(record)
     text   = json.dumps(capa, indent=2)
     buffer = ""

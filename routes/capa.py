@@ -192,6 +192,10 @@ def api_save():
         "createdAt":            now,
         "updatedAt":            now,
     }
+    from services.guardrails import validate_capa
+    is_valid, warnings = validate_capa(capa_record)
+    # Add warnings to the response so UI can show them
+
     save_capa(capa_record)
     update_record_status(record_id, "Under Review")
     log(ACTION_CAPA_SAVED,
