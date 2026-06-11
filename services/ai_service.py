@@ -1,22 +1,25 @@
 # services/ai_service.py
 # ─────────────────────────────────────────────────────────
-# AI SERVICE — Sprint 2
-# Retry + Exponential Backoff + Circuit Breaker + Zscaler Detection
+# AI SERVICE — Sprint 2 Final
+# Retry + Backoff + Circuit Breaker + Zscaler Detection + Pydantic Validation
 # Providers: mock | gemini | anthropic | openai | azure | groq | bedrock
 # ─────────────────────────────────────────────────────────
 
 import json
 import os
 import time
-from typing import Generator
+from typing import Generator, List, Optional
 
 import httpx
 from dotenv import load_dotenv
+from pydantic import BaseModel, validator, ValidationError
 
 load_dotenv()
 
 from config import MOCK_MODE
 from services.capa_service import build_mock_capa
+
+_SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
 AI_API_KEY  = os.getenv("AI_API_KEY",  "")
@@ -28,6 +31,60 @@ _BACKOFF     = 2
 _RETRY_ON    = {429, 500, 502, 503, 504}
 _FAIL_FAST   = {400, 401, 403}
 
+
+# ═════════════════════════════════════════════════════════
+# PYDANTIC SCHEMAS — validate AI output before returning
+# ═════════════════════════════════════════════════════════
+
+class CAPASchema(BaseModel):
+    rootCause:            str
+    immediateAction:      str
+    correctiveAction:     str
+    preventiveAction:     str
+    proposedOwner:        str
+    effectivenessCheck:   str
+    estimatedClosureDays: int
+    riskRating:           str
+    regulatoryRef:        List[str]
+
+    @validator("rootCause")
+    def root_cause_not_vague(cls, v):
+        vague = ["human error", "operator error", "lack of training"]
+        if any(p in v.lower() for p in vague) and len(v) < 80:
+            raise ValueError(
+                "Root cause too vague — must cite SOP/equipment/process")
+        return v
+
+    @validator("riskRating")
+    def valid_risk(cls, v):
+        if v not in ("Critical", "High", "Medium", "Low"):
+            raise ValueError(f"Invalid riskRating: {v}")
+        return v
+
+    @validator("estimatedClosureDays")
+    def valid_days(cls, v):
+        if not (1 <= v <= 365):
+            raise ValueError(f"estimatedClosureDays {v} out of range 1-365")
+        return v
+
+    @validator("regulatoryRef")
+    def refs_not_empty(cls, v):
+        if not v:
+            raise ValueError(
+                "regulatoryRef must contain at least one reference")
+        return v
+
+
+class RCASchema(BaseModel):
+    method:     str
+    steps:      Optional[List[dict]] = None
+    categories: Optional[dict]       = None
+    rootCause:  Optional[str]        = None
+
+
+# ═════════════════════════════════════════════════════════
+# CIRCUIT BREAKER
+# ═════════════════════════════════════════════════════════
 
 class _CircuitBreaker:
     def __init__(self, threshold: int = 5, cooldown: int = 10):
@@ -64,6 +121,10 @@ class _CircuitBreaker:
 _breaker = _CircuitBreaker(threshold=5, cooldown=10)
 
 
+# ═════════════════════════════════════════════════════════
+# PUBLIC FUNCTIONS
+# ═════════════════════════════════════════════════════════
+
 def generate_capa(record: dict) -> dict:
     if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
         time.sleep(0.5)
@@ -92,13 +153,16 @@ def generate_rca(record: dict, method: str) -> dict:
         return build_five_why(record) if method == "5why" else build_fishbone(record)
 
 
+# ═════════════════════════════════════════════════════════
+# LIVE GENERATION WITH RETRY + CIRCUIT BREAKER
+# ═════════════════════════════════════════════════════════
+
 def _live_generate(prompt: str) -> dict:
     print(f"[ai_service] Calling {AI_PROVIDER} | "
           f"URL: {AI_BASE_URL or 'default'} | "
           f"Model: {AI_MODEL} | "
           f"Key: {AI_API_KEY[:8]}...")
 
-    # ── Amazon Bedrock uses boto3, not httpx ──────────────
     if AI_PROVIDER == "bedrock":
         return _bedrock_generate(prompt)
 
@@ -115,11 +179,12 @@ def _live_generate(prompt: str) -> dict:
         try:
             headers, payload, url = _build_request(prompt, stream=False)
             resp = httpx.post(url, headers=headers, json=payload,
-                              timeout=60.0, verify=False)
+                              timeout=60.0, verify=_SSL_VERIFY)
 
             if resp.status_code in _FAIL_FAST:
                 _breaker.record_failure()
-                if "zscaler" in resp.text.lower() or "<!doctype" in resp.text.lower():
+                if "zscaler" in resp.text.lower() or \
+                   "<!doctype" in resp.text.lower():
                     print("[ai_service] ZSCALER BLOCK — returning mock fallback")
                     result = build_mock_capa({})
                     result["_fallback"] = True
@@ -143,6 +208,17 @@ def _live_generate(prompt: str) -> dict:
             text   = _extract_text(resp.json())
             text   = text.replace("```json", "").replace("```", "").strip()
             result = json.loads(text)
+
+            # ── Pydantic validation ───────────────────────
+            if "rootCause" in result:
+                try:
+                    CAPASchema(**result)
+                    print("[ai_service] Pydantic schema validation passed")
+                except ValidationError as ve:
+                    warnings = [e["msg"] for e in ve.errors()]
+                    print(f"[ai_service] Schema warnings: {warnings}")
+                    result["_validation_warnings"] = warnings
+
             _breaker.record_success()
             print(f"[ai_service] Success — {AI_PROVIDER}/{AI_MODEL} "
                   f"(attempt {attempt+1})")
@@ -163,17 +239,16 @@ def _live_generate(prompt: str) -> dict:
             raise
 
         except Exception as e:
-            last_error  = str(e)
-            error_type  = type(e).__name__
+            last_error = str(e)
+            error_type = type(e).__name__
             _breaker.record_failure()
             wait = _BACKOFF ** (attempt + 1)
-
             if "WinError 10054" in str(e):
                 print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} — "
                       f"CONNECTION RESET: Zscaler/firewall dropped the connection.")
             elif "CERTIFICATE_VERIFY_FAILED" in str(e):
                 print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} — "
-                      f"SSL BLOCKED: verify=False should fix this.")
+                      f"SSL BLOCKED.")
             elif "401" in str(e) or "Unauthorized" in str(e):
                 print(f"[ai_service] Attempt {attempt+1}/{_MAX_RETRIES} — "
                       f"AUTH FAILED: API key wrong or expired.")
@@ -195,44 +270,31 @@ def _live_generate(prompt: str) -> dict:
 
 
 def _bedrock_generate(prompt: str) -> dict:
-    """
-    Amazon Bedrock via boto3 — HIPAA-eligible, data stays in AWS region.
-    To activate: pip install boto3
-    Configure AWS credentials: aws configure OR set AWS_ACCESS_KEY_ID env vars.
-    Set in .env: AI_PROVIDER=bedrock, AI_MODEL=anthropic.claude-3-haiku-20240307-v1:0
-    """
     try:
-        import boto3  # noqa: F401 — checked at runtime
+        import boto3
         import json as _json
-
         region = os.getenv("AWS_REGION", "us-east-1")
         client = boto3.client("bedrock-runtime", region_name=region)
-
-        body = _json.dumps({
+        body   = _json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens":        2000,
             "messages": [{"role": "user", "content": prompt}],
         })
-
-        response = client.invoke_model(
-            modelId=AI_MODEL,
-            body=body,
-            contentType="application/json",
-            accept="application/json",
+        response      = client.invoke_model(
+            modelId=AI_MODEL, body=body,
+            contentType="application/json", accept="application/json",
         )
-
         response_body = _json.loads(response["body"].read())
-        text = response_body["content"][0]["text"]
-        text = text.replace("```json", "").replace("```", "").strip()
-        result = _json.loads(text)
+        text          = response_body["content"][0]["text"]
+        text          = text.replace("```json", "").replace("```", "").strip()
+        result        = _json.loads(text)
         print(f"[ai_service] Bedrock success — {AI_MODEL}")
         return result
-
     except ImportError:
         print("[ai_service] boto3 not installed — run: pip install boto3")
         result = build_mock_capa({})
         result["_fallback"] = True
-        result["_error"]    = "boto3 not installed. Run: pip install boto3"
+        result["_error"]    = "boto3 not installed"
         return result
     except Exception as e:
         print(f"[ai_service] Bedrock error: {e}")
@@ -253,7 +315,7 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
             headers, payload, url = _build_request(prompt, stream=True)
             buffer = ""
 
-            with httpx.Client(timeout=120.0, verify=False) as client:
+            with httpx.Client(timeout=120.0, verify=_SSL_VERIFY) as client:
                 with client.stream("POST", url,
                                    headers=headers, json=payload) as resp:
 
@@ -271,7 +333,6 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
                         break
 
                     current_event = None
-
                     for line in resp.iter_lines():
                         if line.startswith("event: "):
                             current_event = line[7:].strip()
@@ -280,20 +341,15 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
                                 yield "data: [DONE]\n\n"
                                 return
                             continue
-
                         if not line.startswith("data: "):
                             continue
-
                         raw = line[6:].strip()
-
                         if raw == "[DONE]":
                             _breaker.record_success()
                             yield "data: [DONE]\n\n"
                             return
-
                         if not raw:
                             continue
-
                         try:
                             event_data = json.loads(raw)
                             delta = ""
@@ -330,14 +386,20 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
     yield from _mock_stream({})
 
 
+# ═════════════════════════════════════════════════════════
+# PROMPT BUILDERS
+# ═════════════════════════════════════════════════════════
+
 def _build_capa_prompt(record: dict) -> str:
-    reg_refs = ', '.join(record.get('regulatoryRef', [])) or "21 CFR Part 820, ISO 13485"
+    reg_refs = ', '.join(record.get('regulatoryRef', [])) or \
+               "21 CFR Part 820, ISO 13485"
     return (
         "You are a senior QA expert for pharmaceutical and medical device compliance.\n"
         "Generate a thorough, regulatory-grade CAPA for the quality record below.\n"
         "Root cause must be SPECIFIC — name the exact process gap, SOP number, "
         "or equipment ID. Never say just 'human error'.\n"
-        "Regulatory references must cite the exact clause (e.g. 21 CFR 820.100(a)).\n\n"
+        "Regulatory references must cite the exact clause "
+        "(e.g. 21 CFR 820.100(a)).\n\n"
         f"Record ID:   {record.get('id')}\n"
         f"Type:        {record.get('type', '').upper()}\n"
         f"Sector:      {record.get('sector')}\n"
@@ -346,7 +408,7 @@ def _build_capa_prompt(record: dict) -> str:
         f"Description: {record.get('description')}\n"
         f"Site:        {record.get('site')}\n"
         f"Regulations: {reg_refs}\n\n"
-        "Respond ONLY with valid JSON — no markdown, no preamble, no explanation.\n"
+        "Respond ONLY with valid JSON — no markdown, no preamble.\n"
         "Required keys:\n"
         "  rootCause (string — specific, cites process/SOP/equipment),\n"
         "  immediateAction (string),\n"
@@ -361,10 +423,13 @@ def _build_capa_prompt(record: dict) -> str:
 
 
 def _build_rca_prompt(record: dict, method: str) -> str:
-    method_label = "5-Why chain" if method == "5why" else "Fishbone (Ishikawa) diagram"
+    method_label = "5-Why chain" if method == "5why" \
+                   else "Fishbone (Ishikawa) diagram"
     return (
-        f"You are a senior QA expert. Perform a {method_label} root cause analysis.\n"
-        f"Each cause must be specific — cite SOP numbers, equipment IDs, or process steps.\n\n"
+        f"You are a senior QA expert. Perform a {method_label} "
+        f"root cause analysis.\n"
+        f"Each cause must be specific — cite SOP numbers, equipment IDs, "
+        f"or process steps.\n\n"
         f"Record: {record.get('id')} | {record.get('type', '').upper()}\n"
         f"Title: {record.get('title')}\n"
         f"Description: {record.get('description')}\n"
@@ -372,6 +437,10 @@ def _build_rca_prompt(record: dict, method: str) -> str:
         "Respond ONLY with valid JSON — no markdown, no explanation."
     )
 
+
+# ═════════════════════════════════════════════════════════
+# REQUEST BUILDER
+# ═════════════════════════════════════════════════════════
 
 def _build_request(prompt: str, stream: bool = False):
     if AI_PROVIDER == "anthropic":
@@ -433,9 +502,8 @@ def _build_request(prompt: str, stream: bool = False):
         }
 
     elif AI_PROVIDER == "bedrock":
-        # Bedrock uses boto3 directly — see _bedrock_generate()
-        # This branch is never reached via _build_request
-        raise ValueError("Bedrock provider uses boto3 — handled in _bedrock_generate()")
+        raise ValueError(
+            "Bedrock uses boto3 — handled in _bedrock_generate()")
 
     else:
         raise ValueError(
@@ -445,6 +513,10 @@ def _build_request(prompt: str, stream: bool = False):
 
     return headers, payload, url
 
+
+# ═════════════════════════════════════════════════════════
+# RESPONSE PARSERS
+# ═════════════════════════════════════════════════════════
 
 def _extract_text(response: dict) -> str:
     if "content" in response:
@@ -459,7 +531,8 @@ def _extract_text(response: dict) -> str:
                 raise RuntimeError(
                     f"Gemini blocked prompt: {response['promptFeedback']}")
             raise ValueError(f"Unexpected Gemini response: {response}")
-    raise ValueError(f"Unrecognised API response shape: {list(response.keys())}")
+    raise ValueError(
+        f"Unrecognised API response shape: {list(response.keys())}")
 
 
 def _extract_delta(event: dict) -> str:
@@ -474,6 +547,10 @@ def _extract_delta(event: dict) -> str:
             return ""
     return ""
 
+
+# ═════════════════════════════════════════════════════════
+# MOCK STREAM
+# ═════════════════════════════════════════════════════════
 
 def _mock_stream(record: dict) -> Generator[str, None, None]:
     capa   = build_mock_capa(record)

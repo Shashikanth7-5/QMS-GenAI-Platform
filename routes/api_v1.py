@@ -34,7 +34,7 @@ from data.records import (
     get_all_capas, get_capa_by_id,
     save_capa, update_capa_status,
 )
-from services.ai_service   import generate_capa_draft
+from services.ai_service   import generate_capa
 from services.rca_service  import build_five_why, build_fishbone
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
@@ -207,7 +207,7 @@ def api_generate_capa():
             return _err(f"Record {rid} not found", 404, "not_found")
 
     try:
-        capa = generate_capa_draft(record)
+        capa = generate_capa(record)
         return _ok({
             "capa":           capa,
             "source_record":  record.get("id"),
@@ -386,7 +386,7 @@ def salesforce_webhook():
         # Auto-generate CAPA on new Salesforce case
         try:
             record = body["record"]
-            capa   = generate_capa_draft(record)
+            capa   = generate_capa(record)
             return _ok({
                 "action":     "capa_generated",
                 "capa_draft": capa,

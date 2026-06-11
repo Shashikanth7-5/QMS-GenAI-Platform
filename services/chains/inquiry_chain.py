@@ -1,6 +1,8 @@
 # services/chains/inquiry_chain.py
 from __future__ import annotations
+import os
 from typing import Dict, List
+_SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
 
 _SYSTEM = """You are a QMS AI assistant grounded on a specific quality record.
@@ -87,7 +89,7 @@ def _try_direct_then_mock(record: Dict, question: str,
                     "model": model, "max_tokens": 600,
                     "system": system, "messages": messages,
                 },
-                timeout=30, verify=False,
+                timeout=30, verify=_SSL_VERIFY,
             )
             if resp.status_code == 200:
                 return resp.json()["content"][0]["text"]
@@ -107,7 +109,7 @@ def _try_direct_then_mock(record: Dict, question: str,
                         {"role": "system", "content": system}
                     ] + messages,
                 },
-                timeout=30, verify=False,
+                timeout=30, verify=_SSL_VERIFY,
             )
             if resp.status_code == 200:
                 return resp.json()["choices"][0]["message"]["content"]

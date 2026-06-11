@@ -1,9 +1,11 @@
 # routes/rag_extract.py
 import json, os, uuid
+
 from datetime import datetime
 from flask import Blueprint, jsonify, render_template, request
 from flask_login import login_required, current_user
 from services.ingestion_service import process_upload, allowed_file, extract_text
+_SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
 rag_bp = Blueprint("rag", __name__)
 _EXTRACTION_STORE: list = []
@@ -78,7 +80,7 @@ def api_rag_ask():
             from services.ai_service import _build_request, _extract_text
             headers, payload, url = _build_request(prompt)
             payload["max_tokens"] = 800
-            resp = httpx.post(url, headers=headers, json=payload, timeout=60.0, verify=False)
+            resp = httpx.post(url, headers=headers, json=payload, timeout=60.0, verify=_SSL_VERIFY)
             resp.raise_for_status()
             answer = _extract_text(resp.json())
         return jsonify({"extractionId": extraction_id, "question": question,

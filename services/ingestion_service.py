@@ -5,6 +5,7 @@
 
 import base64, csv, io, json, os, re
 from datetime import datetime
+_SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
 try:
     import pdfplumber; _HAS_PDF = True
@@ -181,7 +182,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
                 headers={"x-api-key":AI_API_KEY,"anthropic-version":"2023-06-01","content-type":"application/json"},
                 json={"model":AI_MODEL,"max_tokens":900,"messages":[{"role":"user","content":user_content}]},
                 timeout=40,
-                verify=False,
+                verify=_SSL_VERIFY,
             )
             raw = resp.json()["content"][0]["text"]
 
@@ -199,7 +200,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
                 headers={"Authorization":f"Bearer {AI_API_KEY}"},
                 json={"model":AI_MODEL,"messages":[{"role":"user","content":user_content}]},
                 timeout=40,
-                verify = False,
+                verify=_SSL_VERIFY,
             )
 
 

@@ -194,7 +194,6 @@ def api_save():
     }
     from services.guardrails import validate_capa
     is_valid, warnings = validate_capa(capa_record)
-    # Add warnings to the response so UI can show them
 
     save_capa(capa_record)
     update_record_status(record_id, "Under Review")
@@ -209,11 +208,13 @@ def api_save():
         notes=f"CAPA {capa_id} created from record {record_id}",
         ip_address=request.remote_addr)
     return jsonify({
-        "capaId":         capa_id,
-        "status":         "Under Review",
+        "capaId": capa_id,
+        "status": "Under Review",
         "sourceRecordId": record_id,
-        "createdAt":      now,
-        "message":        f"CAPA {capa_id} saved",
+        "createdAt": now,
+        "message": f"CAPA {capa_id} saved",
+        "warnings": warnings,
+        "requires_review": not is_valid,
     })
 
 
