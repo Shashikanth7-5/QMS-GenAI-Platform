@@ -126,10 +126,25 @@ _breaker = _CircuitBreaker(threshold=5, cooldown=10)
 # ═════════════════════════════════════════════════════════
 
 def generate_capa(record: dict) -> dict:
+    # Retrieve top-3 similar past CAPAs for context (RAG)
+    similar = []
+    try:
+        from services.vector_store import find_similar
+        similar = find_similar(record, top_k=3)
+    except Exception as e:
+        print(f"[ai_service] RAG retrieval skipped: {e}")
+
     if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
         time.sleep(0.5)
-        return build_mock_capa(record)
-    return _live_generate(_build_capa_prompt(record))
+        result = build_mock_capa(record)
+        if similar:
+            result["_similar_capas"] = similar
+        return result
+
+    result = _live_generate(_build_capa_prompt(record, similar))
+    if similar:
+        result["_similar_capas"] = similar
+    return result
 
 
 def stream_capa(record: dict) -> Generator[str, None, None]:
@@ -389,10 +404,23 @@ def _live_stream(prompt: str) -> Generator[str, None, None]:
 # ═════════════════════════════════════════════════════════
 # PROMPT BUILDERS
 # ═════════════════════════════════════════════════════════
+def _build_capa_prompt(record: dict, similar: list = None) -> str:
+    reg_refs = ', '.join(record.get('regulatoryRef', [])) or "21 CFR Part 820, ISO 13485"
 
-def _build_capa_prompt(record: dict) -> str:
-    reg_refs = ', '.join(record.get('regulatoryRef', [])) or \
-               "21 CFR Part 820, ISO 13485"
+    rag_block = ""
+    if similar:
+        _lines = []
+        for s in similar:
+            _lines.append(
+                f"- [{s.get('similarity')}] {s.get('title', '')}: "
+                f"root cause was \"{s.get('rootCause', '')[:200]}\""
+            )
+        rag_block = (
+                "\nSIMILAR PAST CAPAs (for consistency - adapt, do not copy):\n"
+                + "\n".join(_lines) + "\n"
+        )
+
+
     return (
         "You are a senior QA expert for pharmaceutical and medical device compliance.\n"
         "Generate a thorough, regulatory-grade CAPA for the quality record below.\n"
@@ -407,8 +435,9 @@ def _build_capa_prompt(record: dict) -> str:
         f"Title:       {record.get('title')}\n"
         f"Description: {record.get('description')}\n"
         f"Site:        {record.get('site')}\n"
-        f"Regulations: {reg_refs}\n\n"
-        "Respond ONLY with valid JSON — no markdown, no preamble.\n"
+        f"Regulations: {reg_refs}\n"
+        f"{rag_block}\n"
+        "Respond ONLY with valid JSON — no markdown, no preamble, no explanation.\n"
         "Required keys:\n"
         "  rootCause (string — specific, cites process/SOP/equipment),\n"
         "  immediateAction (string),\n"

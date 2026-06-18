@@ -15,3 +15,4 @@ users_data.json
 *.log
 fix_capa.py
 test_gemini.py
+data/chroma_db/

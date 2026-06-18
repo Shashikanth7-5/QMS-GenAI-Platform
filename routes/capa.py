@@ -138,7 +138,13 @@ def api_run_batch():
                 "updatedAt":            now,
             }
             save_capa(capa_record)
-            update_record_status(rec["id"], "Under Review")
+            # Embed into vector store for RAG (non-blocking — never fails the save)
+            try:
+                from services.vector_store import embed_capa
+                embed_capa(capa_record)
+            except Exception as _e:
+                print(f"[capa] vector embed skipped: {_e}")
+            update_record_status(record_id, "Under Review")
             processed.append({"id": rec["id"], "capaId": capa_id})
         except Exception as e:
             errors.append({"id": rec["id"], "error": str(e)})
@@ -196,7 +202,19 @@ def api_save():
     is_valid, warnings = validate_capa(capa_record)
 
     save_capa(capa_record)
+    # Embed into vector store for RAG (non-blocking — never fails the save)
+    try:
+        from services.vector_store import embed_capa
+        embed_capa(capa_record)
+    except Exception as _e:
+        print(f"[capa] vector embed skipped: {_e}")
     update_record_status(record_id, "Under Review")
+    # Embed into vector store for RAG (non-blocking — never fails the save)
+    try:
+        from services.vector_store import embed_capa
+        embed_capa(capa_record)
+    except Exception as _e:
+        print(f"[capa] vector embed skipped: {_e}")
     log(ACTION_CAPA_SAVED,
         performed_by=current_user.username,
         performed_by_role=current_user.role,
@@ -325,3 +343,28 @@ def api_inquire():
         print(f"[inquire] error: {e}")
         from services.chains.inquiry_chain import _smart_mock
         return jsonify({"answer": _smart_mock(record, question)})
+
+@capa_bp.route("/api/rag/similar", methods=["POST"])
+@login_required
+def api_rag_similar():
+        """
+        Return the top-k most similar past CAPAs for a given record.
+        Body: { "record": {...}, "top_k": 3 }
+        """
+        body = request.get_json(force=True) or {}
+        record = body.get("record", {})
+        top_k = int(body.get("top_k", 3))
+        if not record:
+            return jsonify({"error": "Missing 'record'"}), 400
+        try:
+            from services.vector_store import find_similar, collection_stats
+            similar = find_similar(record, top_k=top_k)
+            stats = collection_stats()
+            return jsonify({
+                "similar": similar,
+                "count": len(similar),
+                "total_embedded": stats.get("embedded_capas", 0),
+            })
+        except Exception as e:
+            print(f"[rag] similar failed: {e}")
+            return jsonify({"similar": [], "count": 0, "error": str(e)}), 200
