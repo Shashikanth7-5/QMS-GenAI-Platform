@@ -1659,10 +1659,9 @@
             <div class="status-strip status-strip--success">
                 ✅ CAPA <strong>${result.capaId}</strong> saved!
                 Record status → Under Review
-                <a href="/?section=capas"
-                   style="margin-left:auto;font-size:11px;color:var(--green);font-weight:600;">
-                    → View in Dashboard CAPA Records
-                </a>
+                <a href="/api/capa/${result.capaId}/export" target="_blank" class="btn btn--secondary btn--sm" style="margin-left:auto;">⬇ Export PDF</a>
+                <button onclick="printCAPA('${result.capaId}')" class="btn btn--secondary btn--sm">🖨 Print</button>
+                <a href="/?section=capas" style="font-size:11px;color:var(--green);font-weight:600;">→ View in Dashboard</a>
             </div>`;
         setBanner(`✓ ${result.capaId} saved — view it in Dashboard → CAPA Records tab`, 'success');
     })
@@ -1675,6 +1674,13 @@
             </div>`;
     });
 }
+
+function printCAPA(capaId) {
+    const url = `/api/capa/${capaId}/export`;
+    const w = window.open(url, '_blank');
+    if (w) { w.addEventListener('load', () => { try { w.print(); } catch (e) {} }); }
+}
+
 
   /* ══════════════════════════════════════════════════════════
      INQUIRY CHAT — grounded on the loaded record
