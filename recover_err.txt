@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sqlite3; src=sqlite3.connect('qms_data.db'); dst=sqlite3.connect('qms_data_recovered.db'); [dst.executescript(''.join(src.iterdump()))]
+                                                                                                                         ~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python314\Lib\sqlite3\dump.py", line 31, in _iterdump
+    violations = cu.execute("PRAGMA foreign_key_check").fetchall()
+                 ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.DatabaseError: database disk image is malformed
