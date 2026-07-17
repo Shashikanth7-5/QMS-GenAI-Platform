@@ -259,6 +259,41 @@ def api_get_capa(capa_id: str):
         return jsonify({"error": "Not authorised"}), 403
     return jsonify(capa)
 
+@capa_bp.route("/api/capa/<capa_id>/export", methods=["GET"])
+@login_required
+def api_export_capa(capa_id: str):
+    """Export a CAPA as a downloadable PDF."""
+    from data.records import get_capa_by_id
+    capa = get_capa_by_id(capa_id)
+    if not capa:
+        return jsonify({"error": f"CAPA {capa_id} not found"}), 404
+
+    # Users can only export their own CAPAs
+    if current_user.is_user() and capa.get("createdByUsername") != current_user.username:
+        return jsonify({"error": "Not authorised"}), 403
+
+    # Optional: attach RAG similar cases if the source record is available
+    similar = None
+    try:
+        from data.records import get_record_by_id
+        from services.vector_store import find_similar
+        rec = get_record_by_id(capa.get("sourceRecordId", ""))
+        if rec:
+            similar = find_similar(rec, top_k=3)
+    except Exception as _e:
+        print(f"[capa] export similar lookup skipped: {_e}")
+
+    from services.pdf_service import build_capa_pdf
+    pdf_bytes = build_capa_pdf(capa, similar=similar)
+
+    from flask import Response
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{capa_id}.pdf"',
+        },
+    )
 
 @capa_bp.route("/api/capas/<capa_id>/status", methods=["PATCH"])
 @admin_required

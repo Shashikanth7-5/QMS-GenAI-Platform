@@ -1659,9 +1659,19 @@
             <div class="status-strip status-strip--success">
                 ✅ CAPA <strong>${result.capaId}</strong> saved!
                 Record status → Under Review
+                <a href="/api/capa/${result.capaId}/export"
+                   target="_blank"
+                   class="btn btn--secondary btn--sm"
+                   style="margin-left:auto;">
+                    ⬇ Export PDF
+                </a>
+                <button onclick="printCAPA('${result.capaId}')"
+                        class="btn btn--secondary btn--sm">
+                    🖨 Print
+                </button>
                 <a href="/?section=capas"
-                   style="margin-left:auto;font-size:11px;color:var(--green);font-weight:600;">
-                    → View in Dashboard CAPA Records
+                   style="font-size:11px;color:var(--green);font-weight:600;">
+                    → View in Dashboard
                 </a>
             </div>`;
         setBanner(`✓ ${result.capaId} saved — view it in Dashboard → CAPA Records tab`, 'success');
@@ -1674,6 +1684,16 @@
                 ✗ Error saving: ${err.message}
             </div>`;
     });
+}
+function printCAPA(capaId) {
+    const url = `/api/capa/${capaId}/export`;
+    // Open the PDF in a new tab; the browser's PDF viewer has a print button,
+    // and most browsers let the user Ctrl+P directly.
+    const w = window.open(url, '_blank');
+    if (w) {
+        // Give the PDF a moment to load, then invoke print
+        w.addEventListener('load', () => { try { w.print(); } catch (e) {} });
+    }
 }
 
   /* ══════════════════════════════════════════════════════════
