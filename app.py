@@ -39,6 +39,7 @@ def create_app() -> Flask:
     from routes.analytics import analytics_bp
     from routes.search    import search_bp
     from routes.rag       import rag_bp
+    from routes.agents    import agents_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -48,6 +49,7 @@ def create_app() -> Flask:
     app.register_blueprint(analytics_bp)
     app.register_blueprint(search_bp)
     app.register_blueprint(rag_bp)
+    app.register_blueprint(agents_bp)
 
     @app.errorhandler(404)
     def not_found(e):

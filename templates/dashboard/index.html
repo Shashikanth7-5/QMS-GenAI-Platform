@@ -13,7 +13,8 @@
   <div class="page-actions">
     <button class="btn btn--secondary" onclick="loadAll()">🔄 Refresh</button>
     {# Only admin sees the batch agent button #}
-    {% if current_user.is_admin() %}
+  
+  {% if current_user.is_admin() %}
     <button class="btn btn--primary" id="btnRunAll">▶ Run Agent on All Eligible</button>
     {% endif %}
   </div>
@@ -362,7 +363,8 @@
       let action = '';
       if(canAct){
         if(r.status==='Draft Generated'){
-          action = `<button class="btn--run" onclick="window.location.href='/capa/create?id=${r.id}'">▶ Generate CAPA</button>`;
+          action = `<button class="btn--run" onclick="runAgentReview('${r.id}', this)">Agent Review</button>
+                    <button class="btn--run" onclick="window.location.href='/capa/create?id=${r.id}'">Generate CAPA</button>`;
         } else {
           action = `<a href="/capa/create?id=${r.id}" style="color:var(--blue);font-size:11px;font-weight:500;">View / Edit</a>`;
         }
@@ -475,6 +477,26 @@
     });
   });
   {% endif %}
+
+  function runAgentReview(recordId, btn){
+    if(btn){btn.disabled=true;btn.textContent='Reviewing...';}
+    setBanner(`Agent review running for ${recordId}...`,'info');
+    fetch('/api/agents/capa/run',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({recordId}),
+    })
+      .then(r=>r.json().then(data=>({ok:r.ok,data})))
+      .then(({ok,data})=>{
+        if(!ok) throw new Error(data.error||data.summary||'Agent review failed');
+        const decision = data.capaTriggered ? 'CAPA recommended' : 'Monitor only';
+        const draft = data.draft ? ' Draft prepared for human review.' : '';
+        setBanner(`Agent review complete: ${decision}.${draft}`,'success');
+      })
+      .catch(err=>setBanner('Agent review error: '+err.message,'error'))
+      .finally(()=>{if(btn){btn.disabled=false;btn.textContent='Agent Review';}});
+  }
+
 
   /* ── Pill binding ── */
   function bindPills(id, cb){
