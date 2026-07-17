@@ -7,6 +7,7 @@
 
 import io
 from datetime import datetime
+from xml.sax.saxutils import escape
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib import colors
@@ -21,6 +22,16 @@ GREEN = colors.HexColor("#0E7C2B")
 GREY  = colors.HexColor("#555555")
 LIGHT = colors.HexColor("#F2F4F7")
 LINE  = colors.HexColor("#CCD3E0")
+
+
+def _pdf_text(value, default="\u2014"):
+    """Escape text before passing it to ReportLab Paragraph markup."""
+    if value is None:
+        return default
+    text = str(value)
+    if not text:
+        return default
+    return escape(text).replace("\n", "<br/>")
 
 
 def _styles():
@@ -105,11 +116,11 @@ def build_capa_pdf(capa: dict, similar: list = None) -> bytes:
     story = []
 
     # Title block
-    story.append(Paragraph(f"CAPA {capa.get('capaId', '\u2014')}", ss["CapaTitle"]))
+    story.append(Paragraph(f"CAPA {_pdf_text(capa.get('capaId'))}", ss["CapaTitle"]))
     status = capa.get("status", "Under Review")
     story.append(Paragraph(
-        f"Status: {status}  \u00B7  Source Record: {capa.get('sourceRecordId', '\u2014')}  "
-        f"\u00B7  Risk: {capa.get('riskRating', '\u2014')}", ss["CapaSub"]))
+        f"Status: {_pdf_text(status)}  \u00B7  Source Record: {_pdf_text(capa.get('sourceRecordId'))}  "
+        f"\u00B7  Risk: {_pdf_text(capa.get('riskRating'))}", ss["CapaSub"]))
     story.append(HRFlowable(width="100%", thickness=1, color=GREEN, spaceAfter=10))
 
     # Metadata table
@@ -133,11 +144,11 @@ def build_capa_pdf(capa: dict, similar: list = None) -> bytes:
     ]
     for label, text in sections:
         story.append(Paragraph(label, ss["SectionH"]))
-        story.append(Paragraph(str(text) if text else "\u2014", ss["Body"]))
+        story.append(Paragraph(_pdf_text(text), ss["Body"]))
 
     if capa.get("notes"):
         story.append(Paragraph("Additional Notes", ss["SectionH"]))
-        story.append(Paragraph(str(capa["notes"]), ss["Body"]))
+        story.append(Paragraph(_pdf_text(capa["notes"]), ss["Body"]))
 
     # Optional RAG related cases
     if similar:
@@ -145,8 +156,8 @@ def build_capa_pdf(capa: dict, similar: list = None) -> bytes:
         story.append(Paragraph("Related Past Cases (AI-retrieved for reference)", ss["SectionH"]))
         for s in similar[:3]:
             story.append(Paragraph(
-                f"\u2022 [{s.get('similarity','')}] {s.get('title','')} "
-                f"(CAPA {s.get('capaId','')})", ss["Label"]))
+                f"\u2022 [{_pdf_text(s.get('similarity'), '')}] {_pdf_text(s.get('title'), '')} "
+                f"(CAPA {_pdf_text(s.get('capaId'), '')})", ss["Label"]))
 
     # Approval / signature block
     story.append(Spacer(1, 18))
