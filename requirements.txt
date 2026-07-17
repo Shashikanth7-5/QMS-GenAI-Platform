@@ -28,6 +28,8 @@ Pillow==10.4.0
 reportlab==4.2.2
 celery==5.4.0
 chromadb==1.5.9
+gunicorn==23.0.0
+redis==5.0.8
 
 # ── Testing ────────────────────────────────────────────────────
 pytest==8.2.2

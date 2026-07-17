@@ -1,0 +1,48 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-qms-genai-dev-key}
+      MOCK_MODE: ${MOCK_MODE:-true}
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-mock-mode}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      DATABASE_URL: sqlite:////app/data/qms_data.db
+      CELERY_BROKER_URL: redis://redis:6379/0
+    volumes:
+      - qms_data:/app/data
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/login', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    build: .
+    command: celery -A services.celery_app:celery_app worker --loglevel=INFO
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-qms-genai-dev-key}
+      MOCK_MODE: ${MOCK_MODE:-true}
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-mock-mode}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      DATABASE_URL: sqlite:////app/data/qms_data.db
+      CELERY_BROKER_URL: redis://redis:6379/0
+    volumes:
+      - qms_data:/app/data
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  qms_data:
