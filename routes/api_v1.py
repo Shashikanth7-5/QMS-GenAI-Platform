@@ -294,13 +294,41 @@ def get_capa(capa_id):
 def update_status(capa_id):
     body   = request.get_json(force=True) or {}
     status = body.get("status")
-    valid  = ["Under Review", "Approved", "Rejected", "Closed"]
+    valid  = ["Under Review", "Pending Correction", "Approved", "Rejected", "Closed"]
     if status not in valid:
         return _err(f"status must be one of: {', '.join(valid)}", 400)
-    updated = update_capa_status(capa_id, status)
+    metadata = None
+    reviewer = ""
+    comment = body.get("comment", "")
+    workflow_status = "Pending Correction" if status == "Rejected" else status
+    if status in ("Approved", "Rejected"):
+        esign = body.get("eSignature") or {}
+        reviewer = esign.get("signedBy") or esign.get("username") or ""
+        meaning = esign.get("meaning") or ""
+        if not reviewer or not meaning:
+            return _err(
+                "eSignature.signedBy and eSignature.meaning are required for approval/rejection",
+                400,
+                "esign_required",
+            )
+        existing = get_capa_by_id(capa_id)
+        metadata = dict((existing or {}).get("capaMetadata") or {})
+        metadata.setdefault("electronicSignatures", []).append({
+            "signedBy": reviewer,
+            "meaning": meaning,
+            "decision": status,
+            "basis": ["21 CFR Part 11", "EU Annex 11"],
+        })
+    updated = update_capa_status(
+        capa_id,
+        workflow_status,
+        rejected_by=reviewer,
+        rejection_comment=comment,
+        capa_metadata=metadata,
+    )
     if not updated:
         return _err(f"CAPA {capa_id} not found", 404, "not_found")
-    return _ok({"capaId": capa_id, "status": status})
+    return _ok({"capaId": capa_id, "status": workflow_status, "requestedStatus": status})
 
 
 # ══════════════════════════════════════════════════════════════

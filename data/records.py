@@ -117,9 +117,14 @@ def add_uploaded_record(record: Dict) -> Dict:
 
 
 def _c2d(c: CAPARecord) -> Dict:
+    record = getattr(c, "record", None)
     return {
         "capaId":               c.capa_id,
         "sourceRecordId":       c.record_id,
+        "sourceRecordType":     record.type if record else "",
+        "sourceRecordTitle":    record.title if record else "",
+        "sector":               record.sector if record else "",
+        "priority":             record.priority if record else "",
         "rootCause":            c.root_cause or "",
         "immediateAction":      c.immediate_action or "",
         "correctiveAction":     c.corrective_action or "",
@@ -129,9 +134,13 @@ def _c2d(c: CAPARecord) -> Dict:
         "estimatedClosureDays": c.estimated_closure_days,
         "riskRating":           c.risk_rating or "",
         "regulatoryRef":        c.regulatory_refs or [],
+        "capaMetadata":         c.capa_metadata or {},
         "status":               c.status,
         "approved":             c.approved,
         "approvedBy":           c.approved_by or "",
+        "rejectedBy":           c.rejected_by or "",
+        "rejectedAt":           c.rejected_at.isoformat() if c.rejected_at else "",
+        "rejectionComment":     c.rejection_comment or "",
         "createdByUsername":    c.created_by_username or "",
         "createdAt":            c.created_at.isoformat() if c.created_at else "",
         "updatedAt":            c.updated_at.isoformat() if c.updated_at else "",
@@ -153,6 +162,7 @@ def save_capa(capa: Dict) -> Dict:
             existing.estimated_closure_days = capa.get("estimatedClosureDays", existing.estimated_closure_days)
             existing.risk_rating            = capa.get("riskRating",           existing.risk_rating)
             existing.regulatory_refs        = capa.get("regulatoryRef",        existing.regulatory_refs)
+            existing.capa_metadata          = capa.get("capaMetadata",         existing.capa_metadata)
             existing.status                 = capa.get("status",               existing.status)
             existing.updated_at             = datetime.utcnow()
             db.commit()
@@ -171,6 +181,7 @@ def save_capa(capa: Dict) -> Dict:
                 estimated_closure_days=capa.get("estimatedClosureDays", 90),
                 risk_rating=capa.get("riskRating", "Medium"),
                 regulatory_refs=capa.get("regulatoryRef", []),
+                capa_metadata=capa.get("capaMetadata", {}),
                 status=capa.get("status", "Under Review"),
                 created_by_username=capa.get("createdByUsername", ""),
                 rca_quality_score=capa.get("rcaQualityScore"),
@@ -202,16 +213,40 @@ def get_capa_by_id(capa_id: str) -> Optional[Dict]:
         return _c2d(c) if c else None
 
 
-def update_capa_status(capa_id: str, new_status: str) -> Optional[Dict]:
+def get_capa_by_record_id(record_id: str) -> Optional[Dict]:
+    with SessionLocal() as db:
+        c = db.query(CAPARecord).filter(CAPARecord.record_id == record_id).first()
+        return _c2d(c) if c else None
+
+
+def update_capa_status(
+    capa_id: str,
+    new_status: str,
+    *,
+    rejected_by: str = "",
+    rejection_comment: str = "",
+    capa_metadata: Dict = None,
+) -> Optional[Dict]:
     with SessionLocal() as db:
         c = db.query(CAPARecord).filter(CAPARecord.capa_id == capa_id).first()
         if not c:
             return None
         c.status = new_status
         c.updated_at = datetime.utcnow()
+        if capa_metadata is not None:
+            c.capa_metadata = capa_metadata
         if new_status == "Approved":
             c.approved = True
             c.approved_at = datetime.utcnow()
+            c.approved_by = rejected_by or c.approved_by
+            c.rejected_by = ""
+            c.rejected_at = None
+            c.rejection_comment = ""
+        elif new_status == "Pending Correction":
+            c.approved = False
+            c.rejected_by = rejected_by
+            c.rejected_at = datetime.utcnow()
+            c.rejection_comment = rejection_comment
         db.commit()
         db.refresh(c)
         return _c2d(c)

@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% set active_tab = "manage_users" %}
-{% block title %}QMS GenAI · Manage Users{% endblock %}
+{% block title %}AI QMS - Manage Users{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -87,7 +87,7 @@
 <div class="mu-wrap">
   <div class="mu-header">
     <div>
-      <h1>👥 Manage Users</h1>
+      <h1>ðŸ‘¥ Manage Users</h1>
       <p>Review access requests, approve accounts, and assign roles.</p>
     </div>
     <div class="mu-stats">
@@ -99,26 +99,26 @@
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}{% for cat, msg in messages %}
-      <div class="mu-flash mu-flash--{{ cat }}">{% if cat=='success' %}✅{% else %}❌{% endif %} {{ msg }}</div>
+      <div class="mu-flash mu-flash--{{ cat }}">{% if cat=='success' %}âœ…{% else %}âŒ{% endif %} {{ msg }}</div>
     {% endfor %}{% endif %}
   {% endwith %}
 
   <div class="mu-tabs">
     <button class="mu-tab active" onclick="switchTab('pending',this)">
-      ⏳ Pending{% if pending|length > 0 %}<span class="badge">{{ pending|length }}</span>{% endif %}
+      â³ Pending{% if pending|length > 0 %}<span class="badge">{{ pending|length }}</span>{% endif %}
     </button>
-    <button class="mu-tab" onclick="switchTab('approved',this)">✅ Approved</button>
-    <button class="mu-tab" onclick="switchTab('rejected',this)">✗ Rejected</button>
+    <button class="mu-tab" onclick="switchTab('approved',this)">âœ… Approved</button>
+    <button class="mu-tab" onclick="switchTab('rejected',this)">âœ— Rejected</button>
   </div>
 
   <!-- PENDING -->
   <div id="tab-pending" class="tab-panel active">
     <div class="mu-card">
       <div class="mu-card__bar">
-        <span class="mu-card__title">⏳ Access Requests Awaiting Approval</span>
+        <span class="mu-card__title">â³ Access Requests Awaiting Approval</span>
         <div class="mu-search-wrap">
-          <span class="mu-search-icon">🔍</span>
-          <input class="mu-search" type="text" placeholder="Search name / username…" oninput="filterTable('pending-tbody',this.value)">
+          <span class="mu-search-icon">ðŸ”</span>
+          <input class="mu-search" type="text" placeholder="Search name / usernameâ€¦" oninput="filterTable('pending-tbody',this.value)">
         </div>
       </div>
       {% if pending %}
@@ -140,10 +140,10 @@
             <td>
               <div class="mu-actions">
                 <form method="POST" action="/admin/users/{{ u.id }}/approve" style="display:inline;">
-                  <button type="submit" class="btn-sm btn-approve">✓ Approve</button>
+                  <button type="submit" class="btn-sm btn-approve">âœ“ Approve</button>
                 </form>
                 <button type="button" class="btn-sm btn-reject"
-                        onclick="openRejectModal('{{ u.id }}','{{ u.full_name }}','{{ u.username }}')">✕ Reject</button>
+                        onclick="openRejectModal('{{ u.id }}','{{ u.full_name }}','{{ u.username }}')">âœ• Reject</button>
               </div>
             </td>
           </tr>
@@ -151,7 +151,7 @@
         </tbody>
       </table>
       {% else %}
-      <div class="mu-empty"><div class="mu-empty__icon">🎉</div><div class="mu-empty__text">No pending requests — you're all caught up!</div></div>
+      <div class="mu-empty"><div class="mu-empty__icon">ðŸŽ‰</div><div class="mu-empty__text">No pending requests â€” you're all caught up!</div></div>
       {% endif %}
     </div>
   </div>
@@ -160,10 +160,10 @@
   <div id="tab-approved" class="tab-panel">
     <div class="mu-card">
       <div class="mu-card__bar">
-        <span class="mu-card__title">✅ Users with Active Access</span>
+        <span class="mu-card__title">âœ… Users with Active Access</span>
         <div class="mu-search-wrap">
-          <span class="mu-search-icon">🔍</span>
-          <input class="mu-search" type="text" placeholder="Search…" oninput="filterTable('approved-tbody',this.value)">
+          <span class="mu-search-icon">ðŸ”</span>
+          <input class="mu-search" type="text" placeholder="Searchâ€¦" oninput="filterTable('approved-tbody',this.value)">
         </div>
       </div>
       {% if approved %}
@@ -200,7 +200,7 @@
         </tbody>
       </table>
       {% else %}
-      <div class="mu-empty"><div class="mu-empty__icon">👤</div><div class="mu-empty__text">No approved registered users yet.</div></div>
+      <div class="mu-empty"><div class="mu-empty__icon">ðŸ‘¤</div><div class="mu-empty__text">No approved registered users yet.</div></div>
       {% endif %}
     </div>
   </div>
@@ -209,10 +209,10 @@
   <div id="tab-rejected" class="tab-panel">
     <div class="mu-card">
       <div class="mu-card__bar">
-        <span class="mu-card__title">✗ Rejected / Revoked</span>
+        <span class="mu-card__title">âœ— Rejected / Revoked</span>
         <div class="mu-search-wrap">
-          <span class="mu-search-icon">🔍</span>
-          <input class="mu-search" type="text" placeholder="Search…" oninput="filterTable('rejected-tbody',this.value)">
+          <span class="mu-search-icon">ðŸ”</span>
+          <input class="mu-search" type="text" placeholder="Searchâ€¦" oninput="filterTable('rejected-tbody',this.value)">
         </div>
       </div>
       {% if rejected %}
@@ -229,7 +229,7 @@
             </td>
             <td style="font-family:monospace;color:#94a3b8;">{{ u.username }}</td>
             <td><span class="role-badge role-badge--{{ u.role }}">{{ u.role }}</span></td>
-            <td>{% if u.reject_comment %}<div class="reject-comment">"{{ u.reject_comment }}"</div>{% else %}<span class="no-comment">—</span>{% endif %}</td>
+            <td>{% if u.reject_comment %}<div class="reject-comment">"{{ u.reject_comment }}"</div>{% else %}<span class="no-comment">â€”</span>{% endif %}</td>
             <td><span class="status-pill status--rejected">Rejected</span></td>
             <td>
               <form method="POST" action="/admin/users/{{ u.id }}/approve" style="display:inline;">
@@ -241,7 +241,7 @@
         </tbody>
       </table>
       {% else %}
-      <div class="mu-empty"><div class="mu-empty__icon">📋</div><div class="mu-empty__text">No rejected users.</div></div>
+      <div class="mu-empty"><div class="mu-empty__icon">ðŸ“‹</div><div class="mu-empty__text">No rejected users.</div></div>
       {% endif %}
     </div>
   </div>
@@ -251,21 +251,21 @@
 <div class="modal-overlay" id="rejectModal" onclick="closeOnBackdrop(event)">
   <div class="modal">
     <div class="modal__hdr">
-      <div class="modal__title">⚠️ Reject / Revoke Access</div>
-      <button class="modal__close" onclick="closeRejectModal()">✕</button>
+      <div class="modal__title">âš ï¸ Reject / Revoke Access</div>
+      <button class="modal__close" onclick="closeRejectModal()">âœ•</button>
     </div>
     <div class="modal__user">
       <div class="mu-avatar" id="modalAvatar" style="background:#fecaca;color:#c0392b;width:34px;height:34px;">?</div>
-      <div><div id="modalName" style="font-weight:600;font-size:13px;color:var(--navy);">—</div>
-           <div id="modalUname" style="font-size:11px;color:var(--text-muted);font-family:monospace;">—</div></div>
+      <div><div id="modalName" style="font-weight:600;font-size:13px;color:var(--navy);">â€”</div>
+           <div id="modalUname" style="font-size:11px;color:var(--text-muted);font-family:monospace;">â€”</div></div>
     </div>
     <form method="POST" id="rejectForm">
       <label class="mu-label" for="rejectComment">Reason <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;">(optional)</span></label>
       <textarea class="mu-textarea" id="rejectComment" name="comment"
-                placeholder="e.g. Duplicate request, not a valid employee…"></textarea>
+                placeholder="e.g. Duplicate request, not a valid employeeâ€¦"></textarea>
       <div class="modal__footer">
         <button type="button" class="btn-cancel" onclick="closeRejectModal()">Cancel</button>
-        <button type="submit" class="btn-confirm-reject">✕ Confirm</button>
+        <button type="submit" class="btn-confirm-reject">âœ• Confirm</button>
       </div>
     </form>
   </div>

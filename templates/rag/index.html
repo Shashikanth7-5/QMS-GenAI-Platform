@@ -1,17 +1,17 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% set active_tab = "rag" %}
-{% block title %}QMS GenAI · RAG Extract{% endblock %}
+{% block title %}AI QMS - Document Extraction{% endblock %}
 
 {% block content %}
 <div class="page-header">
   <div>
-    <div class="page-title">🧠 RAG Extract</div>
-    <div class="page-subtitle">Upload quality documents — AI extracts structured records automatically</div>
+    <div class="page-title">ðŸ§  Document Extraction</div>
+    <div class="page-subtitle">Upload quality documents â€” AI extracts structured records automatically</div>
   </div>
 </div>
 
 <div class="banner banner--info" id="banner">
-  <span>ℹ</span> Upload a QMS document to extract a quality record using AI.
+  <span>â„¹</span> Upload a QMS document to extract a quality record using AI.
   Supported: PDF, Excel, CSV, Word, Images, TXT.
 </div>
 
@@ -20,7 +20,7 @@
   <!-- Upload panel -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">📎 Upload Document</div>
+      <div class="panel__title">ðŸ“Ž Upload Document</div>
       <div class="panel__subtitle">Drop a QMS file or click to browse</div>
     </div>
     <div class="panel__body">
@@ -28,7 +28,7 @@
       <div class="drop-zone" id="dropZone"
            onclick="document.getElementById('ragFileInput').click()"
            ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
-        <div class="drop-zone__icon">📄</div>
+        <div class="drop-zone__icon">ðŸ“„</div>
         <div class="drop-zone__text">Drop your QMS document here or click to browse</div>
         <div class="drop-zone__hint">AI extracts: complaint, deviation, change control, audit, non-conformance</div>
         <div class="drop-zone__formats">
@@ -43,12 +43,12 @@
 
       <!-- File preview -->
       <div class="upload-preview" id="uploadPreview">
-        <div class="upload-preview__icon" id="previewIcon">📄</div>
+        <div class="upload-preview__icon" id="previewIcon">ðŸ“„</div>
         <div>
-          <div class="upload-preview__name" id="previewName">—</div>
-          <div class="upload-preview__size" id="previewSize">—</div>
+          <div class="upload-preview__name" id="previewName">â€”</div>
+          <div class="upload-preview__size" id="previewSize">â€”</div>
         </div>
-        <button class="upload-preview__remove" onclick="clearFile()" title="Remove">✕</button>
+        <button class="upload-preview__remove" onclick="clearFile()" title="Remove">âœ•</button>
       </div>
 
       <!-- Status -->
@@ -59,7 +59,7 @@
            background:var(--amber-pale);border:1px solid #fde68a;border-left:4px solid var(--amber);
            border-radius:var(--r);padding:12px 14px;">
         <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:6px;">
-          ⚠ Insufficient QMS Document
+          âš  Insufficient QMS Document
         </div>
         <div id="insufficientReason" style="font-size:12px;color:#78350f;line-height:1.5;"></div>
         <div style="margin-top:10px;font-size:11px;color:#92400e;">
@@ -70,7 +70,7 @@
 
       <div class="upload-modal__footer" style="margin-top:16px;">
         <button class="btn btn--secondary" id="btnProcess" onclick="processUpload()" style="display:none;">
-          🤖 Extract with AI
+          ðŸ¤– Extract with AI
         </button>
       </div>
     </div>
@@ -79,7 +79,7 @@
   <!-- Extracted record panel -->
   <div class="panel" id="extractedPanel" style="display:none;">
     <div class="panel__header">
-      <div class="panel__title">✅ Extracted Record</div>
+      <div class="panel__title">âœ… Extracted Record</div>
       <div class="panel__subtitle">Review and edit before saving</div>
     </div>
     <div class="panel__body">
@@ -133,7 +133,7 @@
       <div id="saveStatus" style="margin-top:12px;"></div>
     </div>
     <div class="panel__footer">
-      <button class="btn btn--primary" id="btnSaveExt" onclick="saveRecord()">✅ Save Record</button>
+      <button class="btn btn--primary" id="btnSaveExt" onclick="saveRecord()">âœ… Save Record</button>
       <button class="btn btn--secondary" onclick="clearAll()">Clear</button>
       <span id="saveNote" style="font-size:11px;color:var(--text-muted);margin-left:auto;"></span>
     </div>
@@ -145,7 +145,7 @@
 <div style="margin-top:24px;">
   <div style="font-size:12px;font-weight:700;color:var(--navy);
               text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">
-    📁 Your Extracted Records
+    ðŸ“ Your Extracted Records
     <span id="ragCount" style="background:var(--blue);color:#fff;
           border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">0</span>
   </div>
@@ -209,7 +209,7 @@
 
   function fileIcon(n){
     const e=n.split('.').pop().toLowerCase();
-    return {pdf:'📄',xlsx:'📊',xls:'📊',csv:'📊',png:'🖼',jpg:'🖼',jpeg:'🖼',docx:'📝',doc:'📝',txt:'📃'}[e]||'📄';
+    return {pdf:'ðŸ“„',xlsx:'ðŸ“Š',xls:'ðŸ“Š',csv:'ðŸ“Š',png:'ðŸ–¼',jpg:'ðŸ–¼',jpeg:'ðŸ–¼',docx:'ðŸ“',doc:'ðŸ“',txt:'ðŸ“ƒ'}[e]||'ðŸ“„';
   }
 
   function onDragOver(e){e.preventDefault();document.getElementById('dropZone').classList.add('drag-over');}
@@ -249,8 +249,8 @@
   async function processUpload(){
     if(!_file) return;
     const btn=document.getElementById('btnProcess');
-    btn.disabled=true;btn.textContent='⏳ Extracting…';
-    setStatus('🤖 Sending to AI for extraction…','processing');
+    btn.disabled=true;btn.textContent='â³ Extractingâ€¦';
+    setStatus('ðŸ¤– Sending to AI for extractionâ€¦','processing');
     document.getElementById('insufficientWarning').style.display='none';
 
     try{
@@ -262,25 +262,25 @@
       if(res.status===422 && data.insufficient){
         document.getElementById('insufficientWarning').style.display='block';
         document.getElementById('insufficientReason').textContent=data.reason||'Document is not a QMS record.';
-        setStatus('❌ Insufficient document — see details above','error');
-        btn.disabled=false;btn.textContent='🤖 Extract with AI';
+        setStatus('âŒ Insufficient document â€” see details above','error');
+        btn.disabled=false;btn.textContent='ðŸ¤– Extract with AI';
         return;
       }
       if(!res.ok||data.error){
-        setStatus('❌ '+( data.error||'Upload failed'),'error');
-        btn.disabled=false;btn.textContent='🤖 Extract with AI';
+        setStatus('âŒ '+( data.error||'Upload failed'),'error');
+        btn.disabled=false;btn.textContent='ðŸ¤– Extract with AI';
         return;
       }
 
       _record=data.record;
       populateForm(_record);
-      setStatus('✅ '+data.message,'success');
+      setStatus('âœ… '+data.message,'success');
       document.getElementById('extractedPanel').style.display='';
       btn.style.display='none';
       loadRagRecords();
     }catch(err){
-      setStatus('❌ Network error: '+err.message,'error');
-      btn.disabled=false;btn.textContent='🤖 Extract with AI';
+      setStatus('âŒ Network error: '+err.message,'error');
+      btn.disabled=false;btn.textContent='ðŸ¤– Extract with AI';
     }
   }
 
@@ -307,8 +307,8 @@
     document.getElementById('saveStatus').innerHTML=
       `<div style="background:var(--green-pale);border:1px solid #a7f3d0;border-radius:var(--r);
           padding:10px 14px;font-size:12px;color:#065f46;">
-        ✅ Record <strong>${_record.id}</strong> saved.
-        ${CAN_CAPA?`<a href="/capa/create?id=${_record.id}" style="color:var(--green);font-weight:600;margin-left:8px;">→ Create CAPA</a>`:''}
+        âœ… Record <strong>${_record.id}</strong> saved.
+        ${CAN_CAPA?`<a href="/capa/create?id=${_record.id}" style="color:var(--green);font-weight:600;margin-left:8px;">â†’ Create CAPA</a>`:''}
       </div>`;
     loadRagRecords();
   }
@@ -328,11 +328,11 @@
           <tr>
             <td class="table__id">${r.id}</td>
             <td style="font-size:12px;">${r.title}</td>
-            <td><span class="badge badge--${r.type||'other'}">${tLbl[r.type]||r.type||'—'}</span></td>
-            <td><span class="badge ${pCls[r.priority]||''}">${r.priority||'—'}</span></td>
-            <td><span class="badge ${sCls[r.status]||''}">${r.status||'—'}</span></td>
+            <td><span class="badge badge--${r.type||'other'}">${tLbl[r.type]||r.type||'â€”'}</span></td>
+            <td><span class="badge ${pCls[r.priority]||''}">${r.priority||'â€”'}</span></td>
+            <td><span class="badge ${sCls[r.status]||''}">${r.status||'â€”'}</span></td>
             <td>${CAN_CAPA||r.createdBy==='{{ current_user.username }}'
-              ?`<a href="/capa/create?id=${r.id}" style="color:var(--blue);font-size:11px;font-weight:500;">Open →</a>`
+              ?`<a href="/capa/create?id=${r.id}" style="color:var(--blue);font-size:11px;font-weight:500;">Open â†’</a>`
               :`<span style="font-size:11px;color:var(--text-muted);">View only</span>`
             }</td>
           </tr>`).join('');
@@ -342,3 +342,4 @@
   document.addEventListener('DOMContentLoaded', loadRagRecords);
 </script>
 {% endblock %}
+

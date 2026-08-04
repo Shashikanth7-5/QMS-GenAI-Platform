@@ -47,12 +47,30 @@ def get_db():
 def init_db():
     from models import QualityRecord, CAPARecord, UserModel, AuditLog, LLMCallLog
     Base.metadata.create_all(bind=engine)   # creates tables FIRST
+    _apply_lightweight_migrations()
     db_type = "SQLite" if _is_sqlite else "PostgreSQL"
     print(f"[DB] {db_type} ready")
     print(f"[DB] Tables: {list(Base.metadata.tables.keys())}")
     # seed AFTER tables exist
     from data.records import _seed_if_empty
     _seed_if_empty()
+
+
+def _apply_lightweight_migrations():
+    """Additive schema updates for local demo databases."""
+    if not _is_sqlite:
+        return
+    with engine.begin() as conn:
+        columns = {
+            row[1] for row in conn.execute(text("PRAGMA table_info(capa_records)")).fetchall()
+        }
+        if "capa_metadata" not in columns:
+            conn.execute(text("ALTER TABLE capa_records ADD COLUMN capa_metadata JSON"))
+        user_columns = {
+            row[1] for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()
+        }
+        if "email" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(150) DEFAULT ''"))
 
 def check_db_connection() -> bool:
     try:

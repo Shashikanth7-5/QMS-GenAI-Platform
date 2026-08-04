@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% set active_tab = "analytics" %}
-{% block title %}QMS GenAI · Analytics{% endblock %}
+{% block title %}AI QMS - Analytics{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -9,11 +9,11 @@
     <div class="page-subtitle">System-wide quality record and CAPA insights</div>
   </div>
   <div class="page-actions">
-    <button class="btn btn--secondary" onclick="loadCharts()">🔄 Refresh</button>
+    <button class="btn btn--secondary" onclick="loadCharts()">ðŸ”„ Refresh</button>
   </div>
 </div>
 
-<div class="banner banner--info" id="banner"><span>ℹ</span> Loading analytics data…</div>
+<div class="banner banner--info" id="banner"><span>â„¹</span> Loading analytics dataâ€¦</div>
 
 <!-- Summary metric strip -->
 <div class="metrics" id="summaryMetrics" style="margin-bottom:24px;"></div>
@@ -24,7 +24,7 @@
   <!-- Priority distribution -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">⚠ Priority Distribution</div>
+      <div class="panel__title">âš  Priority Distribution</div>
       <div class="panel__subtitle">All quality records by risk level</div>
     </div>
     <div class="panel__body" style="display:flex;justify-content:center;align-items:center;min-height:260px;">
@@ -35,7 +35,7 @@
   <!-- CAPA status -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">✅ CAPA Status Pipeline</div>
+      <div class="panel__title">âœ… CAPA Status Pipeline</div>
       <div class="panel__subtitle">CAPA records by workflow stage</div>
     </div>
     <div class="panel__body" style="display:flex;justify-content:center;align-items:center;min-height:260px;">
@@ -50,7 +50,7 @@
   <!-- Record type breakdown -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">📋 Record Type Breakdown</div>
+      <div class="panel__title">ðŸ“‹ Record Type Breakdown</div>
       <div class="panel__subtitle">Complaints vs Deviations vs Change Controls</div>
     </div>
     <div class="panel__body" style="min-height:260px;">
@@ -61,7 +61,7 @@
   <!-- Status pipeline -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">🔄 Workflow Status Pipeline</div>
+      <div class="panel__title">ðŸ”„ Workflow Status Pipeline</div>
       <div class="panel__subtitle">Records at each processing stage</div>
     </div>
     <div class="panel__body" style="min-height:260px;">
@@ -166,7 +166,7 @@ function makeDonut(id, labels, values, colors){
       .then(r=>{if(!r.ok) throw new Error('Not authorised');return r.json();})
       .then(d=>{
         document.getElementById('banner').className='banner banner--success';
-        document.getElementById('banner').innerHTML='<span>✓</span> Analytics loaded';
+        document.getElementById('banner').innerHTML='<span>âœ“</span> Analytics loaded';
 
         /* Summary strip */
         const p=d.priority, s=d.status, t=d.type, c=d.capa_status;
@@ -197,7 +197,7 @@ function makeDonut(id, labels, values, colors){
       })
       .catch(e=>{
         document.getElementById('banner').className='banner banner--error';
-        document.getElementById('banner').innerHTML=`<span>✗</span> ${e.message}`;
+        document.getElementById('banner').innerHTML=`<span>âœ—</span> ${e.message}`;
       });
   }
 

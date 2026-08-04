@@ -75,10 +75,11 @@ def page_register():
     success = None
     if request.method == "POST":
         username  = request.form.get("username","").strip()
+        email     = request.form.get("email","").strip()
         password  = request.form.get("password","").strip()
         full_name = request.form.get("full_name","").strip()
         role      = request.form.get("role","user")
-        user, err = register_user(username, password, full_name, role)
+        user, err = register_user(username, password, full_name, role, email)
         if err:
             error = err
         else:

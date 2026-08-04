@@ -4,9 +4,11 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 from services.agents.decision_agent import DecisionEligibilityAgent
+from services.agents.audit import get_agent_events
 from services.agents.orchestrator import CapaAgentOrchestrator, run_access_review
 from services.agents.rca_scoring_agent import RCAScoringAgent
 from services.agents.record_intake_agent import RecordIntakeAgent
+from services.agents.supervisor import AgentSupervisor, get_supervisor_status
 
 agents_bp = Blueprint("agents", __name__)
 
@@ -64,10 +66,15 @@ def api_rca_score():
 @agents_bp.route("/api/agents/capa/run", methods=["POST"])
 @login_required
 def api_capa_agents_run():
-    record_id = (request.get_json(force=True) or {}).get("recordId", "")
+    body = request.get_json(force=True) or {}
+    record_id = body.get("recordId", "")
     if not record_id:
         return jsonify({"error": "Missing recordId"}), 400
-    result = CapaAgentOrchestrator().run(record_id)
+    result = CapaAgentOrchestrator().run(
+        record_id,
+        triggered_by=current_user.username,
+        save_draft=bool(body.get("saveDraft", False)),
+    )
     return jsonify(result), 404 if result.get("status") == "error" else 200
 
 
@@ -75,3 +82,32 @@ def api_capa_agents_run():
 @admin_required
 def api_admin_access_review():
     return jsonify(run_access_review())
+
+
+@agents_bp.route("/api/agents/supervisor/run", methods=["POST"])
+@admin_required
+def api_supervisor_run():
+    body = request.get_json(silent=True) or {}
+    result = AgentSupervisor().run_once(
+        triggered_by=current_user.username,
+        limit=body.get("limit", 50),
+        allow_weekend=bool(body.get("allowWeekend", False)),
+    )
+    return jsonify(result)
+
+
+@agents_bp.route("/api/agents/status", methods=["GET"])
+@admin_required
+def api_agent_status():
+    return jsonify(get_supervisor_status())
+
+
+@agents_bp.route("/api/agents/audit", methods=["GET"])
+@admin_required
+def api_agent_audit():
+    return jsonify({"events": get_agent_events(
+        limit=request.args.get("limit", 100, type=int),
+        status=request.args.get("status"),
+        agent=request.args.get("agent"),
+        record_id=request.args.get("recordId"),
+    )})

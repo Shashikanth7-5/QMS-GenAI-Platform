@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set active_tab = "rca" %}
-{% block title %}QMS GenAI · RCA Analysis{% endblock %}
+{% block title %}AI QMS - RCA Analysis{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -181,7 +181,7 @@
   .spinner { width: 32px; height: 32px; border: 3px solid #e0e4ec; border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 40px auto; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
-  .empty-state__icon { font-size: 42px; margin-bottom: 12px; }
+  .empty-state__icon { display: none; }
   .empty-state__text { font-size: 13px; line-height: 1.6; }
 
   .search-box {
@@ -258,7 +258,7 @@
   }
   .model-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
   .model-card--selected { border-color: var(--blue); background: var(--blue-pale); }
-  .model-card__icon  { font-size: 24px; margin-bottom: 8px; }
+  .model-card__icon  { display: none; }
   .model-card__name  { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
   .model-card__score {
     display: inline-block; padding: 2px 10px; border-radius: 20px;
@@ -284,19 +284,18 @@
 
 <div class="page-header">
   <div>
-    <div class="page-title">🔍 Root Cause Analysis</div>
+    <div class="page-title">Root Cause Analysis</div>
     <div class="page-subtitle">
-      Generate → Assess accuracy → AI improves if needed →
-      Select model → Edit → Re-assess → Approve → Submit to CAPA
+      Generate, assess accuracy, improve if needed, edit, approve, and submit to CAPA.
     </div>
   </div>
   <div class="page-actions">
-    <a href="/capa/create" class="btn btn--primary">📋 Go to CAPA Creation →</a>
+    <a href="/capa/create" class="btn btn--primary">Go to CAPA Creation</a>
   </div>
 </div>
 
 <div class="banner banner--info" id="banner">
-  <span>ℹ</span> Select a quality record to begin root cause analysis.
+  <span>i</span> Select a quality record to begin root cause analysis.
 </div>
 
 <div class="stepper">
@@ -310,19 +309,19 @@
 
 <div class="rca-layout">
 
-  <!-- LEFT — Record list -->
+  <!-- Record list -->
   <div>
     <div class="panel">
       <div class="panel__header">
         <div>
-          <div class="panel__title">📂 Quality Records</div>
+          <div class="panel__title">Quality Records</div>
           <div class="panel__subtitle">Select record to analyse</div>
         </div>
-        <span id="recordCount" style="font-size:11px;color:rgba(255,255,255,0.5);">—</span>
+        <span id="recordCount" style="font-size:11px;color:rgba(255,255,255,0.5);">-</span>
       </div>
       <div class="panel__body" style="padding:13px;">
         <input class="search-box" type="text" id="searchBox"
-               placeholder="🔎 Search…" oninput="filterRecords()"/>
+               placeholder="Search records" oninput="filterRecords()"/>
         <div class="mini-pills" id="typeFilter">
           <button class="mini-pill mini-pill--active" data-val="all">All</button>
           <button class="mini-pill" data-val="complaint">Complaints</button>
@@ -336,24 +335,24 @@
     </div>
   </div>
 
-  <!-- RIGHT — RCA workspace -->
+  <!-- RCA workspace -->
   <div>
     <div class="method-tabs">
       <button class="method-tab method-tab--active" id="tab5why"
-              onclick="switchMethod('5why')">❓ 5-Why Analysis</button>
+              onclick="switchMethod('5why')">5-Why Analysis</button>
       <button class="method-tab" id="tabFishbone"
-              onclick="switchMethod('fishbone')">🐟 Fishbone (Ishikawa)</button>
+              onclick="switchMethod('fishbone')">Fishbone (Ishikawa)</button>
     </div>
 
     <div class="panel">
       <div class="panel__header">
         <div>
-          <div class="panel__title" id="rcaTitle">🔍 RCA Workspace</div>
+          <div class="panel__title" id="rcaTitle">RCA Workspace</div>
           <div class="panel__subtitle" id="rcaSubtitle">Select a record to begin</div>
         </div>
         <span style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);
                      border:1px solid rgba(255,255,255,0.15);border-radius:20px;
-                     padding:3px 10px;font-size:11px;">🤖 AI Assisted</span>
+                     padding:3px 10px;font-size:11px;">AI Assisted</span>
       </div>
       <div class="panel__body">
 
@@ -368,20 +367,20 @@
 
         <div id="rcaOutput">
           <div class="empty-state">
-            <div class="empty-state__icon">🔎</div>
+            <div class="empty-state__icon"></div>
             <div class="empty-state__text">
-              Select a record → click <strong>Generate RCA</strong>
+              Select a record, then click <strong>Generate RCA</strong>.
             </div>
           </div>
         </div>
 
         <!-- Approved root cause + redirect -->
         <div class="rc-summary" id="rcSummary">
-          <div class="rc-summary__label">✦ Approved Root Cause</div>
-          <div class="rc-summary__text" id="rcSummaryText">—</div>
+          <div class="rc-summary__label">Approved Root Cause</div>
+          <div class="rc-summary__text" id="rcSummaryText">-</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
             <button class="btn btn--success btn--sm" onclick="submitToCAPA()">
-              📋 Submit to CAPA Creation →
+              Submit to CAPA Creation
             </button>
             <span id="rcaScoreNote" style="font-size:11px;color:var(--green);font-weight:600;"></span>
           </div>
@@ -390,25 +389,25 @@
 
       <div class="panel__footer">
         <button class="btn btn--primary"   id="btnGenerate" onclick="generateRCA()" disabled>
-          🔍 Generate RCA
+          Generate RCA
         </button>
         <button class="btn btn--secondary" id="btnAssess"   onclick="assessRCA()"  style="display:none;">
-          📊 Assess Accuracy
+          Assess Accuracy
         </button>
         <button class="btn btn--secondary" id="btnAIImprove" onclick="openAIImprove()" style="display:none;">
-          🤖 AI Improve
+          AI Improve
         </button>
         <button class="btn btn--secondary" id="btnEdit"     onclick="toggleEditMode()" style="display:none;">
-          ✏️ Edit RCA
+          Edit RCA
         </button>
         <button class="btn btn--secondary" id="btnReAssess" onclick="reAssessRCA()"    style="display:none;">
-          🔄 Re-assess
+          Re-assess
         </button>
         <button class="btn btn--success"   id="btnApprove"  onclick="approveRCA()"     style="display:none;">
-          ✅ Approve &amp; Submit to CAPA
+          Approve &amp; Submit to CAPA
         </button>
         <button class="btn btn--secondary btn--sm" onclick="resetWorkspace()" style="margin-left:auto;">
-          ↺ Reset
+          Reset
         </button>
         <span id="rcaStatus" style="font-size:11px;color:var(--text-muted);">No record selected</span>
       </div>
@@ -421,19 +420,19 @@
   <div class="ai-modal">
     <div class="ai-modal__header">
       <div>
-        <div class="ai-modal__title">🤖 AI Improvement Suggestions</div>
+        <div class="ai-modal__title">AI Improvement Suggestions</div>
         <div class="ai-modal__sub" id="aiModalSub">Score analysis and improvement models</div>
       </div>
-      <button class="ai-modal__close" onclick="closeAIImprove()">✕</button>
+      <button class="ai-modal__close" onclick="closeAIImprove()">x</button>
     </div>
     <div class="ai-modal__body">
       <div class="score-summary" id="aiScoreSummary"></div>
       <div id="aiStepSuggestions"></div>
       <div id="aiModelsSection" style="display:none;">
         <div class="model-section-title">
-          🎯 Choose an AI-Proposed Model
+          Choose an AI-Proposed Model
           <span style="font-size:11px;font-weight:400;color:var(--text-muted);">
-            Model A = 70% · Model B = 80% · Model C = 90%
+            Model A = 70% Â· Model B = 80% Â· Model C = 90%
           </span>
         </div>
         <div class="models-grid" id="modelsGrid">
@@ -445,7 +444,7 @@
       <button class="btn btn--secondary" onclick="closeAIImprove()">Cancel</button>
       <button class="btn btn--primary"   id="btnApplyModel"
               onclick="applySelectedModel()" disabled>
-        Apply Selected Model →
+        Apply Selected Model
       </button>
     </div>
   </div>
@@ -456,9 +455,9 @@
 
 {% block extra_scripts %}
 <script>
-/* ══════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    STATE
-══════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 let allRecords      = [];
 let filteredRecords = [];
 let currentRecord   = null;
@@ -471,11 +470,11 @@ let selectedModelId = null;
 let proposedModels  = null;
 
 const TYPE_LBL  = {complaint:'Complaint',deviation:'Deviation',cc:'Change Ctrl',nc:'NC'};
-const CAT_ICONS = {Man:'👤',Machine:'⚙️',Method:'📋',Material:'🧪',Measurement:'📏',Environment:'🌡️'};
+const CAT_ICONS = {Man:'Man',Machine:'Machine',Method:'Method',Material:'Material',Measurement:'Measurement',Environment:'Environment'};
 
-/* ══════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    BOOT
-══════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 document.addEventListener('DOMContentLoaded', () => {
   loadRecords();
   bindTypeFilter();
@@ -487,9 +486,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-/* ══════════════════════════════════════════════════════
-   RECORDS — FIX: limit=2000 to show all imported records
-══════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   RECORDS â€” FIX: limit=2000 to show all imported records
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function loadRecords() {
   fetch('/api/records?limit=2000').then(r=>r.json()).then(data=>{
     allRecords = filteredRecords = data.records||[];
@@ -542,29 +541,29 @@ function bindTypeFilter() {
   });
 }
 
-/* ══════════════════════════════════════════════════════
-   STEP 1 — SELECT RECORD
-══════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   STEP 1 â€” SELECT RECORD
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function selectRecord(rec) {
   if (typeof rec==='string') rec=JSON.parse(rec);
   currentRecord = rec;
   renderRecordList(filteredRecords);
-  document.getElementById('rcaTitle').textContent    = `🔍 ${rec.id}`;
-  document.getElementById('rcaSubtitle').textContent = rec.title.substring(0,65)+'…';
+  document.getElementById('rcaTitle').textContent    = rec.id;
+  document.getElementById('rcaSubtitle').textContent = rec.title.substring(0,65);
   document.getElementById('btnGenerate').disabled = false;
-  setStatus('Ready — click Generate RCA');
-  setBanner(`✓ Record ${rec.id} selected`, 'success');
+  setStatus('Ready - click Generate RCA');
+  setBanner(`Record ${rec.id} selected`, 'success');
   setStep(1); resetWorkspaceOutput();
 }
 
-/* ══════════════════════════════════════════════════════
-   STEP 2 — GENERATE
-══════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   STEP 2 â€” GENERATE
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function generateRCA() {
   if (!currentRecord) return;
   const btn = document.getElementById('btnGenerate');
-  btn.disabled=true; btn.textContent='⏳ Generating…';
-  setStatus('Generating RCA…');
+  btn.disabled=true; btn.textContent='Generating...';
+  setStatus('Generating RCA...');
   showOutput('<div class="spinner"></div>');
   hideVerdict();
 
@@ -576,27 +575,27 @@ function generateRCA() {
       rcaData=data; assessmentData=null; editMode=false;
       if (currentMethod==='5why') render5Why(data, false);
       else renderFishbone(data, false);
-      btn.disabled=false; btn.textContent='🔄 Regenerate';
-      setStatus('Generated — click Assess Accuracy');
+      btn.disabled=false; btn.textContent='Regenerate';
+      setStatus('Generated - click Assess Accuracy');
       showBtn('btnAssess'); hideBtn('btnEdit'); hideBtn('btnReAssess');
       hideBtn('btnApprove'); hideBtn('btnAIImprove');
       setStep(2);
-      setBanner('✓ RCA generated — click Assess Accuracy to score this analysis','success');
+      setBanner('RCA generated - click Assess Accuracy to score this analysis','success');
     })
     .catch(err=>{
-      btn.disabled=false; btn.textContent='🔍 Generate RCA';
+      btn.disabled=false; btn.textContent='Generate RCA';
       setStatus('Error'); setBanner('Error: '+err.message,'error');
     });
 }
 
-/* ══════════════════════════════════════════════════════
-   STEP 3 — ASSESS
-══════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   STEP 3 â€” ASSESS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function assessRCA() {
   if (!rcaData) return;
   const btn=document.getElementById('btnAssess');
-  btn.disabled=true; btn.textContent='⏳ Assessing…';
-  setStatus('Assessing accuracy…');
+  btn.disabled=true; btn.textContent='Assessing...';
+  setStatus('Assessing accuracy...');
 
   fetch('/api/rca/assess',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({method:currentMethod, rca_data:rcaData})})
@@ -606,37 +605,37 @@ function assessRCA() {
       if (currentMethod==='5why') render5Why(rcaData, true);
       else renderFishbone(rcaData, true);
       renderVerdictBar(data);
-      btn.disabled=false; btn.textContent='📊 Re-assess';
+      btn.disabled=false; btn.textContent='Re-assess';
       showBtn('btnEdit'); showBtn('btnReAssess'); showBtn('btnApprove');
       setStep(3);
 
       if (data.needs_ai_help) {
         showBtn('btnAIImprove');
         setBanner(
-          `⚠ Score is ${data.overall_score}% — below 55% threshold. ` +
-          'Click <strong>🤖 AI Improve</strong> to get 3 AI-proposed models.',
+          `Score is ${data.overall_score}% - below 55% threshold. ` +
+          'Click <strong>AI Improve</strong> to get 3 AI-proposed models.',
           'warning'
         );
         setTimeout(openAIImprove, 800);
       } else {
         hideBtn('btnAIImprove');
         setBanner(
-          `Assessment: ${data.verdict} (${data.overall_score}%) — `+
-          (data.ready_to_submit ? 'Ready to approve ✓' : 'Edit flagged steps and re-assess'),
+          `Assessment: ${data.verdict} (${data.overall_score}%) - `+
+          (data.ready_to_submit ? 'Ready to approve' : 'Edit flagged steps and re-assess'),
           data.verdict_color==='green'?'success':data.verdict_color==='amber'?'warning':'error'
         );
       }
       setStatus('Assessment complete');
     })
     .catch(err=>{
-      btn.disabled=false; btn.textContent='📊 Assess Accuracy';
+      btn.disabled=false; btn.textContent='Assess Accuracy';
       setBanner('Assessment error: '+err.message,'error');
     });
 }
 
-/* ══════════════════════════════════════════════════════
-   STEP 4 — AI IMPROVE POPUP
-══════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   STEP 4 â€” AI IMPROVE POPUP
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function openAIImprove() {
   if (!assessmentData) { assessRCA(); return; }
   document.getElementById('aiOverlay').classList.add('open');
@@ -653,8 +652,8 @@ function closeAIOnBg(e) {
 function buildAIPopup() {
   const d = assessmentData;
   document.getElementById('aiModalSub').textContent =
-    `Overall score: ${d.overall_score}% — ${d.verdict}. `+
-    (d.needs_ai_help ? 'Score is below 55% — AI will propose improved models.' :
+    `Overall score: ${d.overall_score}% - ${d.verdict}. `+
+    (d.needs_ai_help ? 'Score is below 55% - AI will propose improved models.' :
      'Select a model below to upgrade your RCA quality.');
 
   const overallColor = d.overall_score>=75?'var(--green)':d.overall_score>=55?'var(--amber)':'var(--red)';
@@ -669,7 +668,7 @@ function buildAIPopup() {
     </div>
     <div class="score-card">
       <div class="score-card__val" style="font-size:14px;margin-top:6px;">
-        ${d.needs_ai_help ? '⚠️ Needs improvement' : '✅ Acceptable'}
+        ${d.needs_ai_help ? 'Needs improvement' : 'Acceptable'}
       </div>
       <div class="score-card__label">Status</div>
     </div>`;
@@ -679,7 +678,7 @@ function buildAIPopup() {
     const cats = d.assessed_categories || {};
     const rows = Object.entries(cats).flatMap(([cat, causes]) =>
       causes.filter(c => c.primary && c.score).map(c => ({
-        label:      `${CAT_ICONS[cat]||'•'} ${cat}`,
+        label:      `${CAT_ICONS[cat]||'Category'} ${cat}`,
         current:    c.text,
         score:      c.score.overall,
         color:      c.score.color,
@@ -689,7 +688,7 @@ function buildAIPopup() {
     if (rows.length) {
       html = `
         <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;">
-          💡 Per-Cause Improvement Suggestions
+          Per-Cause Improvement Suggestions
         </div>
         <table class="improve-table">
           <thead><tr>
@@ -702,7 +701,7 @@ function buildAIPopup() {
             ${rows.map(r => `
               <tr>
                 <td><div class="step-label">${r.label}</div></td>
-                <td><div class="step-current">"${r.current.substring(0,80)}…"</div></td>
+                <td><div class="step-current">"${r.current.substring(0,80)}"</div></td>
                 <td><span class="cause-score-badge score--${r.color}">${r.score}%</span></td>
                 <td><div class="step-suggestion">${r.suggestion}</div></td>
               </tr>`).join('')}
@@ -713,7 +712,7 @@ function buildAIPopup() {
     const steps = d.assessed_steps || [];
     html = `
       <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;">
-        💡 Per-Step Improvement Suggestions
+        Per-Step Improvement Suggestions
       </div>
       <table class="improve-table">
         <thead><tr>
@@ -726,7 +725,7 @@ function buildAIPopup() {
           ${steps.map(s => `
             <tr>
               <td><div class="step-label">Why #${s.level}</div></td>
-              <td><div class="step-current">"${(s.because||'').substring(0,80)}…"</div></td>
+              <td><div class="step-current">"${(s.because||'').substring(0,80)}"</div></td>
               <td><span class="cause-score-badge score--${s.score?.color||'red'}">${s.score?.overall||0}%</span></td>
               <td><div class="step-suggestion">${s.score?.improvement||'Add more detail.'}</div></td>
             </tr>`).join('')}
@@ -756,7 +755,7 @@ function loadProposedModels() {
     grid.innerHTML = data.models.map((m, i) => `
       <div class="model-card ${cardCls[i]}" id="model-card-${m.id}"
            onclick="selectModel('${m.id}')">
-        <div class="model-card__check">✅</div>
+        <div class="model-card__check">OK</div>
         <div class="model-card__icon">${m.icon}</div>
         <div class="model-card__name">${m.name}</div>
         <div><span class="model-card__score">~${m.estimated_score}% estimated</span></div>
@@ -825,15 +824,15 @@ function applySelectedModel() {
   hideBtn('btnApprove');
   setStep(4);
   setBanner(
-    `✓ ${model.name} applied (~${model.estimated_score}%) — edit if needed, then click Re-assess`,
+    `${model.name} applied (~${model.estimated_score}%) - edit if needed, then click Re-assess`,
     'success'
   );
-  setStatus('Model applied — re-assess to score');
+  setStatus('Model applied - re-assess to score');
 }
 
-/* ══════════════════════════════════════════════════════
-   STEP 5 — EDIT MODE
-══════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   STEP 5 â€” EDIT MODE
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function toggleEditMode() {
   editMode = !editMode;
   const btn    = document.getElementById('btnEdit');
@@ -841,11 +840,11 @@ function toggleEditMode() {
 
   if (editMode) {
     output.classList.add('edit-mode');
-    btn.textContent = '👁 View Mode';
+    btn.textContent = 'View Mode';
     document.querySelectorAll('.cause-edit-area').forEach(ta => {
       if (!ta.value) {
         const display = ta.closest('.cause-row')?.querySelector('.cause-text');
-        if (display) ta.value = display.textContent.replace(/^[⚡•]\s*/,'').trim();
+        if (display) ta.value = display.textContent.replace(/^[*]\s*/,'').trim();
       }
     });
     document.querySelectorAll('.why-answer-edit').forEach(ta => {
@@ -855,16 +854,16 @@ function toggleEditMode() {
       }
     });
     setStep(5);
-    setBanner('✏️ Edit mode — modify any field. Click Re-assess when done.','info');
+    setBanner('Edit mode - modify any field. Click Re-assess when done.','info');
   } else {
     output.classList.remove('edit-mode');
-    btn.textContent = '✏️ Edit RCA';
+    btn.textContent = 'Edit RCA';
   }
 }
 
-/* ══════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    RE-ASSESS with edited content
-══════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function reAssessRCA() {
   // Read edited values back into rcaData
   if (currentMethod === 'fishbone') {
@@ -892,9 +891,9 @@ function reAssessRCA() {
   assessRCA();
 }
 
-/* ══════════════════════════════════════════════════════
-   STEP 6 — APPROVE + AUTO-REDIRECT TO CAPA
-══════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   STEP 6 â€” APPROVE + AUTO-REDIRECT TO CAPA
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function approveRCA() {
   if (!rcaData) return;
 
@@ -910,7 +909,7 @@ function approveRCA() {
     rootCause = primaries.slice(0,2).join('; ') + (primaries.length ? '.' : '');
   }
 
-  const score = assessmentData?.overall_score || '—';
+  const score = assessmentData?.overall_score || '-';
 
   // Show the approved root cause summary
   document.getElementById('rcSummaryText').textContent = rootCause;
@@ -932,25 +931,25 @@ function approveRCA() {
   setStep(6);
   hideBtn('btnEdit'); hideBtn('btnReAssess'); hideBtn('btnAIImprove');
   const ab = document.getElementById('btnApprove');
-  ab.textContent='✅ Approved'; ab.disabled=true;
+  ab.textContent='Approved'; ab.disabled=true;
 
   setBanner(
-    `✅ RCA approved (${score}%) — click <strong>Submit to CAPA Creation →</strong> below to transfer`,
+    `RCA approved (${score}%) - click <strong>Submit to CAPA Creation</strong> below to transfer`,
     'success'
   );
-  setStatus(`Approved (${score}%) — ready for CAPA`);
+  setStatus(`Approved (${score}%) - ready for CAPA`);
 
-  // Auto-redirect after 1.5s if score is strong (≥75%)
+  // Auto-redirect after 1.5s if score is strong (>=75%).
   if (assessmentData?.overall_score >= 75) {
     setBanner(
-      `✅ Strong RCA (${score}%) — auto-transferring to CAPA Creation in 2 seconds…`,
+      `Strong RCA (${score}%) - auto-transferring to CAPA Creation in 2 seconds...`,
       'success'
     );
     setTimeout(() => submitToCAPA(), 2000);
   }
 }
 
-/* ── Submit to CAPA — carries RCA data as URL params ── */
+/* Submit to CAPA: carries RCA data as URL params. */
 function submitToCAPA() {
   if (!currentRecord) return;
 
@@ -975,15 +974,15 @@ function submitToCAPA() {
     root_cause: rootCause,
   });
 
-  setBanner('↗ Transferring to CAPA Creation…', 'success');
+  setBanner('Transferring to CAPA Creation...', 'success');
   setTimeout(() => {
     window.location.href = `/capa/create?${params.toString()}`;
   }, 400);
 }
 
-/* ══════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    RENDER FUNCTIONS
-══════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function render5Why(data, scored) {
   const steps = (scored && assessmentData?.assessed_steps)
     ? assessmentData.assessed_steps
@@ -1005,7 +1004,7 @@ function render5Why(data, scored) {
           </div>`).join('')}
       </div>` : '';
     const hint = score && score.overall < 55
-      ? `<div class="cause-ai-hint visible">💡 ${score.improvement}</div>` : '';
+      ? `<div class="cause-ai-hint visible">Suggestion: ${score.improvement}</div>` : '';
 
     return `
       <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px dashed var(--border);">
@@ -1025,9 +1024,9 @@ function render5Why(data, scored) {
           </div>
           <textarea class="why-answer-edit cause-edit-area"
                     data-idx="${i}" rows="3"
-                    placeholder="Edit this step — add SOP references, equipment IDs, dates…"
+                    placeholder="Edit this step: add SOP references, equipment IDs, and dates."
                     >${s.because}</textarea>
-          ${s.is_root?'<span style="display:inline-block;background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;text-transform:uppercase;margin-top:4px;">✦ Root Cause</span>':''}
+          ${s.is_root?'<span style="display:inline-block;background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;text-transform:uppercase;margin-top:4px;">Root Cause</span>':''}
           ${bars}${hint}
         </div>
       </div>`;
@@ -1060,7 +1059,7 @@ function renderFishbone(data, scored) {
             </div>`).join('')}
         </div>` : '';
       const hint = score && score.overall < 55
-        ? `<div class="cause-ai-hint visible">💡 ${score.improvement}</div>` : '';
+        ? `<div class="cause-ai-hint visible">Suggestion: ${score.improvement}</div>` : '';
 
       return `
         <div class="cause-row">
@@ -1070,7 +1069,7 @@ function renderFishbone(data, scored) {
                    onchange="togglePrimary('${cat}',${i},this.checked)"/>
             <div style="flex:1;">
               <span class="cause-text ${c.primary?'cause-text--primary':''}">
-                ${c.primary?'⚡ ':''} ${c.text}
+                ${c.primary?'* ':''} ${c.text}
               </span>
               ${badge}
             </div>
@@ -1078,7 +1077,7 @@ function renderFishbone(data, scored) {
           <textarea class="cause-edit-area"
                     data-cat="${cat}" data-idx="${i}"
                     rows="3"
-                    placeholder="Edit cause — add SOP ref, equipment ID, date, regulatory citation…"
+                    placeholder="Edit cause: add SOP ref, equipment ID, date, or regulatory citation."
                     >${c.text}</textarea>
           ${bars}${hint}
         </div>`;
@@ -1087,7 +1086,7 @@ function renderFishbone(data, scored) {
     return `
       <div class="fb-cat ${hasPrimary?'fb-cat--primary':''}">
         <div class="fb-cat__title">
-          <span>${CAT_ICONS[cat]||'•'}</span> ${cat}
+          <span>${CAT_ICONS[cat]||'Category'}</span> ${cat}
         </div>
         ${causesHtml}
         <button class="add-cause-btn" onclick="addCause('${cat}')">
@@ -1106,7 +1105,7 @@ function addCause(cat) {
   renderFishbone(rcaData, false);
   document.getElementById('rcaOutput').classList.add('edit-mode');
   editMode = true;
-  document.getElementById('btnEdit').textContent = '👁 View Mode';
+  document.getElementById('btnEdit').textContent = 'View Mode';
 }
 
 function togglePrimary(cat, idx, checked) {
@@ -1118,18 +1117,18 @@ function togglePrimary(cat, idx, checked) {
 function renderVerdictBar(a) {
   const bar   = document.getElementById('verdictBar');
   const color = a.verdict_color;
-  const icons = {green:'✅',amber:'⚠️',red:'❌'};
+  const icons = {green:'OK',amber:'!',red:'X'};
   bar.className = `verdict-bar verdict-bar--${color}`;
-  document.getElementById('verdictIcon').textContent  = icons[color]||'📊';
+  document.getElementById('verdictIcon').textContent  = icons[color]||'Score';
   document.getElementById('verdictLabel').textContent = a.verdict;
   document.getElementById('verdictMsg').textContent   = a.verdict_msg;
   document.getElementById('verdictScore').textContent = `${a.overall_score}%`;
   bar.style.display = 'flex';
 }
 
-/* ══════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    UTILITIES
-══════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function switchMethod(m) {
   currentMethod = m;
   document.getElementById('tab5why').classList.toggle('method-tab--active', m==='5why');
@@ -1139,25 +1138,25 @@ function switchMethod(m) {
 
 function resetWorkspaceOutput() {
   rcaData=null; assessmentData=null; editMode=false; selectedModelId=null;
-  showOutput(`<div class="empty-state"><div class="empty-state__icon">🔎</div>
+  showOutput(`<div class="empty-state"><div class="empty-state__icon"></div>
     <div class="empty-state__text">Click <strong>Generate RCA</strong> to begin</div></div>`);
   hideVerdict();
   document.getElementById('rcSummary').style.display='none';
   document.getElementById('rcaOutput').classList.remove('edit-mode');
   ['btnAssess','btnEdit','btnReAssess','btnApprove','btnAIImprove'].forEach(hideBtn);
   const gb=document.getElementById('btnGenerate');
-  gb.textContent='🔍 Generate RCA'; gb.disabled=!currentRecord;
-  setStatus(currentRecord?'Ready — click Generate RCA':'No record selected');
+  gb.textContent='Generate RCA'; gb.disabled=!currentRecord;
+  setStatus(currentRecord?'Ready - click Generate RCA':'No record selected');
 }
 
 function resetWorkspace() {
   currentRecord=null; resetWorkspaceOutput();
   renderRecordList(filteredRecords);
-  document.getElementById('rcaTitle').textContent='🔍 RCA Workspace';
+  document.getElementById('rcaTitle').textContent='RCA Workspace';
   document.getElementById('rcaSubtitle').textContent='Select a record to begin';
   document.getElementById('btnGenerate').disabled=true;
   setStep(1);
-  setBanner('ℹ Select a quality record to begin.','info');
+  setBanner('Select a quality record to begin.','info');
 }
 
 function setStep(n) {
@@ -1176,7 +1175,7 @@ function hideBtn(id)    { const el=document.getElementById(id); if(el) el.style.
 function setStatus(msg) { document.getElementById('rcaStatus').textContent=msg; }
 function setBanner(msg,type) {
   const b=document.getElementById('banner');
-  const icons={info:'ℹ',success:'✓',warning:'⚠',error:'✗'};
+  const icons={info:'i',success:'OK',warning:'!',error:'X'};
   b.className=`banner banner--${type}`;
   b.innerHTML=`<span>${icons[type]}</span> ${msg}`;
 }

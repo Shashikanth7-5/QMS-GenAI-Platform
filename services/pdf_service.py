@@ -1,9 +1,9 @@
-# services/pdf_service.py
-# ─────────────────────────────────────────────────────────
-# CAPA PDF EXPORT — Sprint 3 Week 2
+﻿# services/pdf_service.py
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# CAPA PDF EXPORT â€” Sprint 3 Week 2
 # Renders a regulatory-grade CAPA document with ReportLab.
 # Pure-Python, no network. Returns PDF bytes.
-# ─────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import io
 from datetime import datetime
@@ -58,7 +58,7 @@ def _header_footer(canvas, doc):
     canvas.rect(0, letter[1] - 0.5 * inch, letter[0], 0.5 * inch, fill=1, stroke=0)
     canvas.setFillColor(colors.white)
     canvas.setFont("Helvetica-Bold", 11)
-    canvas.drawString(0.75 * inch, letter[1] - 0.33 * inch, "TrackWise\u00AE Digital \u2014 CAPA Record")
+    canvas.drawString(0.75 * inch, letter[1] - 0.33 * inch, "AI Quality Management System - CAPA Record")
     canvas.setFont("Helvetica", 8)
     canvas.drawRightString(letter[0] - 0.75 * inch, letter[1] - 0.33 * inch, "Quality Management System")
     # footer
@@ -182,3 +182,5 @@ def build_capa_pdf(capa: dict, similar: list = None) -> bytes:
 
     doc.build(story, onFirstPage=_header_footer, onLaterPages=_header_footer)
     return buf.getvalue()
+
+

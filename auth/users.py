@@ -20,12 +20,13 @@ ROLES = ("admin", "quality", "user")
 class User(UserMixin):
     def __init__(self, id, username, password, role,
                  full_name, status="approved", created_at=None,
-                 reject_comment="", _hashed=False):
+                 reject_comment="", email="", _hashed=False):
         self.id             = str(id)
         self.username       = username.lower()
         self._pw_hash       = password if _hashed else generate_password_hash(password)
         self.role           = role
         self.full_name      = full_name
+        self.email          = (email or _infer_email(username)).strip().lower()
         self.status         = status
         self.created_at     = created_at or datetime.now().strftime("%Y-%m-%d %H:%M")
         self.reject_comment = reject_comment
@@ -73,6 +74,7 @@ class User(UserMixin):
         return {
             "id":               self.id,
             "username":         self.username,
+            "email":            self.email,
             "full_name":        self.full_name,
             "role":             self.role,
             "status":           self.status,
@@ -90,6 +92,7 @@ class User(UserMixin):
         return {
             "id":             self.id,
             "username":       self.username,
+            "email":          self.email,
             "pw_hash":        self._pw_hash,
             "role":           self.role,
             "full_name":      self.full_name,
@@ -100,10 +103,18 @@ class User(UserMixin):
 
 
 # ── Built-in accounts (never written to JSON) ──────────────
+def _infer_email(username: str) -> str:
+    value = (username or "").strip().lower()
+    if "@" in value:
+        return value
+    domain = os.getenv("QMS_DEFAULT_EMAIL_DOMAIN", "example.com").strip() or "example.com"
+    return f"{value}@{domain}" if value else ""
+
+
 _BUILTIN = [
-    User("1", "admin",   "admin", "admin",   "Admin",         "approved"),
-    User("2", "shashi",  "admin", "user",    "Shashi",        "approved"),
-    User("3", "quality", "admin", "quality", "Quality Lead",  "approved"),
+    User("1", "admin",   "admin", "admin",   "Admin",         "approved", email=_infer_email("admin")),
+    User("2", "shashi",  "admin", "user",    "Shashi",        "approved", email=_infer_email("shashi")),
+    User("3", "quality", "admin", "quality", "Quality Lead",  "approved", email=_infer_email("quality")),
 ]
 
 _REGISTERED: list = []
@@ -128,6 +139,7 @@ def _load():
                 status         = r["status"],
                 created_at     = r["created_at"],
                 reject_comment = r.get("reject_comment", ""),
+                email          = r.get("email", ""),
                 _hashed        = True,
             )
             for r in data.get("users", [])
@@ -176,7 +188,7 @@ def username_exists(username: str) -> bool:
     return get_user_by_username(username) is not None
 
 
-def register_user(username: str, password: str, full_name: str, role: str = "user"):
+def register_user(username: str, password: str, full_name: str, role: str = "user", email: str = ""):
     global _NEXT_ID
     uname = username.strip().lower()
     if uname in ("admin", "quality"):
@@ -196,6 +208,7 @@ def register_user(username: str, password: str, full_name: str, role: str = "use
         role       = role,
         full_name  = full_name.strip(),
         status     = "pending",
+        email      = email.strip().lower() or _infer_email(uname),
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M"),
     )
     _NEXT_ID += 1

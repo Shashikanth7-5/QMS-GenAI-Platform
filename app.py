@@ -1,5 +1,5 @@
-"""
-app.py · QMS GenAI — Sprint 2
+﻿"""
+app.py Â· AI Quality Management System â€” Sprint 2
 """
 
 import sys
@@ -24,7 +24,7 @@ def create_app() -> Flask:
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view             = "auth.page_login"
-    login_manager.login_message          = "Please log in to access QMS GenAI."
+    login_manager.login_message          = "Please log in to access AI Quality Management System."
     login_manager.login_message_category = "info"
 
     @login_manager.user_loader
@@ -74,9 +74,11 @@ app = create_app()
 
 if __name__ == "__main__":
     print("""
-  ╔══════════════════════════════════════════════════╗
-  ║   QMS GenAI  ·  Sprint 2                        ║
-  ║   admin / admin  |  quality / admin             ║
-  ╚══════════════════════════════════════════════════╝
+  â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+  â•‘   AI QMS - Sprint 2                        â•‘
+  â•‘   admin / admin  |  quality / admin             â•‘
+  â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     """)
     app.run(host="127.0.0.1", port=PORT, debug=os.getenv("FLASK_DEBUG") == "true")
+
+

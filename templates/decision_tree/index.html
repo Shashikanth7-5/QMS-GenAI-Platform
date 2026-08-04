@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% set active_tab = "decision" %}
-{% block title %}QMS GenAI · Decision Tree{% endblock %}
+{% block title %}AI QMS - Decision Tree{% endblock %}
 
 {% block extra_styles %}
 <style>
-  /* ── Source type selector ── */
+  /* â”€â”€ Source type selector â”€â”€ */
   .source-cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -43,7 +43,7 @@
     line-height: 1.5;
   }
 
-  /* ── Two column layout ── */
+  /* â”€â”€ Two column layout â”€â”€ */
   .dt-layout {
     display: grid;
     grid-template-columns: 1fr 380px;
@@ -54,7 +54,7 @@
     .dt-layout { grid-template-columns: 1fr; }
   }
 
-  /* ── Panel ── */
+  /* â”€â”€ Panel â”€â”€ */
   .panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -80,7 +80,7 @@
   }
   .panel__body { padding: 20px; }
 
-  /* ── Gate steps ── */
+  /* â”€â”€ Gate steps â”€â”€ */
   .gates { display: flex; flex-direction: column; gap: 12px; }
 
   .gate-item {
@@ -175,7 +175,7 @@
     margin-top: 4px;
   }
 
-  /* ── Result panel ── */
+  /* â”€â”€ Result panel â”€â”€ */
   .result-panel {
     display: none;
     padding: 20px;
@@ -215,7 +215,7 @@
     margin-bottom: 14px;
   }
 
-  /* ── Summary card (right column) ── */
+  /* â”€â”€ Summary card (right column) â”€â”€ */
   .summary-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -286,41 +286,41 @@
 <!-- Page Header -->
 <div class="page-header">
   <div>
-    <div class="page-title">🌳 CAPA Trigger Decision Tree</div>
+    <div class="page-title">ðŸŒ³ CAPA Trigger Decision Tree</div>
     <div class="page-subtitle">
       Answer each gate question to determine if a CAPA is required.
       The Python backend evaluates all gates and returns a regulatory-mapped result.
     </div>
   </div>
   <div class="page-actions">
-    <button class="btn btn--secondary" onclick="resetAll()">🔄 Reset</button>
+    <button class="btn btn--secondary" onclick="resetAll()">ðŸ”„ Reset</button>
   </div>
 </div>
 
 <!-- Banner -->
 <div class="banner banner--info" id="banner">
-  <span>ℹ</span>
+  <span>â„¹</span>
   Select a source type below to load the decision gates for that workflow.
 </div>
 
 <!-- Step 1: Source Type Cards -->
 <div style="font-size:12px;font-weight:700;text-transform:uppercase;
             letter-spacing:0.06em;color:var(--text-muted);margin-bottom:12px;">
-  Step 1 — Select Source Type
+  Step 1 â€” Select Source Type
 </div>
 <div class="source-cards">
   <div class="source-card" id="card-complaint" onclick="selectSource('complaint')">
-    <div class="source-card__icon">📬</div>
+    <div class="source-card__icon">ðŸ“¬</div>
     <div class="source-card__title">Complaint</div>
     <div class="source-card__desc">Customer complaints, MDR reportable events, adverse events</div>
   </div>
   <div class="source-card" id="card-deviation" onclick="selectSource('deviation')">
-    <div class="source-card__icon">⚠️</div>
+    <div class="source-card__icon">âš ï¸</div>
     <div class="source-card__title">Deviation</div>
     <div class="source-card__desc">Manufacturing, process, environmental, and OOS deviations</div>
   </div>
   <div class="source-card" id="card-cc" onclick="selectSource('cc')">
-    <div class="source-card__icon">🔄</div>
+    <div class="source-card__icon">ðŸ”„</div>
     <div class="source-card__title">Failed Change Control</div>
     <div class="source-card__desc">V&amp;V failures, unauthorised changes, supplier failures</div>
   </div>
@@ -333,7 +333,7 @@
   <div>
     <div style="font-size:12px;font-weight:700;text-transform:uppercase;
                 letter-spacing:0.06em;color:var(--text-muted);margin-bottom:12px;">
-      Step 2 — Answer Each Gate
+      Step 2 â€” Answer Each Gate
     </div>
 
     <div class="panel">
@@ -378,7 +378,7 @@
       <div class="summary-card__body">
         <div class="summary-row">
           <span class="summary-row__label">Source Type</span>
-          <span class="summary-row__val" id="sumSource">—</span>
+          <span class="summary-row__val" id="sumSource">â€”</span>
         </div>
         <div class="summary-row">
           <span class="summary-row__label">Gates Answered</span>
@@ -387,17 +387,17 @@
         <div class="summary-row">
           <span class="summary-row__label">CAPA Triggered</span>
           <span class="summary-row__val summary-row__val--pending"
-                id="sumTriggered">Pending…</span>
+                id="sumTriggered">Pendingâ€¦</span>
         </div>
         <div class="summary-row">
           <span class="summary-row__label">Mandatory</span>
           <span class="summary-row__val summary-row__val--pending"
-                id="sumMandatory">—</span>
+                id="sumMandatory">â€”</span>
         </div>
         <div class="summary-row">
           <span class="summary-row__label">Triggered At</span>
           <span class="summary-row__val summary-row__val--pending"
-                id="sumGate">—</span>
+                id="sumGate">â€”</span>
         </div>
 
         <!-- Reg refs shown after result -->
@@ -411,7 +411,7 @@
     <!-- Reference table -->
     <div class="panel" style="margin-top:16px;">
       <div class="panel__header">
-        <div class="panel__title">📖 Quick Reference</div>
+        <div class="panel__title">ðŸ“– Quick Reference</div>
       </div>
       <div class="panel__body" style="padding:14px;">
         <table style="width:100%;border-collapse:collapse;font-size:11px;">
@@ -436,22 +436,22 @@
 
 {% block extra_scripts %}
 <script>
-  /* ── State ──────────────────────────────────────────────── */
+  /* â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   let currentSource = null;
   let currentGates  = [];
-  let answers       = {};   /* gateId → true/false */
+  let answers       = {};   /* gateId â†’ true/false */
 
   const SOURCE_LABELS = {
-    complaint: '📬 Complaint',
-    deviation: '⚠️ Deviation',
-    cc:        '🔄 Change Control',
+    complaint: 'ðŸ“¬ Complaint',
+    deviation: 'âš ï¸ Deviation',
+    cc:        'ðŸ”„ Change Control',
   };
 
   const REF_ROWS = {
     complaint: [
       ['Adverse event / patient harm', 'Always'],
       ['Priority Critical or High',    'Always'],
-      ['Recurrence ≥3 in 90 days',     'Always'],
+      ['Recurrence â‰¥3 in 90 days',     'Always'],
       ['MDR / CDSCO / EMA reportable', 'Always'],
       ['Systemic root cause',          'Likely'],
       ['QA recommendation',            'Discretion'],
@@ -474,7 +474,7 @@
     ],
   };
 
-  /* ── Select source type ─────────────────────────────────── */
+  /* â”€â”€ Select source type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function selectSource(source) {
     currentSource = source;
     answers       = {};
@@ -498,16 +498,16 @@
         document.getElementById('dtLayout').style.display = 'grid';
         document.getElementById('resultPanel').style.display = 'none';
         document.getElementById('gatesPanelTitle').textContent =
-          `${SOURCE_LABELS[source]} — Decision Gates`;
+          `${SOURCE_LABELS[source]} â€” Decision Gates`;
         document.getElementById('gatesPanelSub').textContent =
           `Answer Yes or No for each of the ${currentGates.length} gates`;
-        setBanner(`✓ ${currentGates.length} gates loaded for ${SOURCE_LABELS[source]}`, 'success');
+        setBanner(`âœ“ ${currentGates.length} gates loaded for ${SOURCE_LABELS[source]}`, 'success');
         updateProgress();
       })
       .catch(err => setBanner('Error loading gates: ' + err.message, 'error'));
   }
 
-  /* ── Render gate question cards ─────────────────────────── */
+  /* â”€â”€ Render gate question cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function renderGates(gates) {
     const container = document.getElementById('gatesContainer');
     container.innerHTML = gates.map((gate, idx) => `
@@ -525,21 +525,21 @@
             <button class="toggle-btn toggle-btn--yes"
                     id="yes-${gate.id}"
                     onclick="setAnswer('${gate.id}', true)">
-              ✓ Yes — CAPA Needed
+              âœ“ Yes â€” CAPA Needed
             </button>
             <button class="toggle-btn toggle-btn--no"
                     id="no-${gate.id}"
                     onclick="setAnswer('${gate.id}', false)">
-              ✗ No — Continue
+              âœ— No â€” Continue
             </button>
           </div>
         </div>
-        <div class="gate-icon" id="icon-${gate.id}">❓</div>
+        <div class="gate-icon" id="icon-${gate.id}">â“</div>
       </div>`
     ).join('');
   }
 
-  /* ── Handle Yes/No answer ───────────────────────────────── */
+  /* â”€â”€ Handle Yes/No answer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function setAnswer(gateId, value) {
     answers[gateId] = value;
 
@@ -551,7 +551,7 @@
 
     yBtn.classList.toggle('active', value === true);
     nBtn.classList.toggle('active', value === false);
-    icon.textContent = value ? '✅' : '➡️';
+    icon.textContent = value ? 'âœ…' : 'âž¡ï¸';
     item.classList.remove('gate-item--active','gate-item--skipped');
     item.classList.add(value ? 'gate-item--triggered' : 'gate-item--skipped');
 
@@ -563,12 +563,12 @@
     }
   }
 
-  /* ── Check if all gates answered ───────────────────────── */
+  /* â”€â”€ Check if all gates answered â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function allAnswered() {
     return currentGates.every(g => answers[g.id] !== undefined);
   }
 
-  /* ── Update progress counter ────────────────────────────── */
+  /* â”€â”€ Update progress counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function updateProgress() {
     const answered = Object.keys(answers).length;
     const total    = currentGates.length;
@@ -578,7 +578,7 @@
       `${answered} / ${total}`;
   }
 
-  /* ── Call backend to evaluate gates ────────────────────── */
+  /* â”€â”€ Call backend to evaluate gates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function evaluateGates() {
     if (!currentSource) return;
 
@@ -592,7 +592,7 @@
     .catch(err => setBanner('Evaluation error: ' + err.message, 'error'));
   }
 
-  /* ── Render evaluation result ───────────────────────────── */
+  /* â”€â”€ Render evaluation result â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function renderResult(result) {
     const panel  = document.getElementById('resultPanel');
     const isCapa = result.capa_triggered;
@@ -600,31 +600,31 @@
     panel.className = `result-panel result-panel--${isCapa ? 'capa' : 'no-capa'}`;
     panel.style.display = 'block';
 
-    document.getElementById('resultIcon').textContent  = isCapa ? '🚨' : '✅';
+    document.getElementById('resultIcon').textContent  = isCapa ? 'ðŸš¨' : 'âœ…';
     document.getElementById('resultTitle').textContent =
       isCapa ? 'CAPA is Required' : 'No CAPA Required';
 
     document.getElementById('resultGate').textContent = isCapa
-      ? `Triggered at: Gate ${result.triggered_gate} — ${result.gate_label}`
-      : 'All gates evaluated — no trigger found';
+      ? `Triggered at: Gate ${result.triggered_gate} â€” ${result.gate_label}`
+      : 'All gates evaluated â€” no trigger found';
 
     document.getElementById('resultRec').textContent  = result.recommendation;
 
     document.getElementById('resultActions').innerHTML = isCapa
       ? `<a href="/capa/create" class="btn btn--success">
-           📋 Create CAPA Now →
+           ðŸ“‹ Create CAPA Now â†’
          </a>
          ${result.mandatory
-           ? '<span style="font-size:11px;color:var(--red);margin-left:10px;">⚠ Mandatory — regulatory requirement</span>'
+           ? '<span style="font-size:11px;color:var(--red);margin-left:10px;">âš  Mandatory â€” regulatory requirement</span>'
            : ''}`
-      : `<a href="/" class="btn btn--secondary">← Back to Dashboard</a>`;
+      : `<a href="/" class="btn btn--secondary">â† Back to Dashboard</a>`;
 
     /* Update summary card */
-    document.getElementById('sumTriggered').textContent  = isCapa ? 'Yes ✓' : 'No';
+    document.getElementById('sumTriggered').textContent  = isCapa ? 'Yes âœ“' : 'No';
     document.getElementById('sumTriggered').className    =
       `summary-row__val ${isCapa ? 'summary-row__val--yes' : 'summary-row__val--no'}`;
     document.getElementById('sumMandatory').textContent  =
-      isCapa ? (result.mandatory ? 'Yes — Required' : 'No — Discretionary') : 'N/A';
+      isCapa ? (result.mandatory ? 'Yes â€” Required' : 'No â€” Discretionary') : 'N/A';
     document.getElementById('sumGate').textContent       =
       isCapa ? `Gate ${result.triggered_gate}` : 'None';
 
@@ -639,7 +639,7 @@
     panel.scrollIntoView({behavior:'smooth', block:'nearest'});
   }
 
-  /* ── Update reference table ─────────────────────────────── */
+  /* â”€â”€ Update reference table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function updateRefTable(source) {
     const rows  = REF_ROWS[source] || [];
     const tbody = document.getElementById('refTable');
@@ -657,7 +657,7 @@
     ).join('');
   }
 
-  /* ── Reset everything ───────────────────────────────────── */
+  /* â”€â”€ Reset everything â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function resetAll() {
     currentSource = null;
     currentGates  = [];
@@ -667,19 +667,19 @@
     document.getElementById('dtLayout').style.display = 'none';
     document.getElementById('resultPanel').style.display = 'none';
     ['sumSource','sumAnswered','sumGate'].forEach(id => {
-      document.getElementById(id).textContent = '—';
+      document.getElementById(id).textContent = 'â€”';
     });
-    document.getElementById('sumTriggered').textContent = 'Pending…';
+    document.getElementById('sumTriggered').textContent = 'Pendingâ€¦';
     document.getElementById('sumTriggered').className =
       'summary-row__val summary-row__val--pending';
     document.getElementById('regRefs').style.display = 'none';
-    setBanner('ℹ Select a source type to begin the decision tree evaluation.', 'info');
+    setBanner('â„¹ Select a source type to begin the decision tree evaluation.', 'info');
   }
 
-  /* ── Banner ─────────────────────────────────────────────── */
+  /* â”€â”€ Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function setBanner(msg, type) {
     const b = document.getElementById('banner');
-    const icons = {info:'ℹ',success:'✓',warning:'⚠',error:'✗'};
+    const icons = {info:'â„¹',success:'âœ“',warning:'âš ',error:'âœ—'};
     b.className = `banner banner--${type}`;
     b.innerHTML = `<span>${icons[type]}</span> ${msg}`;
   }

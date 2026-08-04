@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% set active_tab = "dashboard" %}
-{% block title %}QMS GenAI · Dashboard{% endblock %}
+{% block title %}AI QMS - Dashboard{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -11,19 +11,19 @@
     </div>
   </div>
   <div class="page-actions">
-    <button class="btn btn--secondary" onclick="loadAll()">🔄 Refresh</button>
+    <button class="btn btn--secondary" onclick="loadAll()">Refresh</button>
     {# Only admin sees the batch agent button #}
   
   {% if current_user.is_admin() %}
-    <button class="btn btn--primary" id="btnRunAll">▶ Run Agent on All Eligible</button>
+    <button class="btn btn--primary" id="btnRunAll">Run Agent on All Eligible</button>
     {% endif %}
   </div>
 </div>
 
 <div class="banner banner--info" id="banner">
-  <span>ℹ</span>
+  <span>i</span>
   {% if current_user.sees_all_records() %}
-    Connecting to QMS and loading all quality records…
+    Connecting to QMS and loading all quality records...
   {% else %}
     Showing your records. Use the search box below to look up any record by ID.
   {% endif %}
@@ -33,37 +33,37 @@
 <div class="metrics">
   <div class="metric-card metric-card--blue">
     <div class="metric-card__label">{% if current_user.sees_all_records() %}Total Records{% else %}My Records{% endif %}</div>
-    <div class="metric-card__value metric-card__value--blue" id="mTotal">—</div>
+    <div class="metric-card__value metric-card__value--blue" id="mTotal">-</div>
   </div>
   <div class="metric-card metric-card--green">
     <div class="metric-card__label">Draft Eligible</div>
-    <div class="metric-card__value metric-card__value--green" id="mEligible">—</div>
+    <div class="metric-card__value metric-card__value--green" id="mEligible">-</div>
   </div>
   <div class="metric-card metric-card--amber">
     <div class="metric-card__label">Under Review</div>
-    <div class="metric-card__value metric-card__value--amber" id="mReview">—</div>
+    <div class="metric-card__value metric-card__value--amber" id="mReview">-</div>
   </div>
   <div class="metric-card metric-card--red">
     <div class="metric-card__label">Critical</div>
-    <div class="metric-card__value metric-card__value--red" id="mCritical">—</div>
+    <div class="metric-card__value metric-card__value--red" id="mCritical">-</div>
   </div>
   {% if current_user.sees_all_records() %}
   <div class="metric-card metric-card--purple">
     <div class="metric-card__label">Med. Device</div>
-    <div class="metric-card__value metric-card__value--purple" id="mMedDev">—</div>
+    <div class="metric-card__value metric-card__value--purple" id="mMedDev">-</div>
   </div>
   <div class="metric-card metric-card--blue">
     <div class="metric-card__label">BioPharma</div>
-    <div class="metric-card__value metric-card__value--blue" id="mBio">—</div>
+    <div class="metric-card__value metric-card__value--blue" id="mBio">-</div>
   </div>
   <div class="metric-card metric-card--amber">
     <div class="metric-card__label">Change Ctrl</div>
-    <div class="metric-card__value metric-card__value--amber" id="mCC">—</div>
+    <div class="metric-card__value metric-card__value--amber" id="mCC">-</div>
   </div>
   {% endif %}
   <div class="metric-card metric-card--green">
     <div class="metric-card__label">CAPA Drafts</div>
-    <div class="metric-card__value metric-card__value--green" id="mCAPAs">—</div>
+    <div class="metric-card__value metric-card__value--green" id="mCAPAs">-</div>
   </div>
 </div>
 
@@ -73,14 +73,14 @@
             border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-sm);">
   <button class="section-tab section-tab--active" id="tabQuality"
           onclick="showSection('quality')">
-    📋 Quality Records
+    Quality Records
     <span id="qualityCount" style="background:var(--blue);color:#fff;
-          border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">—</span>
+          border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">-</span>
   </button>
   <button class="section-tab" id="tabCAPAs" onclick="showSection('capas')">
-    ✅ CAPA Records
+    CAPA Records
     <span id="capaCount" style="background:var(--green);color:#fff;
-          border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">—</span>
+          border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">-</span>
   </button>
 </div>
 
@@ -92,7 +92,7 @@
   <div style="background:var(--blue-pale);border:1px solid var(--blue-border);
               border-radius:var(--r-lg);padding:14px 18px;margin-bottom:16px;
               display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-    <span style="font-size:12px;font-weight:600;color:#1e40af;">🔍 Look up any record by ID:</span>
+    <span style="font-size:12px;font-weight:600;color:#1e40af;">Look up any record by ID:</span>
     <input type="text" id="idLookupInput" class="search-input"
            placeholder="e.g. CMP-2024-0891"
            style="width:220px;"
@@ -134,7 +134,7 @@
     <div class="filter-group filter-group--right">
       <div class="filter-label">Search records</div>
       <input class="search-input" type="text" id="searchInput"
-             placeholder="Record ID, title, site, owner…"/>
+             placeholder="Record ID, title, site, owner..."/>
     </div>
   </div>
   {% endif %}
@@ -155,7 +155,7 @@
         </tr>
       </thead>
       <tbody id="tableBody">
-        <tr><td colspan="9" class="table__empty">Loading…</td></tr>
+        <tr><td colspan="9" class="table__empty">Loading...</td></tr>
       </tbody>
     </table>
   </div>
@@ -170,13 +170,13 @@
         <button class="pill pill--active" data-val="all">All</button>
         <button class="pill" data-val="Under Review">Under Review</button>
         <button class="pill" data-val="Approved">Approved</button>
-        <button class="pill" data-val="Rejected">Rejected</button>
+        <button class="pill" data-val="Pending Correction">Pending Correction</button>
         <button class="pill" data-val="Closed">Closed</button>
       </div>
     </div>
     <div class="filter-group filter-group--right">
       <div class="filter-label">Search CAPAs</div>
-      <input class="search-input" type="text" id="capaSearchInput" placeholder="CAPA ID, record ID…"/>
+      <input class="search-input" type="text" id="capaSearchInput" placeholder="CAPA ID, record ID..."/>
     </div>
   </div>
 
@@ -215,12 +215,30 @@
   .section-tab:last-child{border-right:none;}
   .section-tab--active{color:var(--blue);background:var(--blue-pale);font-weight:700;}
   .btn--sm{height:30px;padding:0 12px;font-size:11px;}
+  .filters,
+  .table-wrap,
+  .metric-card {
+    background: rgba(255,255,255,0.82);
+    border-color: rgba(47,128,237,0.18);
+    box-shadow: 0 14px 34px rgba(31,111,142,0.08);
+  }
+  .metric-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(47,128,237,0.08), rgba(23,184,144,0.08));
+    pointer-events: none;
+  }
+  .section-tab--active {
+    background: linear-gradient(135deg, var(--blue-pale), var(--green-pale));
+    color: var(--blue-dark);
+  }
 </style>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-  /* ── State ── */
+  /* â”€â”€ State â”€â”€ */
   const USER_ROLE     = "{{ current_user.role }}";
   const SEES_ALL      = {{ 'true' if current_user.sees_all_records() else 'false' }};
   const CAN_APPROVE   = {{ 'true' if current_user.can_approve_capa() else 'false' }};
@@ -241,26 +259,26 @@
     const l={complaint:'Complaint',deviation:'Deviation',cc:'Change Ctrl',nc:'NC',audit:'Audit'};
     return `<span class="badge badge--${m[t]||'other'}">${l[t]||t}</span>`;
   }
-  function prioBadge(p){return `<span class="${PRIO_CLS[p]||'badge'}">${p||'—'}</span>`;}
+  function prioBadge(p){return `<span class="${PRIO_CLS[p]||'badge'}">${p||'-'}</span>`;}
   function statBadge(s){
     const m={
       'Draft Generated':'badge--draft','Under Review':'badge--review',
       'Pending Approval':'badge--pending','Approved':'badge--approved'
     };
-    return `<span class="badge ${m[s]||''}">${s||'—'}</span>`;
+    return `<span class="badge ${m[s]||''}">${s||'-'}</span>`;
   }
   function capaStatBadge(s){
     const m={'Under Review':'badge--review','Approved':'badge--approved',
-             'Rejected':'badge--critical','Closed':'badge--low'};
+             'Rejected':'badge--critical','Pending Correction':'badge--critical','Closed':'badge--low'};
     return `<span class="badge ${m[s]||''}">${s}</span>`;
   }
   function ageBadge(d){
-    if(!d) return '<span style="color:var(--text-muted);font-size:11px;">—</span>';
+    if(!d) return '<span style="color:var(--text-muted);font-size:11px;">-</span>';
     const cls = d>30?'color:var(--red)':d>14?'color:var(--amber)':'color:var(--text-muted)';
     return `<span style="font-size:11px;${cls}">${d}d</span>`;
   }
 
-  /* ── Load ── */
+  /* â”€â”€ Load â”€â”€ */
   function loadAll(){ loadRecords(); loadCapas(); loadMetrics(); }
 
   function loadRecords(){
@@ -270,7 +288,7 @@
         allRecs = d.records||[];
         document.getElementById('qualityCount').textContent = allRecs.length;
         applyFilters();
-        setBanner(`✓ ${allRecs.length} record(s) loaded`,'success');
+        setBanner(`${allRecs.length} record(s) loaded`,'success');
       })
       .catch(()=>setBanner('Error loading records','error'));
   }
@@ -282,6 +300,7 @@
         allCapas = d.capas||[];
         document.getElementById('capaCount').textContent = allCapas.length;
         renderCapaTable();
+        applyFilters();
       });
   }
 
@@ -297,11 +316,11 @@
         s('mMedDev',   d.medical_device);
         s('mBio',      d.biopharma);
         s('mCC',       d.change_ctrl);
-        s('mCAPAs',    d.capa_drafts||'—');
+        s('mCAPAs',    d.capa_drafts||'-');
       });
   }
 
-  /* ── Section tabs ── */
+  /* â”€â”€ Section tabs â”€â”€ */
   function showSection(s){
     document.getElementById('sectionQuality').style.display = s==='quality'?'':'none';
     document.getElementById('sectionCAPAs').style.display   = s==='capas'?'':'none';
@@ -309,7 +328,7 @@
     document.getElementById('tabCAPAs').classList.toggle('section-tab--active',s==='capas');
   }
 
-  /* ── Filters (admin/quality) ── */
+  /* â”€â”€ Filters (admin/quality) â”€â”€ */
   function applyFilters(){
     let recs = [...allRecs];
     if(typeFilter  !=='all') recs=recs.filter(r=>r.type    ===typeFilter);
@@ -327,12 +346,12 @@
     renderTable(recs);
   }
 
-  /* ── ID lookup (user role) ── */
+  /* â”€â”€ ID lookup (user role) â”€â”€ */
   function lookupById(){
     const id = (document.getElementById('idLookupInput')?.value||'').trim();
     if(!id) return;
     const st = document.getElementById('lookupStatus');
-    st.textContent = 'Searching…';
+    st.textContent = 'Searching...';
     fetch(`/api/records/${encodeURIComponent(id)}`)
       .then(r=>{
         if(!r.ok) throw new Error('Not found');
@@ -341,15 +360,15 @@
       .then(rec=>{
         st.textContent = '';
         renderTable([rec]);
-        setBanner(`✓ Record ${rec.id} found`,'success');
+        setBanner(`Record ${rec.id} found`,'success');
       })
       .catch(()=>{
-        st.textContent = '❌ Record not found';
+        st.textContent = 'Record not found';
         renderTable([]);
       });
   }
 
-  /* ── Render quality records table ── */
+  /* â”€â”€ Render quality records table â”€â”€ */
   function renderTable(recs){
     const tbody = document.getElementById('tableBody');
     if(!recs.length){
@@ -358,35 +377,63 @@
         : '<tr><td colspan="9" class="table__empty">No records found. Enter a Record ID above to search.</td></tr>';
       return;
     }
+    const capaByRecord = {};
+    allCapas.forEach(c => { if(c.sourceRecordId) capaByRecord[c.sourceRecordId] = c; });
     tbody.innerHTML = recs.map(r=>{
       const canAct = true;
+      const existingCapa = capaByRecord[r.id];
+      const recordLink = existingCapa
+        ? `/capa/create?id=${encodeURIComponent(r.id)}&capaId=${encodeURIComponent(existingCapa.capaId)}`
+        : `/capa/create?id=${encodeURIComponent(r.id)}`;
       let action = '';
       if(canAct){
         if(r.status==='Draft Generated'){
-          action = `<button class="btn--run" onclick="runAgentReview('${r.id}', this)">Agent Review</button>
-                    <button class="btn--run" onclick="window.location.href='/capa/create?id=${r.id}'">Generate CAPA</button>`;
+          action = `<button class="btn--run" onclick="event.stopPropagation();runAgentReview('${r.id}', this)">Agent Review</button>
+                    <button class="btn--run" onclick="event.stopPropagation();window.location.href='${recordLink}'">Generate CAPA</button>`;
         } else {
-          action = `<a href="/capa/create?id=${r.id}" style="color:var(--blue);font-size:11px;font-weight:500;">View / Edit</a>`;
+          action = `<a href="${recordLink}" onclick="event.stopPropagation()" style="color:var(--blue);font-size:11px;font-weight:500;">View Draft</a>`;
         }
       }
       return `
-      <tr class="${r.status==='Under Review'?'row--review':r.status==='Approved'?'row--approved':''}">
-        <td class="table__id">${r.id}</td>
+      <tr class="${r.status==='Under Review'?'row--review':r.status==='Approved'?'row--approved':''}" onclick="toggleRecordDetails('${r.id}')" style="cursor:pointer;">
+        <td class="table__id"><a href="${recordLink}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;">${r.id}</a></td>
         <td style="font-size:12px;line-height:1.4;">${r.title}
           <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${r.sector||''}</div>
         </td>
         <td>${typeBadge(r.type)}</td>
-        <td style="font-size:11px;color:var(--text-muted);">${r.sector||'—'}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${r.sector||'-'}</td>
         <td>${prioBadge(r.priority)}</td>
         <td>${statBadge(r.status)}</td>
-        <td style="font-size:11px;color:var(--text-muted);">${r.site||'—'}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${r.site||'-'}</td>
         <td>${ageBadge(r.age||0)}</td>
         <td>${action}</td>
+      </tr>
+      <tr id="detail-${r.id}" style="display:none;background:#f8fafc;">
+        <td colspan="9" style="padding:14px 18px;border-top:0;">
+          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px;">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Description</div>
+              <div style="font-size:12px;line-height:1.5;color:var(--text);">${r.description||'No description captured.'}</div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.7;">
+              <div><strong>Status:</strong> ${r.status||'-'}</div>
+              <div><strong>Owner:</strong> ${r.owner||'-'}</div>
+              <div><strong>Detected:</strong> ${r.detectedDate||'-'}</div>
+              <div><strong>CAPA:</strong> ${existingCapa ? `${existingCapa.capaId} (${existingCapa.status})` : 'Not created yet'}</div>
+              <div><strong>Refs:</strong> ${(r.regulatoryRef||[]).join(', ') || '-'}</div>
+            </div>
+          </div>
+        </td>
       </tr>`;
     }).join('');
   }
 
-  /* ── Render CAPA table ── */
+  function toggleRecordDetails(recordId){
+    const row = document.getElementById(`detail-${recordId}`);
+    if(row) row.style.display = row.style.display === 'none' ? '' : 'none';
+  }
+
+  /* â”€â”€ Render CAPA table â”€â”€ */
   function renderCapaTable(){
     const tbody = document.getElementById('capaTableBody');
     let capas = [...allCapas];
@@ -406,72 +453,99 @@
       return;
     }
     tbody.innerHTML = capas.map(c=>{
-      const date = c.createdAt?new Date(c.createdAt).toLocaleDateString('en-GB'):'—';
-      const prio = c.priority||'—';
+      const date = c.createdAt?new Date(c.createdAt).toLocaleDateString('en-GB'):'-';
+      const prio = c.priority||'-';
       /* Admin-only approve/reject/close buttons */
       let statusBtns = '';
       if(CAN_APPROVE){
         if(c.status==='Under Review'){
           statusBtns = `
             <button class="btn--run" style="background:var(--green-pale);color:var(--green);border-color:#a3d4b5;"
-                    onclick="updateCapaStatus('${c.capaId}','Approved')">✓ Approve</button>
+                    onclick="updateCapaStatus('${c.capaId}','Approved')">Approve</button>
             <button class="btn--run" style="background:var(--red-pale);color:var(--red);border-color:#fecaca;"
-                    onclick="updateCapaStatus('${c.capaId}','Rejected')">✗ Reject</button>`;
+                    onclick="updateCapaStatus('${c.capaId}','Rejected')">Reject</button>`;
         } else if(c.status==='Approved'){
           statusBtns = `<button class="btn--run" style="background:var(--blue-pale);color:var(--blue);"
-                    onclick="updateCapaStatus('${c.capaId}','Closed')">🔒 Close</button>`;
+                    onclick="updateCapaStatus('${c.capaId}','Closed')">Close</button>`;
         }
       }
       return `
-      <tr class="${c.status==='Approved'?'row--approved':c.status==='Under Review'?'row--review':''}">
-        <td style="font-family:monospace;font-size:11px;color:var(--green);font-weight:700;">${c.capaId}</td>
-        <td style="font-family:monospace;font-size:10px;color:var(--blue);">${c.sourceRecordId}</td>
-        <td style="font-size:12px;max-width:200px;">${c.sourceRecordTitle||'—'}
+      <tr class="${c.status==='Approved'?'row--approved':(c.status==='Under Review'||c.status==='Pending Correction')?'row--review':''}">
+        <td style="font-family:monospace;font-size:11px;color:var(--green);font-weight:700;"><a href="/capa/create?id=${c.sourceRecordId}&capaId=${c.capaId}" style="color:inherit;text-decoration:underline;">${c.capaId}</a></td>
+        <td style="font-family:monospace;font-size:10px;color:var(--blue);"><a href="/capa/create?id=${c.sourceRecordId}&capaId=${c.capaId}" style="color:inherit;text-decoration:underline;">${c.sourceRecordId}</a></td>
+        <td style="font-size:12px;max-width:200px;">${c.sourceRecordTitle||'-'}
           <div style="font-size:10px;color:var(--text-muted);">${c.sector||''}</div>
         </td>
-        <td><span class="badge badge--${(c.sourceRecordType||'').toLowerCase()}">${c.sourceRecordType||'—'}</span></td>
+        <td><span class="badge badge--${(c.sourceRecordType||'').toLowerCase()}">${c.sourceRecordType||'-'}</span></td>
         <td><span class="${PRIO_CLS[prio]||'badge'}">${prio}</span></td>
         <td>${capaStatBadge(c.status||'Under Review')}</td>
-        <td style="font-size:11px;color:var(--text-muted);">${c.createdBy||'—'}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${c.createdBy||'-'}</td>
         <td style="font-size:11px;color:var(--text-muted);">${date}</td>
         <td style="display:flex;gap:5px;flex-wrap:wrap;">
           ${statusBtns}
-          <a href="/capa/create?id=${c.sourceRecordId}"
-             style="font-size:11px;color:var(--blue);font-weight:500;">View →</a>
+          <a href="/capa/create?id=${c.sourceRecordId}&capaId=${c.capaId}"
+             style="font-size:11px;color:var(--blue);font-weight:500;">View</a>
         </td>
       </tr>`;
     }).join('');
   }
 
-  /* ── Update CAPA status (admin only) ── */
+  /* â”€â”€ Update CAPA status (admin only) â”€â”€ */
   function updateCapaStatus(capaId, newStatus){
+    let comment = '';
+    let eSignature = null;
+    if(newStatus === 'Rejected'){
+      comment = window.prompt('Enter rejection reason to send back to the CAPA creator:') || '';
+      if(!comment.trim()){
+        setBanner('Rejection reason is required to route CAPA back for correction.','warning');
+        return;
+      }
+    }
+    if(newStatus === 'Approved' || newStatus === 'Rejected'){
+      const password = window.prompt(`Electronic signature required for ${newStatus}. Re-enter your password:`);
+      if(!password){
+        setBanner('Electronic signature is required for approval/rejection.','warning');
+        return;
+      }
+      eSignature = {
+        password,
+        meaning: newStatus === 'Approved'
+          ? 'I approve this CAPA workflow decision.'
+          : 'I reject this CAPA and route it back for correction.',
+      };
+    }
     fetch(`/api/capas/${capaId}/status`,{
       method:'PATCH',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({status:newStatus}),
+      body:JSON.stringify({status:newStatus, comment, eSignature}),
     }).then(r=>r.json())
-      .then(()=>{loadCapas();loadMetrics();setBanner(`✓ CAPA ${capaId} → ${newStatus}`,'success');})
+      .then(data=>{
+        if(data.error) throw new Error(data.error);
+        loadCapas();
+        loadMetrics();
+        setBanner(data.message || `CAPA ${capaId} - ${data.status || newStatus}`,'success');
+      })
       .catch(err=>setBanner('Error: '+err.message,'error'));
   }
 
-  /* ── Batch agent (admin only) ── */
+  /* â”€â”€ Batch agent (admin only) â”€â”€ */
   {% if current_user.is_admin() %}
   document.addEventListener('DOMContentLoaded',()=>{
     const btn = document.getElementById('btnRunAll');
     if(btn) btn.addEventListener('click',()=>{
       btn.disabled=true;
-      btn.textContent='⏳ Running…';
-      setBanner('Batch agent running — generating CAPAs for all eligible records…','info');
-      fetch('/api/capa/run-batch',{method:'POST',headers:{'Content-Type':'application/json'}})
+      btn.textContent='Running...';
+      setBanner('Batch agent running - generating CAPAs for all eligible records...','info');
+      fetch('/api/agents/supervisor/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({limit:200})})
         .then(r=>r.json())
         .then(data=>{
           btn.disabled=false;
-          btn.textContent='▶ Run Agent on All Eligible';
-          setBanner(`✓ ${data.message}`,'success');
+          btn.textContent='Run Agent on All Eligible';
+          setBanner(`${data.message}`,'success');
           loadAll();
         })
         .catch(err=>{
           btn.disabled=false;
-          btn.textContent='▶ Run Agent on All Eligible';
+          btn.textContent='Run Agent on All Eligible';
           setBanner('Batch agent error: '+err.message,'error');
         });
     });
@@ -484,7 +558,7 @@
     fetch('/api/agents/capa/run',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({recordId}),
+      body:JSON.stringify({recordId, saveDraft:true}),
     })
       .then(r=>r.json().then(data=>({ok:r.ok,data})))
       .then(({ok,data})=>{
@@ -498,7 +572,7 @@
   }
 
 
-  /* ── Pill binding ── */
+  /* â”€â”€ Pill binding â”€â”€ */
   function bindPills(id, cb){
     const g=document.getElementById(id);
     if(!g) return;
@@ -513,12 +587,12 @@
 
   function setBanner(msg,type){
     const b=document.getElementById('banner');
-    const icons={info:'ℹ',success:'✓',warning:'⚠',error:'✗'};
+    const icons={info:'i',success:'OK',warning:'!',error:'X'};
     b.className=`banner banner--${type}`;
-    b.innerHTML=`<span>${icons[type]||'ℹ'}</span> ${msg}`;
+    b.innerHTML=`<span>${icons[type]||'i'}</span> ${msg}`;
   }
 
-  /* ── Boot ── */
+  /* â”€â”€ Boot â”€â”€ */
   document.addEventListener('DOMContentLoaded',()=>{
     const urlType = new URLSearchParams(window.location.search).get('type');
     if(urlType) typeFilter=urlType;
@@ -541,3 +615,4 @@
   });
 </script>
 {% endblock %}
+
