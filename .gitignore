@@ -1,18 +1,54 @@
-
+# ── Secrets / environment ─────────────────────────────────
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.tox/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# ── QMS data (never commit runtime data) ──────────────────
+qms_data.db
+qms_data.db-shm
+qms_data.db-wal
+qms_data_*.db*
 *.db
 *.db-shm
 *.db-wal
-__pycache__/
-.venv/
-*.pyc
-*.pyo
-.idea/
 audit_log.json
+agent_audit_log.json
 capa_store.json
 uploaded_records.json
 users_data.json
-*.log
-fix_capa.py
-test_gemini.py
+uploads/
 data/chroma_db/
+
+# ── Logs ──────────────────────────────────────────────────
+*.log
+logs/
+
+# ── IDE / local tooling ───────────────────────────────────
+.idea/
+.vscode/
+.claude/
+.DS_Store
+
+# ── Scratch / recovery artefacts ──────────────────────────
+recover_err.txt
+fix_capa.py
+fix_ssl.py
+test_gemini.py
+QMS-GENAI/

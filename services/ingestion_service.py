@@ -3,8 +3,18 @@
 # Unrelated files return {"_insufficient": True, "reason": "..."}
 # instead of creating garbage records.
 
-import base64, csv, io, json, os, re
+import base64
+import csv
+import io
+import json
+import os
+import re
 from datetime import datetime
+
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
+
 _SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
 try:
@@ -219,7 +229,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
         return record
 
     except Exception as e:
-        print(f"[ingestion] AI extraction failed: {e} — using mock")
+        log.warning("ingestion.ai_extraction_failed", exc_info=True)
         return _mock_extract(filename)
 
 

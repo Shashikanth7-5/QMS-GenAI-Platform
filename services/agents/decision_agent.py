@@ -1,23 +1,92 @@
+"""Eligibility-decision agent.
+
+Regulated CAPA gates must be answered by a human or a validated
+classifier — not by naive substring matching against free-text
+record descriptions. This agent:
+
+  * Requires explicit answers when ``require_explicit_answers=True``.
+  * Otherwise treats substring inference as a low-confidence HINT and
+    emits warnings for every gate that was inferred rather than
+    explicitly provided.
+
+The old fully-inferred behaviour is retained under the ``inferred``
+key of the returned decision so audit callers can see exactly which
+answers were guessed.
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Optional
+
 from services.agents.base import AgentResult
+
+_REQUIRE_EXPLICIT = os.getenv("AGENT_DECISION_REQUIRE_EXPLICIT", "false").lower() == "true"
 
 
 class DecisionEligibilityAgent:
     name = "decision_eligibility_agent"
 
-    def run(self, record: dict) -> AgentResult:
+    def run(
+        self,
+        record: dict,
+        *,
+        explicit_answers: Optional[dict] = None,
+        require_explicit: Optional[bool] = None,
+    ) -> AgentResult:
         from services.rca_service import evaluate_gates
 
         source = record.get("type") or "deviation"
         if source not in {"complaint", "deviation", "cc"}:
             source = "deviation"
-        answers = self._infer_answers(source, record)
+
+        inferred = self._infer_answers(source, record)
+        answers = dict(inferred)
+        inferred_keys = set(inferred.keys())
+
+        if explicit_answers:
+            for key, value in explicit_answers.items():
+                if key in inferred:
+                    inferred_keys.discard(key)
+                answers[key] = value
+
+        must_be_explicit = _REQUIRE_EXPLICIT if require_explicit is None else require_explicit
+        warnings: list[str] = []
+        # Any gate still using an inferred answer is flagged so reviewers see it.
+        # Boolean gates are the risky ones — priority/priority_critical_high come from
+        # structured record fields and are safe to derive.
+        safe_inferred = {"priority", "priority_critical_high"}
+        unsafe_inferred = sorted(inferred_keys - safe_inferred)
+        if unsafe_inferred:
+            hint = ", ".join(unsafe_inferred)
+            warnings.append(
+                f"Gate answers inferred from free text (not explicitly provided): {hint}. "
+                "Confirm with the record owner before approving the CAPA."
+            )
+            if must_be_explicit:
+                return AgentResult(
+                    self.name,
+                    "error",
+                    "Eligibility gates require explicit answers in production.",
+                    {"source": source, "answers": answers, "inferredKeys": unsafe_inferred},
+                    warnings,
+                )
+
         decision = evaluate_gates(source, answers)
         status = "ok" if decision.get("capa_triggered") else "monitor"
+        if warnings:
+            status = "warning"
         return AgentResult(
             self.name,
             status,
             decision.get("recommendation", "Decision completed"),
-            {"source": source, "answers": answers, "decision": decision},
+            {
+                "source": source,
+                "answers": answers,
+                "inferredKeys": sorted(unsafe_inferred),
+                "decision": decision,
+            },
+            warnings,
         )
 
     def _infer_answers(self, source: str, record: dict) -> dict:
@@ -55,4 +124,3 @@ class DecisionEligibilityAgent:
             "equipment_failure": any(w in text for w in ("equipment", "utility", "hvac", "calibration")),
             "gxp_gap": any(w in text for w in ("gxp", "gmp", "data integrity", "documentation")),
         }
-

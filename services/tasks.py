@@ -4,10 +4,13 @@
 # Reuses the existing generate → save → embed pipeline.
 # ─────────────────────────────────────────────────────────
 
-import random
 from datetime import datetime, timedelta
 
+from services.agents.orchestrator import new_capa_id
 from services.celery_app import celery_app
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
 
 
 _TYPE_LABEL = {
@@ -36,7 +39,7 @@ def generate_capa_async(self, record_id: str, actor: dict = None) -> dict:
                     "error": "record not found"}
 
         capa_data = generate_capa(record)
-        capa_id = f"CAPA-{datetime.now().year}-{random.randint(1000,9999)}"
+        capa_id = new_capa_id()
         now = datetime.now().isoformat()
         closure = int(capa_data.get("estimatedClosureDays", 30))
         actor = actor or {}
@@ -74,9 +77,11 @@ def generate_capa_async(self, record_id: str, actor: dict = None) -> dict:
         try:
             from services.vector_store import embed_capa
             embed_capa(capa)
-        except Exception as _e:
-            print(f"[tasks] embed skipped: {_e}")
+        except Exception:
+            log.warning("tasks.embed_skipped", exc_info=True,
+                        extra={"capa_id": capa_id, "record_id": record_id})
 
         return {"record_id": record_id, "status": "done", "capaId": capa_id}
-    except Exception as e:
-        return {"record_id": record_id, "status": "error", "error": str(e)}
+    except Exception as exc:
+        log.exception("tasks.generate_capa_failed", extra={"record_id": record_id})
+        return {"record_id": record_id, "status": "error", "error": str(exc)}

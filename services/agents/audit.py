@@ -1,14 +1,22 @@
-import json
-import os
-import threading
-from datetime import datetime, timezone
+"""Agent event audit trail — persists to the same qms_audit_log table
+as the regulated CAPA/record audit, but with entity_type='agent'.
+
+Keeps the same public API (``log_agent_event``, ``get_agent_events``)
+so existing callers keep working. Under the hood every write goes
+through ``services.audit_service`` and inherits its hash chain, atomic
+JSON fallback, and DB persistence.
+"""
+
+from __future__ import annotations
+
 from typing import Optional
 
+from services import audit_service
+from services.logging_config import get_logger
 
-_AGENT_AUDIT_FILE = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "agent_audit_log.json")
-)
-_LOCK = threading.Lock()
+_logger = get_logger(__name__)
+
+_ENTITY = "agent"
 
 
 def log_agent_event(
@@ -23,9 +31,40 @@ def log_agent_event(
     duration_ms: Optional[int] = None,
     details: Optional[dict] = None,
 ) -> dict:
-    """Append an immutable operational event for agent observability."""
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+    """Append one agent operational event to the audit trail."""
+    payload = {
+        "runId": run_id,
+        "agent": agent,
+        "event": event,
+        "status": status,
+        "durationMs": duration_ms,
+        "details": details or {},
+    }
+    action = f"agent:{event}"
+    row = audit_service.log(
+        action=action,
+        performed_by=triggered_by or "system",
+        performed_by_role="agent",
+        record_id=record_id,
+        capa_id=capa_id,
+        entity_type=_ENTITY,
+        notes=f"{agent} {event} -> {status}",
+        payload=payload,
+    )
+    _logger.info(
+        "agent.event",
+        extra={
+            "agent": agent,
+            "event": event,
+            "status": status,
+            "run_id": run_id,
+            "record_id": record_id,
+            "capa_id": capa_id,
+        },
+    )
+    # Return a dict shaped like the old contract so existing callers keep working.
+    return {
+        "timestamp": row.get("timestamp"),
         "runId": run_id,
         "agent": agent,
         "event": event,
@@ -35,14 +74,8 @@ def log_agent_event(
         "triggeredBy": triggered_by,
         "durationMs": duration_ms,
         "details": details or {},
+        "rowHash": row.get("rowHash"),
     }
-    with _LOCK:
-        entries = _load_events()
-        entries.append(entry)
-        entries = entries[-10000:]
-        with open(_AGENT_AUDIT_FILE, "w", encoding="utf-8") as handle:
-            json.dump(entries, handle, indent=2, default=str)
-    return entry
 
 
 def get_agent_events(
@@ -52,22 +85,29 @@ def get_agent_events(
     agent: Optional[str] = None,
     record_id: Optional[str] = None,
 ) -> list:
-    entries = _load_events()
-    if status:
-        entries = [item for item in entries if item.get("status") == status]
-    if agent:
-        entries = [item for item in entries if item.get("agent") == agent]
-    if record_id:
-        entries = [item for item in entries if item.get("recordId") == record_id]
-    return list(reversed(entries))[:max(1, min(limit, 1000))]
-
-
-def _load_events() -> list:
-    if not os.path.exists(_AGENT_AUDIT_FILE):
-        return []
-    try:
-        with open(_AGENT_AUDIT_FILE, "r", encoding="utf-8") as handle:
-            data = json.load(handle)
-            return data if isinstance(data, list) else []
-    except (OSError, ValueError):
-        return []
+    rows = audit_service.get_audit_trail(
+        record_id=record_id,
+        entity_type=_ENTITY,
+        limit=max(1, min(limit, 1000)),
+    )
+    events = []
+    for row in rows:
+        payload = row.get("payload") or {}
+        if status and payload.get("status") != status:
+            continue
+        if agent and payload.get("agent") != agent:
+            continue
+        events.append({
+            "timestamp": row.get("timestamp"),
+            "runId": payload.get("runId"),
+            "agent": payload.get("agent"),
+            "event": payload.get("event"),
+            "status": payload.get("status"),
+            "recordId": row.get("recordId"),
+            "capaId": row.get("capaId"),
+            "triggeredBy": row.get("performedBy"),
+            "durationMs": payload.get("durationMs"),
+            "details": payload.get("details") or {},
+            "rowHash": row.get("rowHash"),
+        })
+    return events

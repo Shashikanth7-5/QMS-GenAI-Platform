@@ -7,8 +7,13 @@
 # ─────────────────────────────────────────────────────────────
 
 from __future__ import annotations
+
 import json
 from typing import Dict
+
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
 
 
 _CAPA_PROMPT_TEMPLATE = """You are a pharmaceutical / medical device quality expert.
@@ -61,8 +66,8 @@ def run_capa_chain(record: Dict) -> Dict:
     except ImportError:
         # LangChain not installed yet — use direct httpx path
         return _mock_fallback(record)
-    except Exception as e:
-        print(f"[capa_chain] Chain failed: {e} — using mock")
+    except Exception:
+        log.warning("chain.capa.failed_using_mock", exc_info=True)
         return _mock_fallback(record)
 
 

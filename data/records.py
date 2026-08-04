@@ -5,7 +5,10 @@ from datetime import date, datetime
 from typing import Dict, List, Optional
 
 from database import SessionLocal
-from models import QualityRecord, CAPARecord, AuditLog
+from models import AuditLog, CAPARecord, QualityRecord
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
 
 
 def _age(detected_date):
@@ -53,7 +56,7 @@ def _seed_if_empty():
                 source="system", age_days=_age(r.get("detectedDate")),
             ))
         db.commit()
-        print("[records] Seeded 18 records into DB")
+        log.info("records.seeded", extra={"count": len(_SEED)})
 
 
 def get_all_records() -> List[Dict]:

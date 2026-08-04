@@ -1,7 +1,13 @@
 # services/chains/inquiry_chain.py
 from __future__ import annotations
+
 import os
 from typing import Dict, List
+
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
+
 _SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
 
@@ -53,8 +59,8 @@ def run_inquiry_chain(record: Dict, question: str, history: List[Dict]) -> str:
 
     except ImportError:
         return _try_direct_then_mock(record, question, history)
-    except Exception as e:
-        print(f"[inquiry_chain] Chain failed: {e}")
+    except Exception:
+        log.warning("chain.inquiry.failed", exc_info=True)
         return _try_direct_then_mock(record, question, history)
 
 
@@ -115,8 +121,8 @@ def _try_direct_then_mock(record: Dict, question: str,
                 return resp.json()["choices"][0]["message"]["content"]
             return _smart_mock(record, question)
 
-    except Exception as e:
-        print(f"[inquiry_chain] Direct call failed: {e}")
+    except Exception:
+        log.warning("chain.inquiry.direct_call_failed", exc_info=True)
 
     return _smart_mock(record, question)
 

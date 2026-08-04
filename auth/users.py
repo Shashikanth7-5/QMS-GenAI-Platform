@@ -3,37 +3,63 @@
 #   admin   — full system access
 #   quality — can view all records, create CAPAs on any record, no approve/reject
 #   user    — own records only, read-only ID lookup, own CAPAs only
+#
+# Seed credentials (admin/admin, shashi/admin, quality/admin) are loaded
+# ONLY when SEED_BUILTIN_USERS=true (the default outside production).
+# See config.SEED_BUILTIN_USERS.
 
 import json
 import os
+import re
+import time
 from datetime import datetime
+from threading import Lock
+from typing import Optional
+
 from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from config import (
+    LOGIN_LOCKOUT_ATTEMPTS,
+    LOGIN_LOCKOUT_COOLDOWN_SECONDS,
+    LOGIN_LOCKOUT_WINDOW_SECONDS,
+    PASSWORD_MIN_LENGTH,
+    PASSWORD_REQUIRE_COMPLEXITY,
+    SEED_BUILTIN_USERS,
+)
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
 
 _DATA_FILE = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "users_data.json")
 )
+_USERS_LOCK = Lock()
 
 ROLES = ("admin", "quality", "user")
+RESERVED_USERNAMES = {"admin", "quality", "system", "root", "shashi", "responsible-ai-agent"}
 
 
 class User(UserMixin):
     def __init__(self, id, username, password, role,
                  full_name, status="approved", created_at=None,
                  reject_comment="", email="", _hashed=False):
-        self.id             = str(id)
-        self.username       = username.lower()
-        self._pw_hash       = password if _hashed else generate_password_hash(password)
-        self.role           = role
-        self.full_name      = full_name
-        self.email          = (email or _infer_email(username)).strip().lower()
-        self.status         = status
-        self.created_at     = created_at or datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.id = str(id)
+        self.username = username.lower()
+        self._pw_hash = password if _hashed else generate_password_hash(password)
+        self.role = role
+        self.full_name = full_name
+        self.email = (email or _infer_email(username)).strip().lower()
+        self.status = status
+        self.created_at = created_at or datetime.now().strftime("%Y-%m-%d %H:%M")
         self.reject_comment = reject_comment
 
     # ── Password ──────────────────────────────────────────
     def check_password(self, password: str) -> bool:
         return check_password_hash(self._pw_hash, password)
+
+    def set_password(self, new_password: str) -> None:
+        self._pw_hash = generate_password_hash(new_password)
 
     # ── Flask-Login required ──────────────────────────────
     def is_active(self):
@@ -50,23 +76,18 @@ class User(UserMixin):
         return self.role == "user"
 
     def can_create_capa(self) -> bool:
-        """admin and quality can create CAPAs on ANY record."""
         return self.role in ("admin", "quality")
 
     def can_approve_capa(self) -> bool:
-        """Only admin can approve / reject / close CAPAs."""
         return self.role == "admin"
 
     def can_run_batch(self) -> bool:
-        """Only admin can run the batch agent."""
         return self.role == "admin"
 
     def sees_all_records(self) -> bool:
-        """admin and quality see all records; user sees only their own."""
         return self.role in ("admin", "quality")
 
     def sees_system_metrics(self) -> bool:
-        """admin and quality see system-wide metrics; user sees personal counts."""
         return self.role in ("admin", "quality")
 
     # ── Serialisation ─────────────────────────────────────
@@ -102,7 +123,7 @@ class User(UserMixin):
         }
 
 
-# ── Built-in accounts (never written to JSON) ──────────────
+# ── Built-in accounts ─────────────────────────────────────
 def _infer_email(username: str) -> str:
     value = (username or "").strip().lower()
     if "@" in value:
@@ -111,14 +132,39 @@ def _infer_email(username: str) -> str:
     return f"{value}@{domain}" if value else ""
 
 
-_BUILTIN = [
-    User("1", "admin",   "admin", "admin",   "Admin",         "approved", email=_infer_email("admin")),
-    User("2", "shashi",  "admin", "user",    "Shashi",        "approved", email=_infer_email("shashi")),
-    User("3", "quality", "admin", "quality", "Quality Lead",  "approved", email=_infer_email("quality")),
-]
+def _seed_users() -> list:
+    """Seed accounts used for demos and CI. Never loaded in production unless SEED_BUILTIN_USERS=true."""
+    if not SEED_BUILTIN_USERS:
+        return []
+    return [
+        User("1", "admin",   "admin", "admin",   "Admin",         "approved", email=_infer_email("admin")),
+        User("2", "shashi",  "admin", "user",    "Shashi",        "approved", email=_infer_email("shashi")),
+        User("3", "quality", "admin", "quality", "Quality Lead",  "approved", email=_infer_email("quality")),
+    ]
+
+
+_BUILTIN = _seed_users()
+if not SEED_BUILTIN_USERS:
+    log.info("auth.seed.disabled", extra={"reason": "SEED_BUILTIN_USERS=false"})
 
 _REGISTERED: list = []
 _NEXT_ID = 10   # start above built-ins
+
+
+# ── Password policy ───────────────────────────────────────
+def _validate_password(password: str) -> Optional[str]:
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return f"Password must be at least {PASSWORD_MIN_LENGTH} characters."
+    if PASSWORD_REQUIRE_COMPLEXITY:
+        if not re.search(r"[A-Z]", password):
+            return "Password must contain at least one uppercase letter."
+        if not re.search(r"[a-z]", password):
+            return "Password must contain at least one lowercase letter."
+        if not re.search(r"\d", password):
+            return "Password must contain at least one digit."
+        if not re.search(r"[^A-Za-z0-9]", password):
+            return "Password must contain at least one symbol."
+    return None
 
 
 # ── Persistence ────────────────────────────────────────────
@@ -146,16 +192,19 @@ def _load():
         ]
         if _REGISTERED:
             _NEXT_ID = max(int(u.id) for u in _REGISTERED) + 1
-    except Exception as e:
-        print(f"[users] Warning: could not load {_DATA_FILE}: {e}")
+    except Exception:
+        log.exception("auth.users.load_failed", extra={"path": _DATA_FILE})
 
 
 def _save():
+    tmp = f"{_DATA_FILE}.tmp"
     try:
-        with open(_DATA_FILE, "w") as f:
-            json.dump({"users": [u._to_json() for u in _REGISTERED]}, f, indent=2)
-    except Exception as e:
-        print(f"[users] Warning: could not save {_DATA_FILE}: {e}")
+        with _USERS_LOCK:
+            with open(tmp, "w") as f:
+                json.dump({"users": [u._to_json() for u in _REGISTERED]}, f, indent=2)
+            os.replace(tmp, _DATA_FILE)
+    except Exception:
+        log.exception("auth.users.save_failed", extra={"path": _DATA_FILE})
 
 
 _load()
@@ -191,12 +240,13 @@ def username_exists(username: str) -> bool:
 def register_user(username: str, password: str, full_name: str, role: str = "user", email: str = ""):
     global _NEXT_ID
     uname = username.strip().lower()
-    if uname in ("admin", "quality"):
+    if uname in RESERVED_USERNAMES:
         return None, f"Username '{uname}' is reserved."
     if username_exists(uname):
         return None, f"Username '{uname}' is already taken."
-    if len(password) < 4:
-        return None, "Password must be at least 4 characters."
+    policy_error = _validate_password(password)
+    if policy_error:
+        return None, policy_error
     if not full_name.strip():
         return None, "Full name is required."
     if role not in ROLES:
@@ -230,7 +280,6 @@ def update_user_status(user_id: str, new_status: str, comment: str = ""):
 
 
 def update_user_role(user_id: str, new_role: str):
-    """Admin can change a registered user's role."""
     if new_role not in ROLES:
         return None
     user = next((u for u in _REGISTERED if u.id == str(user_id)), None)
@@ -238,3 +287,47 @@ def update_user_role(user_id: str, new_role: str):
         user.role = new_role
         _save()
     return user
+
+
+# ── Login lockout tracking ─────────────────────────────────
+_lockout_state: dict[str, dict] = {}
+_lockout_lock = Lock()
+
+
+def _lockout_key(username: str, ip: str) -> str:
+    return f"{(username or '').lower()}|{ip or 'unknown'}"
+
+
+def is_locked_out(username: str, ip: str) -> tuple[bool, int]:
+    """Return (locked, seconds_remaining)."""
+    key = _lockout_key(username, ip)
+    with _lockout_lock:
+        state = _lockout_state.get(key)
+        if not state:
+            return False, 0
+        if state.get("locked_until", 0) > time.time():
+            return True, int(state["locked_until"] - time.time())
+        return False, 0
+
+
+def record_login_failure(username: str, ip: str) -> None:
+    key = _lockout_key(username, ip)
+    now = time.time()
+    with _lockout_lock:
+        state = _lockout_state.get(key, {"failures": [], "locked_until": 0})
+        cutoff = now - LOGIN_LOCKOUT_WINDOW_SECONDS
+        state["failures"] = [t for t in state.get("failures", []) if t > cutoff]
+        state["failures"].append(now)
+        if len(state["failures"]) >= LOGIN_LOCKOUT_ATTEMPTS:
+            state["locked_until"] = now + LOGIN_LOCKOUT_COOLDOWN_SECONDS
+        _lockout_state[key] = state
+    log.warning(
+        "auth.login.failure",
+        extra={"username": username, "ip": ip, "failures": len(state["failures"])},
+    )
+
+
+def record_login_success(username: str, ip: str) -> None:
+    key = _lockout_key(username, ip)
+    with _lockout_lock:
+        _lockout_state.pop(key, None)

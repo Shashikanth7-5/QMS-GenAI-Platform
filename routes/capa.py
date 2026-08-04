@@ -1,32 +1,32 @@
 # routes/capa.py
-import random
 import os
-import httpx
-from uuid import uuid4
 from datetime import datetime
 from functools import wraps
+from uuid import uuid4
 
-from flask import (Blueprint, Response, jsonify,
-                   render_template, request, stream_with_context)
-from flask_login import login_required, current_user
+from flask import (Blueprint, Response, jsonify, render_template, request,
+                   stream_with_context)
+from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 
-from services.ai_service import generate_capa, stream_capa
-from services.ingestion_service import process_upload, allowed_file
-from services.audit_service import (
-    log,
-    ACTION_CAPA_SAVED, ACTION_CAPA_STATUS_CHANGE,
-    ACTION_CAPA_GENERATED, ACTION_CAPA_BATCH_RUN,
-    ACTION_RECORD_UPLOADED,
-)
-from data.records import (
-    get_all_records, get_records_by_owner, get_record_by_id,
-    update_record_status, save_capa, get_all_capas, get_capas_by_owner,
-    get_capa_by_id, get_capa_by_record_id, update_capa_status, add_uploaded_record,
-)
 from auth.users import get_user_by_username
+from data.records import (add_uploaded_record, get_all_capas, get_all_records,
+                          get_capa_by_id, get_capa_by_record_id,
+                          get_record_by_id, get_records_by_owner,
+                          get_capas_by_owner, save_capa, update_capa_status,
+                          update_record_status)
 from services.agents.notifications import send_email_notification
+from services.agents.orchestrator import new_capa_id
+from services.ai_service import generate_capa, stream_capa
+from services.audit_service import (ACTION_CAPA_BATCH_RUN,
+                                    ACTION_CAPA_GENERATED, ACTION_CAPA_SAVED,
+                                    ACTION_CAPA_STATUS_CHANGE,
+                                    ACTION_RECORD_UPLOADED, log)
+from services.ingestion_service import allowed_file, process_upload
+from services.logging_config import get_logger
+from services.security import capa_content_hash
 
+logger = get_logger(__name__)
 capa_bp = Blueprint("capa", __name__)
 _ATTACHMENT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "capa_attachments")
 
@@ -36,30 +36,37 @@ _TYPE_LABEL = {
 }
 
 
-def _validate_esign(payload: dict):
+def _validate_esign(payload: dict, capa_body: dict | None = None):
     esign = payload.get("eSignature") or {}
     password = esign.get("password", "")
     meaning = esign.get("meaning", "")
     if not password:
         return None, (jsonify({
             "error": "Electronic signature required.",
-            "basis": ["21 CFR Part 11", "EU Annex 11"],
+            "basis": ["21 CFR Part 11 §11.200", "EU Annex 11"],
             "message": "Approval/rejection requires password re-entry as reviewer e-signature.",
         }), 400)
     if not current_user.check_password(password):
+        logger.warning("capa.esign.rejected",
+                       extra={"user": current_user.username, "capa_id": (capa_body or {}).get("capaId")})
         return None, (jsonify({
             "error": "Electronic signature failed.",
             "basis": ["21 CFR Part 11"],
             "message": "Password did not match the logged-in reviewer.",
         }), 403)
-    return {
+    signature = {
         "signedBy": current_user.username,
         "signedByName": current_user.full_name,
         "signedByRole": current_user.role,
         "meaning": meaning or "CAPA workflow decision",
-        "signedAt": datetime.now().isoformat(),
-        "basis": ["21 CFR Part 11", "EU Annex 11"],
-    }, None
+        "signedAt": datetime.utcnow().isoformat() + "Z",
+        "basis": ["21 CFR Part 11 §11.200", "EU Annex 11"],
+    }
+    if capa_body is not None:
+        # Bind the signature to a SHA-256 digest of the CAPA content —
+        # any edit to root cause / actions / owner invalidates it.
+        signature["capaHash"] = capa_content_hash(capa_body)
+    return signature, None
 
 
 def admin_required(fn):
@@ -177,16 +184,22 @@ def api_run_batch():
 @capa_bp.route("/api/capa/save", methods=["POST"])
 @login_required
 def api_save():
-    body      = request.get_json(force=True) or {}
+    body      = request.get_json(silent=True) or {}
     record_id = body.get("sourceRecordId", "")
     if not record_id:
         return jsonify({"error": "Missing 'sourceRecordId'"}), 400
     src_record = get_record_by_id(record_id)
-    capa_id    = body.get("capaId") or f"CAPA-{datetime.now().year}-{random.randint(1000,9999)}"
+    capa_id    = body.get("capaId") or new_capa_id()
     now        = datetime.now().isoformat()
     reg_refs   = body.get("regulatoryRef", [])
     if isinstance(reg_refs, str):
         reg_refs = [r.strip() for r in reg_refs.split(",") if r.strip()]
+    try:
+        closure_days = int(body.get("estimatedClosureDays", 30))
+    except (TypeError, ValueError):
+        return jsonify({"error": "estimatedClosureDays must be an integer"}), 400
+    if closure_days < 1 or closure_days > 365:
+        return jsonify({"error": "estimatedClosureDays must be between 1 and 365"}), 400
     capa_record = {
         "capaId":               capa_id,
         "status":               "Under Review",
@@ -208,7 +221,7 @@ def api_save():
             src_record.get("priority","") if src_record else ""),
         "regulatoryRef":        reg_refs,
         "capaMetadata":         body.get("capaMetadata", {}),
-        "estimatedClosureDays": int(body.get("estimatedClosureDays", 30)),
+        "estimatedClosureDays": closure_days,
         "createdBy":            current_user.full_name,
         "createdByUsername":    current_user.username,
         "createdByRole":        current_user.role,
@@ -230,19 +243,14 @@ def api_save():
         }), 400
 
     save_capa(capa_record)
-    # Embed into vector store for RAG (non-blocking — never fails the save)
-    try:
-        from services.vector_store import embed_capa
-        embed_capa(capa_record)
-    except Exception as _e:
-        print(f"[capa] vector embed skipped: {_e}")
     update_record_status(record_id, "Under Review")
     # Embed into vector store for RAG (non-blocking — never fails the save)
     try:
         from services.vector_store import embed_capa
         embed_capa(capa_record)
-    except Exception as _e:
-        print(f"[capa] vector embed skipped: {_e}")
+    except Exception:
+        logger.warning("capa.vector_embed_skipped", exc_info=True,
+                       extra={"capa_id": capa_id, "record_id": record_id})
     log(ACTION_CAPA_SAVED,
         performed_by=current_user.username,
         performed_by_role=current_user.role,
@@ -356,8 +364,9 @@ def api_export_capa(capa_id: str):
         rec = get_record_by_id(capa.get("sourceRecordId", ""))
         if rec:
             similar = find_similar(rec, top_k=3)
-    except Exception as _e:
-        print(f"[capa] export similar lookup skipped: {_e}")
+    except Exception:
+        logger.warning("capa.export_similar_lookup_skipped", exc_info=True,
+                       extra={"capa_id": capa_id})
 
     from services.pdf_service import build_capa_pdf
     pdf_bytes = build_capa_pdf(capa, similar=similar)
@@ -380,16 +389,16 @@ def api_update_capa_status(capa_id: str):
     allowed    = {"Under Review","Pending Correction","Approved","Rejected","Closed"}
     if requested_status not in allowed:
         return jsonify({"error": f"Invalid status. Use: {', '.join(allowed)}"}), 400
-    if requested_status in {"Approved", "Rejected"}:
-        esign, esign_error = _validate_esign(body)
-        if esign_error:
-            return esign_error
-    else:
-        esign = None
     existing   = get_capa_by_id(capa_id)
     old_status = existing.get("status","Unknown") if existing else "Unknown"
     if not existing:
         return jsonify({"error": f"CAPA {capa_id} not found"}), 404
+    if requested_status in {"Approved", "Rejected"}:
+        esign, esign_error = _validate_esign(body, capa_body=existing)
+        if esign_error:
+            return esign_error
+    else:
+        esign = None
 
     new_status = "Pending Correction" if requested_status == "Rejected" else requested_status
     creator_username = existing.get("createdByUsername", "")
@@ -547,8 +556,8 @@ def api_inquire():
         from services.chains.inquiry_chain import run_inquiry_chain
         answer = run_inquiry_chain(record, question, history)
         return jsonify({"answer": answer})
-    except Exception as e:
-        print(f"[inquire] error: {e}")
+    except Exception:
+        logger.exception("capa.inquire_failed")
         from services.chains.inquiry_chain import _smart_mock
         return jsonify({"answer": _smart_mock(record, question)})
 
@@ -573,6 +582,6 @@ def api_rag_similar():
                 "count": len(similar),
                 "total_embedded": stats.get("embedded_capas", 0),
             })
-        except Exception as e:
-            print(f"[rag] similar failed: {e}")
-            return jsonify({"similar": [], "count": 0, "error": str(e)}), 200
+        except Exception as exc:
+            logger.exception("capa.rag_similar_failed")
+            return jsonify({"similar": [], "count": 0, "error": str(exc)}), 200

@@ -7,8 +7,13 @@
 # ─────────────────────────────────────────────────────────
 
 import os
+
 import chromadb
 from chromadb.config import Settings
+
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
 
 # Persist the vector DB to disk so embeddings survive restarts
 _PERSIST_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "chroma_db")
@@ -34,7 +39,7 @@ def _get_collection():
         name=_COLLECTION_NAME,
         metadata={"hnsw:space": "cosine"},   # cosine similarity
     )
-    print(f"[vector_store] Collection ready — {_collection.count()} CAPAs embedded")
+    log.info("vector.collection_ready", extra={"count": _collection.count()})
     return _collection
 
 
@@ -60,8 +65,8 @@ def _enrich_from_record(capa: dict) -> dict:
             info["title"]  = info["title"]  or rec.get("title", "")  or ""
             info["type"]   = info["type"]   or rec.get("type", "")   or ""
             info["sector"] = info["sector"] or rec.get("sector", "") or ""
-    except Exception as e:
-        print(f"[vector_store] record lookup failed: {e}")
+    except Exception:
+        log.warning("vector.record_lookup_failed", exc_info=True)
     return info
 
 
@@ -108,10 +113,10 @@ def embed_capa(capa: dict) -> bool:
                 "riskRating": capa.get("riskRating", "") or "",
             }],
         )
-        print(f"[vector_store] Embedded CAPA {capa_id}")
+        log.info("vector.embedded", extra={"capa_id": capa_id})
         return True
-    except Exception as e:
-        print(f"[vector_store] embed_capa failed: {e}")
+    except Exception:
+        log.exception("vector.embed_failed")
         return False
 
 
@@ -157,8 +162,8 @@ def find_similar(record: dict, top_k: int = 3) -> list:
                 "similarity": similarity,
             })
         return out
-    except Exception as e:
-        print(f"[vector_store] find_similar failed: {e}")
+    except Exception:
+        log.exception("vector.find_similar_failed")
         return []
 
 
@@ -175,10 +180,10 @@ def backfill_from_db() -> int:
         for capa in capas:
             if embed_capa(capa):
                 n += 1
-        print(f"[vector_store] Backfilled {n}/{len(capas)} CAPAs")
+        log.info("vector.backfill_done", extra={"embedded": n, "total": len(capas)})
         return n
-    except Exception as e:
-        print(f"[vector_store] backfill failed: {e}")
+    except Exception:
+        log.exception("vector.backfill_failed")
         return 0
 
 
@@ -190,10 +195,10 @@ def reset_collection() -> bool:
         _client.delete_collection(_COLLECTION_NAME)
         _collection = None
         _get_collection()
-        print("[vector_store] Collection reset")
+        log.info("vector.collection_reset")
         return True
-    except Exception as e:
-        print(f"[vector_store] reset failed: {e}")
+    except Exception:
+        log.exception("vector.reset_failed")
         return False
 
 
