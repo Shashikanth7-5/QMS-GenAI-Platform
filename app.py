@@ -38,13 +38,12 @@ def _install_extensions(app: Flask) -> None:
         RATE_LIMIT_STORAGE,
     )
 
+    # Always init CSRFProtect so csrf_token() is available in templates
+    # (test / dev disable enforcement via WTF_CSRF_ENABLED=False).
+    app.config["WTF_CSRF_ENABLED"] = CSRF_ENABLED
+    app.config["WTF_CSRF_TIME_LIMIT"] = CSRF_TIME_LIMIT_SECONDS
     csrf = CSRFProtect()
-    if CSRF_ENABLED:
-        app.config["WTF_CSRF_ENABLED"] = True
-        app.config["WTF_CSRF_TIME_LIMIT"] = CSRF_TIME_LIMIT_SECONDS
-        csrf.init_app(app)
-    else:
-        app.config["WTF_CSRF_ENABLED"] = False
+    csrf.init_app(app)
     app.extensions["qms_csrf"] = csrf
 
     limiter = Limiter(

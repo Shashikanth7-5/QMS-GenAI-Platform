@@ -5,6 +5,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="csrf-token" content="{{ csrf_token() }}"/>
   <title>{% block title %}AI Quality Management System{% endblock %}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
@@ -1336,6 +1337,36 @@ fetch('/api/metrics')
     });
     observer.observe(document.body, { childList: true, subtree: true });
   });
+</script>
+
+<script>
+  // ── CSRF shim ─────────────────────────────────────────────
+  // Adds X-CSRFToken to every same-origin state-changing fetch()
+  // so cookie-authenticated AJAX calls (/api/capa/*, /api/agents/*, etc.)
+  // pass Flask-WTF's CSRFProtect check without every caller doing it manually.
+  (function () {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (!meta) return;
+    var token = meta.getAttribute("content");
+    if (!token) return;
+    var origFetch = window.fetch;
+    var STATE_CHANGING = { POST: 1, PATCH: 1, PUT: 1, DELETE: 1 };
+    window.fetch = function (input, init) {
+      init = init || {};
+      var method = (init.method || (typeof input !== "string" && input.method) || "GET").toUpperCase();
+      if (STATE_CHANGING[method]) {
+        var url = typeof input === "string" ? input : (input && input.url) || "";
+        // Same-origin only — don't leak the token to third parties.
+        var isSameOrigin = url.startsWith("/") || url.startsWith(window.location.origin);
+        if (isSameOrigin) {
+          var headers = new Headers(init.headers || (typeof input !== "string" && input.headers) || {});
+          if (!headers.has("X-CSRFToken")) headers.set("X-CSRFToken", token);
+          init.headers = headers;
+        }
+      }
+      return origFetch(input, init);
+    };
+  })();
 </script>
 
 </body>

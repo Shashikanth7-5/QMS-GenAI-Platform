@@ -140,6 +140,7 @@
             <td>
               <div class="mu-actions">
                 <form method="POST" action="/admin/users/{{ u.id }}/approve" style="display:inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                   <button type="submit" class="btn-sm btn-approve">âœ“ Approve</button>
                 </form>
                 <button type="button" class="btn-sm btn-reject"
@@ -182,6 +183,7 @@
             <td><span class="role-badge role-badge--{{ u.role }}">{{ u.role }}</span></td>
             <td>
               <form method="POST" action="/admin/users/{{ u.id }}/role" style="display:flex;gap:6px;align-items:center;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <select class="role-select" name="role">
                   <option value="user"    {% if u.role=='user'    %}selected{% endif %}>user</option>
                   <option value="quality" {% if u.role=='quality' %}selected{% endif %}>quality</option>
@@ -233,6 +235,7 @@
             <td><span class="status-pill status--rejected">Rejected</span></td>
             <td>
               <form method="POST" action="/admin/users/{{ u.id }}/approve" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <button type="submit" class="btn-sm btn-approve">Re-approve</button>
               </form>
             </td>
@@ -260,6 +263,7 @@
            <div id="modalUname" style="font-size:11px;color:var(--text-muted);font-family:monospace;">â€”</div></div>
     </div>
     <form method="POST" id="rejectForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
       <label class="mu-label" for="rejectComment">Reason <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;">(optional)</span></label>
       <textarea class="mu-textarea" id="rejectComment" name="comment"
                 placeholder="e.g. Duplicate request, not a valid employeeâ€¦"></textarea>

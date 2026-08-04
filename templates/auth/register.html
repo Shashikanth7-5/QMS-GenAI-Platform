@@ -81,6 +81,7 @@
   </div>
 
   <form method="POST" action="/register">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div class="form-group">
       <label class="form-label" for="full_name">Full name</label>
       <input class="form-input" type="text" id="full_name" name="full_name"

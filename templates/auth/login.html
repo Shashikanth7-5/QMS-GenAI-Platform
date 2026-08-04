@@ -88,6 +88,7 @@
     <div class="error-box"><span style="flex-shrink:0;">âš </span><span>{{ error }}</span></div>
     {% endif %}
     <form method="POST" action="/login">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
       <div class="form-group">
         <label class="form-label" for="username">Username</label>
         <input class="form-input" type="text" id="username" name="username" placeholder="Enter username" required autocomplete="username"/>
