@@ -2,12 +2,10 @@
 {% set active_tab = "capa" %}
 {% block title %}AI QMS - CAPA Creation{% endblock %}
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      EXTRA STYLES
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 {% block extra_styles %}
 <style>
- /* NEW â€” stacks vertically on smaller screens */
+ /* NEW - stacks vertically on smaller screens */
 .workspace {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -18,7 +16,7 @@
   .workspace { grid-template-columns: 1fr; }
 }
 
-  /* â”€â”€ Panel card â”€â”€ */
+  /* -- Panel card -- */
   .panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -51,7 +49,7 @@
     align-items: center; flex-wrap: wrap;
   }
 
-  /* â”€â”€ Record selector â”€â”€ */
+  /* -- Record selector -- */
   .record-selector {
     display: flex; gap: 10px;
     align-items: center; margin-bottom: 18px;
@@ -72,7 +70,7 @@
     box-shadow: 0 0 0 3px rgba(23,86,184,0.1);
   }
 
-  /* â”€â”€ Record info strip â”€â”€ */
+  /* -- Record info strip -- */
   .record-info {
     background: var(--blue-pale);
     border: 1px solid #b3cef5;
@@ -98,7 +96,7 @@
     padding: 2px 10px;
   }
 
-  /* â”€â”€ RCA method toggle â”€â”€ */
+  /* -- RCA method toggle -- */
   .method-toggle {
     display: flex; gap: 8px;
     margin-bottom: 16px;
@@ -126,7 +124,7 @@
   }
   .method-btn__icon { display: none; }
 
-  /* â”€â”€ 5-Why chain â”€â”€ */
+  /* -- 5-Why chain -- */
   .why-chain { display: flex; flex-direction: column; gap: 0; }
   .why-step {
     display: flex; gap: 12px;
@@ -173,7 +171,7 @@
     margin-top: 4px;
   }
 
-  /* â”€â”€ Fishbone diagram â”€â”€ */
+  /* -- Fishbone diagram -- */
   .fishbone-wrap {
     overflow-x: auto;
     margin-bottom: 12px;
@@ -214,7 +212,7 @@
     font-weight: 500;
   }
 
-  /* â”€â”€ Root cause summary box â”€â”€ */
+  /* -- Root cause summary box -- */
   .rca-summary {
     background: var(--red-pale);
     border: 1px solid #f5b8b3;
@@ -245,7 +243,7 @@
     text-decoration: underline; padding: 0;
   }
 
-  /* â”€â”€ CAPA form fields â”€â”€ */
+  /* -- CAPA form fields -- */
   .form-section {
     margin-bottom: 20px;
     padding-bottom: 20px;
@@ -330,7 +328,7 @@
     border-color: #e0e3ea;
   }
 
-  /* â”€â”€ Regulatory ref tags â”€â”€ */
+  /* -- Regulatory ref tags -- */
   .ref-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .ref-tag {
     display: inline-flex; align-items: center; gap: 5px;
@@ -390,7 +388,7 @@
     cursor: pointer;
   }
 
-  /* â”€â”€ Loading spinner â”€â”€ */
+  /* -- Loading spinner -- */
   .spinner {
     width: 28px; height: 28px;
     border: 3px solid #e0e4ec;
@@ -401,7 +399,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* â”€â”€ Success / status strip â”€â”€ */
+  /* -- Success / status strip -- */
   .status-strip {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 14px;
@@ -421,7 +419,7 @@
   }
 
 
-  /* â”€â”€ AI Improve Modal (inline CAPA page) â”€â”€ */
+  /* -- AI Improve Modal (inline CAPA page) -- */
   .ai-improve-overlay {
     display: none; position: fixed; inset: 0; z-index: 400;
     background: rgba(15,23,42,.75); backdrop-filter: blur(4px);
@@ -483,7 +481,7 @@
     background:#f7f8fa;border-radius:0 0 16px 16px;
   }
   .ai-modal-footer span { font-size:11px;color:var(--text-muted);flex:1; }
-  /* â”€â”€ Empty state â”€â”€ */
+  /* -- Empty state -- */
   .empty-state {
     text-align: center;
     padding: 40px 20px;
@@ -495,9 +493,7 @@
 {% endblock %}
 
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      CONTENT
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 {% block content %}
 
 <!-- Page Header -->
@@ -505,7 +501,7 @@
   <div>
     <div class="page-title">CAPA Creation &amp; RCA Analysis</div>
     <div class="page-subtitle">
-      Select a quality record â†’ run Root Cause Analysis â†’
+      Select a quality record -> run Root Cause Analysis ->
       AI generates and pre-fills your CAPA draft
     </div>
   </div>
@@ -541,23 +537,22 @@
               style="display:flex;align-items:center;gap:6px;">
         Upload Document
       </button>
-      <!-- Hidden file input â€” triggers file explorer directly from button -->
+      <!-- Hidden file input - triggers file explorer directly from button -->
       <input type="file" id="mainUploadInput" style="display:none"
              accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.bmp,.tiff,.docx,.txt"
              onchange="if(this.files[0]){ openUploadModal(); setUploadFile(this.files[0]); }">
     </div>
     <!-- Record info strip -->
     <div class="record-info" id="recordInfo">
-      <div class="record-info__title" id="infoTitle">â€”</div>
+      <div class="record-info__title" id="infoTitle">-</div>
       <div class="record-info__meta" id="infoMeta"></div>
     </div>
   </div>
 </div>
 
-<!-- â”€â”€ Two-column workspace â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- -- Two-column workspace ----------------------------- -->
 <div class="workspace">
 
-  <!-- â•â• LEFT Â· RCA PANEL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
   <div>
     <div class="panel">
       <div class="panel__header">
@@ -599,7 +594,7 @@
         <!-- Root cause summary -->
         <div class="rca-summary" id="rcaSummary">
           <div class="rca-summary__label">Identified Root Cause</div>
-          <div class="rca-summary__text" id="rcaSummaryText">â€”</div>
+          <div class="rca-summary__text" id="rcaSummaryText">-</div>
           <button class="rca-summary__use-btn"
                   onclick="useRootCause()">
             Use this as Root Cause in CAPA form
@@ -643,7 +638,6 @@
     </div>
   </div>
 
-  <!-- â•â• RIGHT Â· CAPA FORM PANEL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
   <div>
     <div class="panel">
       <div class="panel__header">
@@ -668,27 +662,27 @@
             <div class="form-field">
               <label class="field-label">Record ID</label>
               <input class="field-input" id="fRecordId"
-                     readonly placeholder="â€”"/>
+                     readonly placeholder="-"/>
             </div>
             <div class="form-field">
               <label class="field-label">Type</label>
               <input class="field-input" id="fRecordType"
-                     readonly placeholder="â€”"/>
+                     readonly placeholder="-"/>
             </div>
             <div class="form-field">
               <label class="field-label">Priority</label>
               <input class="field-input" id="fPriority"
-                     readonly placeholder="â€”"/>
+                     readonly placeholder="-"/>
             </div>
             <div class="form-field">
               <label class="field-label">Site</label>
               <input class="field-input" id="fSite"
-                     readonly placeholder="â€”"/>
+                     readonly placeholder="-"/>
             </div>
             <div class="form-field form-field--full">
               <label class="field-label">Issue Title</label>
               <input class="field-input" id="fTitle"
-                     readonly placeholder="â€”"/>
+                     readonly placeholder="-"/>
             </div>
           </div>
         </div>
@@ -782,7 +776,7 @@
             </label>
             <textarea class="field-textarea field-textarea--ai"
                       id="fRootCause" rows="3"
-                      placeholder="Run RCA or Generate CAPA to auto-fillâ€¦">
+                      placeholder="Run RCA or Generate CAPA to auto-fill...">
             </textarea>
             <div class="field-hint">
               Tip: Use 5-Why or Fishbone to derive this statement
@@ -805,7 +799,7 @@
               </label>
               <textarea class="field-textarea field-textarea--ai"
                         id="fImmediateAction" rows="2"
-                        placeholder="Auto-filled after generationâ€¦">
+                        placeholder="Auto-filled after generation...">
               </textarea>
             </div>
             <div class="form-field">
@@ -815,7 +809,7 @@
               </label>
               <textarea class="field-textarea field-textarea--ai"
                         id="fCorrectiveAction" rows="3"
-                        placeholder="Auto-filled after generationâ€¦">
+                        placeholder="Auto-filled after generation...">
               </textarea>
             </div>
             <div class="form-field">
@@ -825,7 +819,7 @@
               </label>
               <textarea class="field-textarea field-textarea--ai"
                         id="fPreventiveAction" rows="3"
-                        placeholder="Auto-filled after generationâ€¦">
+                        placeholder="Auto-filled after generation...">
               </textarea>
             </div>
           </div>
@@ -845,7 +839,7 @@
               </label>
               <input class="field-input field-input--ai"
                      id="fCapaOwner" type="text"
-                     placeholder="Name or roleâ€¦"/>
+                     placeholder="Name or role..."/>
             </div>
             <div class="form-field">
               <label class="field-label">
@@ -869,7 +863,7 @@
               <label class="field-label">Est. Closure (days)</label>
               <input class="field-input"
                      id="fClosureDays" readonly
-                     placeholder="Auto-calculatedâ€¦"/>
+                     placeholder="Auto-calculated..."/>
             </div>
           </div>
         </div>
@@ -896,7 +890,7 @@
               </label>
               <textarea class="field-textarea field-textarea--ai"
                         id="fEffectiveness" rows="3"
-                        placeholder="Auto-filled after generationâ€¦">
+                        placeholder="Auto-filled after generation...">
               </textarea>
             </div>
           </div>
@@ -933,7 +927,7 @@
           <div class="form-field">
             <textarea class="field-textarea"
                       id="fNotes" rows="3"
-                      placeholder="Any supporting context, observations, or reviewer instructionsâ€¦">
+                      placeholder="Any supporting context, observations, or reviewer instructions...">
             </textarea>
           </div>
         </div>
@@ -969,9 +963,7 @@
 
 
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      RECORD INQUIRY CHAT PANEL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <style>
   .inquiry-panel {
     display: none;
@@ -1102,7 +1094,7 @@
 <div class="inquiry-panel" id="inquiryPanel">
   <div class="inquiry-header">
     <div>
-      <div class="inquiry-header__title">ðŸ’¬ Ask About This Record</div>
+      <div class="inquiry-header__title"> Ask About This Record</div>
       <div class="inquiry-header__sub" id="inquiryRecordLabel">
         Ask questions about the loaded record
       </div>
@@ -1113,7 +1105,7 @@
   <!-- Message thread -->
   <div class="inquiry-messages" id="inquiryMessages">
     <div class="inquiry-empty" id="inquiryEmpty">
-      <div class="inquiry-empty__icon">ðŸ’¬</div>
+      <div class="inquiry-empty__icon"></div>
       <div class="inquiry-empty__text">
         Ask anything about the loaded record.<br/>
         The AI has read all extracted fields and will answer based on them.
@@ -1123,28 +1115,26 @@
 
   <!-- Quick suggestion chips -->
   <div class="inquiry-suggestions" id="inquirySuggestions">
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What is the priority?</button>
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Who is the owner?</button>
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Which regulations apply?</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What is the priority</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Who is the owner</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Which regulations apply</button>
     <button class="inquiry-suggestion" onclick="askSuggestion(this)">Summarise this record</button>
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What batch is affected?</button>
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What immediate actions are needed?</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What batch is affected</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What immediate actions are needed</button>
   </div>
 
   <!-- Input row -->
   <div class="inquiry-input-row">
     <input class="inquiry-input" id="inquiryInput" type="text"
-           placeholder="Ask a question about this recordâ€¦"
+           placeholder="Ask a question about this record..."
            onkeydown="if(event.key==='Enter') sendInquiry()"/>
     <button class="inquiry-send-btn" id="inquirySendBtn" onclick="sendInquiry()">
-      â†‘ Ask
+      -> Ask
     </button>
   </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      UPLOAD DOCUMENT MODAL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <style>
   .upload-overlay {
     display: none; position: fixed; inset: 0;
@@ -1262,8 +1252,8 @@
 <div class="upload-overlay" id="uploadOverlay" onclick="closeUploadOnBg(event)">
   <div class="upload-modal">
     <div class="upload-modal__hdr">
-      <div class="upload-modal__title">ðŸ“Ž Upload Quality Document</div>
-      <button class="upload-modal__close" onclick="closeUploadModal()">âœ•</button>
+      <div class="upload-modal__title"> Upload Quality Document</div>
+      <button class="upload-modal__close" onclick="closeUploadModal()">X</button>
     </div>
 
     <!-- Drop Zone -->
@@ -1272,7 +1262,7 @@
          ondragover="onDragOver(event)"
          ondragleave="onDragLeave(event)"
          ondrop="onDrop(event)">
-      <div class="drop-zone__icon">ðŸ“„</div>
+      <div class="drop-zone__icon"></div>
       <div class="drop-zone__text">Drop your file here or click to browse</div>
       <div class="drop-zone__hint">AI will extract the quality record fields automatically</div>
       <div class="drop-zone__formats">
@@ -1290,10 +1280,10 @@
 
     <!-- File preview -->
     <div class="upload-preview" id="uploadPreview">
-      <div class="upload-preview__icon" id="previewIcon">ðŸ“„</div>
-      <div class="upload-preview__name" id="previewName">â€”</div>
-      <div class="upload-preview__size" id="previewSize">â€”</div>
-      <button class="upload-preview__remove" onclick="clearUploadFile()" title="Remove">âœ•</button>
+      <div class="upload-preview__icon" id="previewIcon"></div>
+      <div class="upload-preview__name" id="previewName">-</div>
+      <div class="upload-preview__size" id="previewSize">-</div>
+      <button class="upload-preview__remove" onclick="clearUploadFile()" title="Remove">X</button>
     </div>
 
     <!-- Status messages -->
@@ -1301,7 +1291,7 @@
 
     <!-- Extracted record (editable before saving) -->
     <div class="upload-extracted" id="uploadExtracted">
-      <div class="upload-extracted__title">âœ… Extracted Record â€” Review & Edit Before Saving</div>
+      <div class="upload-extracted__title">OK Extracted Record - Review & Edit Before Saving</div>
       <div class="upload-extracted__grid">
         <div class="upload-extracted__field">
           <label>Record ID</label>
@@ -1365,19 +1355,18 @@
   </div>
 </div>
 
-<!-- â•â• AI IMPROVE MODAL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="ai-improve-overlay" id="aiImproveModal"
      onclick="if(event.target===this)closeAIImproveModal()">
   <div class="ai-improve-modal">
     <div class="ai-modal-hdr">
       <div>
-        <h3>ðŸ¤– AI Improvement Models</h3>
+        <h3> AI Improvement Models</h3>
         <p>
-          Model A = 70% target Â· Model B = 80% target Â· Model C = 90% target<br/>
-          After applying: click <strong>Reassess Score</strong> then <strong>â†’ Sync Now</strong>
+          Model A = 70% target  -  Model B = 80% target  -  Model C = 90% target<br/>
+          After applying: click <strong>Reassess Score</strong> then <strong>-> Sync Now</strong>
         </p>
       </div>
-      <button class="ai-modal-close" onclick="closeAIImproveModal()">âœ•</button>
+      <button class="ai-modal-close" onclick="closeAIImproveModal()">X</button>
     </div>
     <div class="ai-models-grid" id="aiModelsGrid">
       <div class="spinner" style="grid-column:1/-1;margin:20px auto;width:28px;height:28px;border-width:3px;"></div>
@@ -1387,7 +1376,7 @@
       <button class="btn btn--secondary" onclick="closeAIImproveModal()">Cancel</button>
       <button class="btn btn--primary" id="btnApplyAIModel"
               onclick="applyAIModelInline()" disabled>
-        âœ… Apply Selected Model
+        OK Apply Selected Model
       </button>
     </div>
   </div>
@@ -1396,12 +1385,10 @@
 {% endblock %}
 
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      JAVASCRIPT
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 {% block extra_scripts %}
 <script>
-  /* â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- State ------------------------------------------------ */
   let currentRecord  = null;
   let currentCapa    = null;
   let rcaData        = null;   // stores latest RCA result for edit/reassess/sync
@@ -1414,7 +1401,7 @@
   const CAT_ICONS = {Man:'Man',Machine:'Machine',Method:'Method',
                      Material:'Material',Measurement:'Measurement',Environment:'Environment'};
 
-  /* â”€â”€ Boot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Boot ------------------------------------------------- */
   document.addEventListener('DOMContentLoaded', () => {
     bindRefInput();
     renderCapaAttachments();
@@ -1426,14 +1413,14 @@
       if (urlId) {
         document.getElementById('recordSelect').value = urlId;
         loadRecord(urlId).then(() => {
-          /* â”€â”€ RCA transferred from RCA Analysis tab â”€â”€ */
+          /* -- RCA transferred from RCA Analysis tab -- */
           const rcaScore  = params.get('rca_score');
           const rcaRC     = params.get('root_cause');
           const rcaMethod = params.get('rca_method');
           if (rcaScore || rcaRC) {
             _applyTransferredRCA(rcaRC, rcaScore, rcaMethod);
           }
-          /* â”€â”€ Also try sessionStorage (approve path) â”€â”€ */
+          /* -- Also try sessionStorage (approve path) -- */
           try {
             const stored = sessionStorage.getItem('approved_rca');
             if (stored) {
@@ -1454,7 +1441,7 @@
     });
   });
 
-  /* â”€â”€ Apply transferred RCA data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Apply transferred RCA data --------------------------- */
   function _applyTransferredRCA(rootCause, score, method, fullData) {
     if (rootCause) {
       const ta = document.getElementById('fRootCause');
@@ -1469,9 +1456,9 @@
       currentMethod = method || rcaData.method || '5why';
       rcaMethod     = currentMethod;
       document.getElementById('btnFiveWhy')
-        ?.classList.toggle('method-btn--active', currentMethod === '5why');
+        .classList.toggle('method-btn--active', currentMethod === '5why');
       document.getElementById('btnFishbone')
-        ?.classList.toggle('method-btn--active', currentMethod === 'fishbone');
+        .classList.toggle('method-btn--active', currentMethod === 'fishbone');
       if (currentMethod === '5why') render5Why(rcaData, false);
       else renderFishbone(rcaData, false);
       _showRCAButtons();
@@ -1480,14 +1467,14 @@
       _showRCAScoreBadge(score);
     }
     const msg = score
-      ? `âœ“ RCA (${score}%) transferred from RCA Analysis â€” root cause pre-filled. Generate CAPA to complete.`
-      : 'âœ“ RCA root cause transferred â€” review and generate CAPA.';
+       `OK RCA (${score}%) transferred from RCA Analysis - root cause pre-filled. Generate CAPA to complete.`
+      : 'OK RCA root cause transferred - review and generate CAPA.';
     setBanner(msg, 'success');
   }
 
-  /* â”€â”€ Load all records into dropdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Load all records into dropdown ---------------------- */
   function loadRecordOptions() {
-    return fetch('/api/records?limit=2000')
+    return fetch('/api/recordslimit=2000')
       .then(r => r.json())
       .then(data => {
         const sel = document.getElementById('recordSelect');
@@ -1501,7 +1488,7 @@
       .catch(e => console.error('[QMS] Failed to load records:', e));
   }
 
-  /* â”€â”€ Load one record â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Load one record -------------------------------------- */
   function loadRecord(id) {
     return fetch(`/api/records/${id}`)
       .then(r => r.json())
@@ -1517,7 +1504,7 @@
       .catch(() => setBanner('Error loading record', 'error'));
   }
 
-  /* â”€â”€ Show record info strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Show record info strip ------------------------------- */
   function populateRecordInfo(rec) {
     document.getElementById('infoTitle').textContent = rec.title;
     const meta = document.getElementById('infoMeta');
@@ -1531,10 +1518,10 @@
     document.getElementById('recordInfo').classList.add('visible');
   }
 
-  /* â”€â”€ Fill source record fields (read-only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Fill source record fields (read-only) ---------------- */
   function loadExistingCapaForRecord(recordId) {
     fetch(`/api/capas/by-record/${encodeURIComponent(recordId)}`)
-      .then(r => r.ok ? r.json() : null)
+      .then(r => r.ok  r.json() : null)
       .then(capa => {
         if (!capa) return;
         currentCapa = capa;
@@ -1572,16 +1559,16 @@
   }
 
   function toggleConditionalFields() {
-    const supplier = document.getElementById('fSupplierRelated')?.value === 'Yes';
-    const authority = document.getElementById('fAuthorityNotification')?.value === 'Yes';
+    const supplier = document.getElementById('fSupplierRelated').value === 'Yes';
+    const authority = document.getElementById('fAuthorityNotification').value === 'Yes';
     const supplierFields = document.getElementById('supplierFields');
     const authorityFields = document.getElementById('authorityFields');
-    if (supplierFields) supplierFields.style.display = supplier ? '' : 'none';
-    if (authorityFields) authorityFields.style.display = authority ? '' : 'none';
+    if (supplierFields) supplierFields.style.display = supplier  '' : 'none';
+    if (authorityFields) authorityFields.style.display = authority  '' : 'none';
   }
 
   function collectCapaMetadata() {
-    const value = id => document.getElementById(id)?.value || '';
+    const value = id => document.getElementById(id).value || '';
     return {
       impactScope: value('fImpactScope'),
       eligibilityRisk: value('fEligibilityRisk'),
@@ -1612,7 +1599,7 @@
     set('fImpactDetail', meta.impactAssessmentDetail);
     set('fSupplierDetails', meta.supplierDetails);
     set('fAuthorityDetails', meta.authorityDetails);
-    capaAttachments = Array.isArray(meta.attachments) ? meta.attachments : [];
+    capaAttachments = Array.isArray(meta.attachments)  meta.attachments : [];
     renderCapaAttachments();
     evaluateCapaEligibility();
   }
@@ -1648,7 +1635,7 @@
     } catch (err) {
       capaAttachments = capaAttachments.map(file =>
         file.uploadStatus === 'Uploading'
-          ? {...file, uploadStatus: 'Upload failed: ' + err.message}
+           {...file, uploadStatus: 'Upload failed: ' + err.message}
           : file
       );
       setBanner('Attachment upload failed: ' + err.message, 'error');
@@ -1686,16 +1673,16 @@
   }
 
   function getEligibilityResult() {
-    const scope = document.getElementById('fImpactScope')?.value || '';
-    const risk = document.getElementById('fEligibilityRisk')?.value || '';
-    const repeat = document.getElementById('fRepeatEvent')?.value === 'Yes';
-    const supplier = document.getElementById('fSupplierRelated')?.value === 'Yes';
-    const authority = document.getElementById('fAuthorityNotification')?.value === 'Yes';
+    const scope = document.getElementById('fImpactScope').value || '';
+    const risk = document.getElementById('fEligibilityRisk').value || '';
+    const repeat = document.getElementById('fRepeatEvent').value === 'Yes';
+    const supplier = document.getElementById('fSupplierRelated').value === 'Yes';
+    const authority = document.getElementById('fAuthorityNotification').value === 'Yes';
     const missing = [];
     if (!scope) missing.push('impact scope');
     if (!risk) missing.push('risk level');
-    if (supplier && !document.getElementById('fSupplierDetails')?.value.trim()) missing.push('supplier details');
-    if (authority && !document.getElementById('fAuthorityDetails')?.value.trim()) missing.push('authority details');
+    if (supplier && !document.getElementById('fSupplierDetails').value.trim()) missing.push('supplier details');
+    if (authority && !document.getElementById('fAuthorityDetails').value.trim()) missing.push('authority details');
     const highRiskImpact = scope !== 'none' && ['Critical', 'High'].includes(risk);
     const qualifies = highRiskImpact || repeat || supplier || authority;
     return { qualifies: Boolean(qualifies && !missing.length), missing };
@@ -1722,7 +1709,7 @@
     return true;
   }
 
-  /* â”€â”€ Enable buttons once record loaded â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Enable buttons once record loaded -------------------- */
   function enableButtons() {
     ['btnRunRca','btnGenerate','btnSave'].forEach(id => {
       const el = document.getElementById(id);
@@ -1732,7 +1719,7 @@
     document.getElementById('capaStatus').textContent  = 'Ready to generate';
   }
 
-  /* â”€â”€ RCA method toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- RCA method toggle ------------------------------------ */
   function selectMethod(method) {
     rcaMethod     = method;
     currentMethod = method;
@@ -1743,7 +1730,7 @@
     clearRCA();
   }
 
-  /* â”€â”€ Run RCA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Run RCA ---------------------------------------------- */
   function runRCA() {
     if (!currentRecord) return;
 
@@ -1752,11 +1739,11 @@
     const summaryEl = document.getElementById('rcaSummary');
 
     content.innerHTML   = '<div class="spinner"></div>';
-    statusEl.textContent = 'Running RCAâ€¦';
+    statusEl.textContent = 'Running RCA...';
     summaryEl.classList.remove('visible');
 
     const endpoint = rcaMethod === '5why'
-      ? '/api/rca/five-why' : '/api/rca/fishbone';
+       '/api/rca/five-why' : '/api/rca/fishbone';
 
     fetch(endpoint, {
       method: 'POST',
@@ -1769,7 +1756,7 @@
       currentMethod = rcaMethod;
       if (rcaMethod === '5why') render5Why(data, false);
       else                       renderFishbone(data, false);
-      statusEl.textContent = `âœ“ ${rcaMethod === '5why' ? '5-Why' : 'Fishbone'} complete`;
+      statusEl.textContent = `OK ${rcaMethod === '5why'  '5-Why' : 'Fishbone'} complete`;
       _showRCAButtons();
     })
     .catch(err => {
@@ -1778,62 +1765,62 @@
     });
   }
 
-  /* â”€â”€ Render 5-Why chain (editable + score badges) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Render 5-Why chain (editable + score badges) ----------- */
   function render5Why(data, scored) {
-    const steps = (scored && rcaAssessment?.assessed_steps)
-      ? rcaAssessment.assessed_steps : (data.chain || []);
+    const steps = (scored && rcaAssessment.assessed_steps)
+       rcaAssessment.assessed_steps : (data.chain || []);
     const html = steps.map((s,i) => {
       const score = s.score;
       const badge = score
-        ? `<span style="background:${score.color==='green'?'var(--green-pale)':score.color==='amber'?'var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green'?'var(--green)':score.color==='amber'?'var(--amber)':'var(--red)'};border:1px solid;border-radius:20px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;">${score.overall}%</span>` : '';
-      const bars = score ? `<div style="margin-top:4px;font-size:10px;color:var(--text-muted);">
-        Specificity: ${score.specificity}% Â· Actionability: ${score.actionability}% Â· Completeness: ${score.completeness}%
+         `<span style="background:${score.color==='green''var(--green-pale)':score.color==='amber''var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green''var(--green)':score.color==='amber''var(--amber)':'var(--red)'};border:1px solid;border-radius:20px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;">${score.overall}%</span>` : '';
+      const bars = score  `<div style="margin-top:4px;font-size:10px;color:var(--text-muted);">
+        Specificity: ${score.specificity}%  -  Actionability: ${score.actionability}%  -  Completeness: ${score.completeness}%
       </div>` : '';
       return `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px dashed var(--border);">
-        <div style="width:26px;height:26px;border-radius:50%;background:${s.is_root?'var(--red)':'var(--blue)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;">${s.level}</div>
+        <div style="width:26px;height:26px;border-radius:50%;background:${s.is_root'var(--red)':'var(--blue)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;">${s.level}</div>
         <div style="flex:1;">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:3px;">${s.why}${badge}</div>
           <div class="why-answer-display" style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:3px;">${s.because}</div>
           <textarea class="why-answer-edit" data-idx="${i}" rows="2"
             style="display:none;width:100%;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
-            placeholder="Edit this step â€” add SOP ref, equipment ID, dateâ€¦">${s.because}</textarea>
-          ${s.is_root?'<span style="background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;">âœ¦ Root Cause</span>':''}
+            placeholder="Edit this step - add SOP ref, equipment ID, date...">${s.because}</textarea>
+          ${s.is_root'<span style="background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;"> Root Cause</span>':''}
           ${bars}
         </div>
       </div>`;
     }).join('');
     document.getElementById('rcaContent').innerHTML = `<div id="rcaOutput">${html}</div>`;
     if (data.root_cause || steps.some(s=>s.is_root)) {
-      const rc = data.root_cause || steps.find(s=>s.is_root)?.because || steps[steps.length-1]?.because || '';
+      const rc = data.root_cause || steps.find(s=>s.is_root).because || steps[steps.length-1].because || '';
       document.getElementById('rcaSummaryText').textContent = rc;
       document.getElementById('rcaSummary').classList.add('visible');
     }
     if (scored && rcaAssessment) _showRCAScoreBadge(rcaAssessment.overall_score);
   }
 
-  /* â”€â”€ Render Fishbone (editable + score badges + add field) â”€ */
+  /* -- Render Fishbone (editable + score badges + add field) - */
   function renderFishbone(data, scored) {
-    const cats = (scored && rcaAssessment?.assessed_categories)
-      ? rcaAssessment.assessed_categories : (data.categories || {});
+    const cats = (scored && rcaAssessment.assessed_categories)
+       rcaAssessment.assessed_categories : (data.categories || {});
     const html = Object.entries(cats).map(([cat, causes]) => {
       const hasPrimary = causes.some(c=>c.primary);
       const causesHtml = causes.map((c,i) => {
         const score = c.score;
         const badge = score
-          ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;background:${score.color==='green'?'var(--green-pale)':score.color==='amber'?'var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green'?'var(--green)':score.color==='amber'?'var(--amber)':'var(--red)'};">${score.overall}%</span>` : '';
+           `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;background:${score.color==='green''var(--green-pale)':score.color==='amber''var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green''var(--green)':score.color==='amber''var(--amber)':'var(--red)'};">${score.overall}%</span>` : '';
         return `<div class="cause-row" style="margin-bottom:8px;">
           <div style="display:flex;align-items:flex-start;gap:6px;">
-            <input type="checkbox" style="margin-top:3px;accent-color:var(--blue);" ${c.primary?'checked':''}
+            <input type="checkbox" style="margin-top:3px;accent-color:var(--blue);" ${c.primary'checked':''}
               onchange="toggleFBPrimary('${cat}',${i},this.checked)"/>
-            <span class="fishbone-cause ${c.primary?'fishbone-cause--primary':''}" style="flex:1;font-size:12px;">${c.primary?'âš¡ ':'â€¢ '}${c.text}${badge}</span>
+            <span class="fishbone-cause ${c.primary'fishbone-cause--primary':''}" style="flex:1;font-size:12px;">${c.primary'Warning ':'- '}${c.text}${badge}</span>
           </div>
           <textarea class="cause-edit-area" data-cat="${cat}" data-idx="${i}" rows="2"
             style="display:none;width:100%;margin-top:5px;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
-            placeholder="Edit cause â€” add SOP ref, equipment ID, dateâ€¦">${c.text}</textarea>
+            placeholder="Edit cause - add SOP ref, equipment ID, date...">${c.text}</textarea>
         </div>`;
       }).join('');
-      return `<div class="fishbone-cat ${hasPrimary?'fishbone-cat--primary':''}">
-        <div class="fishbone-cat__title"><span class="fishbone-cat__icon">${CAT_ICONS[cat]||'â€¢'}</span>${cat}</div>
+      return `<div class="fishbone-cat ${hasPrimary'fishbone-cat--primary':''}">
+        <div class="fishbone-cat__title"><span class="fishbone-cat__icon">${CAT_ICONS[cat]||'-'}</span>${cat}</div>
         ${causesHtml}
         <button onclick="addFBCause('${cat}')"
           style="display:none;width:100%;margin-top:4px;padding:4px;border:1px dashed var(--border);border-radius:var(--r);background:none;color:var(--text-muted);font-size:11px;font-family:var(--font);cursor:pointer;"
@@ -1853,20 +1840,20 @@
   }
 
   function addFBCause(cat) {
-    if (!rcaData?.categories?.[cat]) return;
+    if (!rcaData.categories.[cat]) return;
     rcaData.categories[cat].push({text:'',primary:false});
     renderFishbone(rcaData,false);
-    document.getElementById('rcaOutput')?.classList.add('edit-mode');
+    document.getElementById('rcaOutput').classList.add('edit-mode');
     _inlineEditMode=true;
-    document.getElementById('btnEditRCA').textContent='ðŸ‘ View Mode';
+    document.getElementById('btnEditRCA').textContent=' View Mode';
   }
 
   function toggleFBPrimary(cat,idx,checked) {
-    if(rcaData?.categories?.[cat]?.[idx]!==undefined)
+    if(rcaData.categories.[cat].[idx]!==undefined)
       rcaData.categories[cat][idx].primary=checked;
   }
 
-  /* â”€â”€ Use root cause in CAPA form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Use root cause in CAPA form -------------------------- */
   function useRootCause() {
     const text = document.getElementById('rcaSummaryText').textContent;
     const ta   = document.getElementById('fRootCause');
@@ -1876,7 +1863,7 @@
     setTimeout(() => ta.style.borderColor = '', 2000);
   }
 
-  /* â”€â”€ Generate CAPA from API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Generate CAPA from API ------------------------------- */
   function generateCAPA() {
     if (!currentRecord) return;
     if (!evaluateCapaEligibility()) {
@@ -1887,8 +1874,8 @@
     const btn = document.getElementById('btnGenerate');
     const statusEl = document.getElementById('capaStatus');
     btn.disabled   = true;
-    btn.textContent = 'â³ Generatingâ€¦';
-    statusEl.textContent = 'Calling AIâ€¦';
+    btn.textContent = 'Working Generating...';
+    statusEl.textContent = 'Calling AI...';
 
     fetch('/api/capa/generate', {
       method: 'POST',
@@ -1900,20 +1887,20 @@
       currentCapa = capa;
       populateCAPAFields(capa);
       btn.disabled    = false;
-      btn.textContent = 'ðŸ¤– Regenerate';
-      statusEl.textContent = 'âœ“ CAPA generated';
+      btn.textContent = ' Regenerate';
+      statusEl.textContent = 'OK CAPA generated';
       document.getElementById('btnSave').disabled = false;
-      setBanner('âœ“ CAPA draft generated â€” review fields and save', 'success');
+      setBanner('OK CAPA draft generated - review fields and save', 'success');
     })
     .catch(err => {
       btn.disabled    = false;
-      btn.textContent = 'ðŸ¤– Generate CAPA';
+      btn.textContent = ' Generate CAPA';
       statusEl.textContent = 'Error generating';
       setBanner('Error: ' + err.message, 'error');
     });
   }
 
-  /* â”€â”€ Populate CAPA form fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Populate CAPA form fields ---------------------------- */
   function populateCAPAFields(capa) {
     const s = (id, v) => {
       const el = document.getElementById(id);
@@ -1942,7 +1929,7 @@
     (capa.regulatoryRef || []).forEach(addRefTag);
   }
 
-  /* â”€â”€ Save CAPA draft â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Save CAPA draft -------------------------------------- */
  function saveCAPA() {
     if (!currentRecord || !currentCapa) return;
     if (!evaluateCapaEligibility()) {
@@ -1961,15 +1948,15 @@
     const payload = {
         capaId:               currentCapa.capaId || '',
         sourceRecordId:       currentRecord.id,
-        rootCause:            document.getElementById('fRootCause')?.value       || '',
-        immediateAction:      document.getElementById('fImmediateAction')?.value  || '',
-        correctiveAction:     document.getElementById('fCorrectiveAction')?.value || '',
-        preventiveAction:     document.getElementById('fPreventiveAction')?.value || '',
-        capaOwner:            document.getElementById('fCapaOwner')?.value        || '',
-        effectivenessCheck:   document.getElementById('fEffectiveness')?.value    || '',
-        notes:                document.getElementById('fNotes')?.value            || '',
-        riskRating:           document.getElementById('fRiskRating')?.value       || currentRecord.priority,
-        estimatedClosureDays: parseInt(document.getElementById('fClosureDays')?.value) || 30,
+        rootCause:            document.getElementById('fRootCause').value       || '',
+        immediateAction:      document.getElementById('fImmediateAction').value  || '',
+        correctiveAction:     document.getElementById('fCorrectiveAction').value || '',
+        preventiveAction:     document.getElementById('fPreventiveAction').value || '',
+        capaOwner:            document.getElementById('fCapaOwner').value        || '',
+        effectivenessCheck:   document.getElementById('fEffectiveness').value    || '',
+        notes:                document.getElementById('fNotes').value            || '',
+        riskRating:           document.getElementById('fRiskRating').value       || currentRecord.priority,
+        estimatedClosureDays: parseInt(document.getElementById('fClosureDays').value) || 30,
         regulatoryRef:        refTags,
         capaMetadata:         collectCapaMetadata(),
     };
@@ -2000,7 +1987,7 @@
                 CAPA <strong>${result.capaId}</strong> saved. Record status - Under Review
                 <a href="/api/capa/${result.capaId}/export" target="_blank" class="btn btn--secondary btn--sm" style="margin-left:auto;">Export PDF</a>
                 <button onclick="printCAPA('${result.capaId}')" class="btn btn--secondary btn--sm">Print</button>
-                <a href="/?section=capas" style="font-size:11px;color:var(--green);font-weight:600;">View in Dashboard</a>
+                <a href="/section=capas" style="font-size:11px;color:var(--green);font-weight:600;">View in Dashboard</a>
             </div>`;
         setBanner(`${result.capaId} saved - view it in Dashboard CAPA Records tab`, 'success');
     })
@@ -2024,23 +2011,21 @@ function printCAPA(capaId) {
     }
 }
 
-  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     INQUIRY CHAT â€” grounded on the loaded record
-  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-  let _inquiryHistory = [];   // [{role, content}, â€¦]
+     INQUIRY CHAT - grounded on the loaded record
+  let _inquiryHistory = [];   // [{role, content}, ...]
 
   function showInquiryPanel(rec) {
     const panel = document.getElementById('inquiryPanel');
     panel.classList.add('visible');
     document.getElementById('inquiryRecordLabel').textContent =
-      `${rec.id} Â· ${rec.title.substring(0,60)}${rec.title.length > 60 ? 'â€¦' : ''}`;
+      `${rec.id}  -  ${rec.title.substring(0,60)}${rec.title.length > 60  '...' : ''}`;
   }
 
   function clearInquiry() {
     _inquiryHistory = [];
     document.getElementById('inquiryMessages').innerHTML = `
       <div class="inquiry-empty" id="inquiryEmpty">
-        <div class="inquiry-empty__icon">ðŸ’¬</div>
+        <div class="inquiry-empty__icon"></div>
         <div class="inquiry-empty__text">
           Ask anything about the loaded record.<br/>
           The AI has read all extracted fields and will answer based on them.
@@ -2061,12 +2046,12 @@ function printCAPA(capaId) {
     div.className = `msg msg--${role}`;
     const html = text
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g,'<em>$1</em>')
-      .replace(/`(.+?)`/g,'<code>$1</code>')
+      .replace(/\*\*(.+)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*(.+)\*/g,'<em>$1</em>')
+      .replace(/`(.+)`/g,'<code>$1</code>')
       .replace(/\n/g,'<br>');
     div.innerHTML = `
-      <div class="msg__avatar">${role === 'user' ? 'ðŸ‘¤' : 'ðŸ¤–'}</div>
+      <div class="msg__avatar">${role === 'user'  '' : ''}</div>
       <div class="msg__bubble">${html}</div>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
@@ -2089,7 +2074,7 @@ function printCAPA(capaId) {
     const typing = document.createElement('div');
     typing.id = '_typingMsg';
     typing.className = 'msg msg--assistant msg--typing';
-    typing.innerHTML = `<div class="msg__avatar">ðŸ¤–</div><div class="msg__bubble">Analysing recordâ€¦</div>`;
+    typing.innerHTML = `<div class="msg__avatar"></div><div class="msg__bubble">Analysing record...</div>`;
     box.appendChild(typing);
     box.scrollTop = box.scrollHeight;
 
@@ -2107,13 +2092,13 @@ function printCAPA(capaId) {
       const t = document.getElementById('_typingMsg');
       if (t) t.remove();
 
-      const answer = data.error ? `âš ï¸ ${data.error}` : (data.answer || 'No response.');
+      const answer = data.error  `Warning ${data.error}` : (data.answer || 'No response.');
       _appendMsg('assistant', answer);
       if (!data.error) _inquiryHistory.push({ role: 'assistant', content: answer });
     } catch (err) {
       const t = document.getElementById('_typingMsg');
       if (t) t.remove();
-      _appendMsg('assistant', `âš ï¸ Network error: ${err.message}`);
+      _appendMsg('assistant', `Warning Network error: ${err.message}`);
     } finally {
       btn.disabled = false;
       input.focus();
@@ -2121,7 +2106,7 @@ function printCAPA(capaId) {
   }
 
 
-  /* â”€â”€ Inline RCA edit & reassess â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Inline RCA edit & reassess --------------------------- */
   let _inlineEditMode = false;
 
   function toggleInlineEdit() {
@@ -2139,24 +2124,24 @@ function printCAPA(capaId) {
       // Pre-populate if empty
       output.querySelectorAll('.cause-edit-area').forEach(ta => {
         if (!ta.value.trim()) {
-          const disp = ta.closest('.cause-row')?.querySelector('.fishbone-cause');
-          if (disp) ta.value = disp.textContent.replace(/^[âš¡â€¢]\s*/,'').trim();
+          const disp = ta.closest('.cause-row').querySelector('.fishbone-cause');
+          if (disp) ta.value = disp.textContent.replace(/^[Warning-]\s*/,'').trim();
         }
       });
       output.querySelectorAll('.why-answer-edit').forEach(ta => {
         if (!ta.value.trim()) {
-          const disp = ta.closest('div')?.querySelector('.why-answer-display');
+          const disp = ta.closest('div').querySelector('.why-answer-display');
           if (disp) ta.value = disp.textContent.trim();
         }
       });
-      btn.textContent = 'ðŸ‘ View Mode';
-      setBanner('âœï¸ Edit mode â€” update any RCA field, add causes, then click Reassess Score', 'info');
+      btn.textContent = ' View Mode';
+      setBanner(' Edit mode - update any RCA field, add causes, then click Reassess Score', 'info');
     } else {
       output.querySelectorAll('.why-answer-edit, .cause-edit-area')
         .forEach(ta => { ta.style.display = 'none'; });
       output.querySelectorAll('.add-cause-btn')
         .forEach(b  => { b.style.display  = 'none'; });
-      btn.textContent = 'âœï¸ Edit RCA';
+      btn.textContent = ' Edit RCA';
     }
   }
 
@@ -2186,7 +2171,7 @@ function printCAPA(capaId) {
     else renderFishbone(rcaData, false);
 
     const btn = document.getElementById('btnReassessRCA');
-    btn.disabled = true; btn.textContent = 'â³ Scoringâ€¦';
+    btn.disabled = true; btn.textContent = 'Working Scoring...';
 
     fetch('/api/rca/assess', {
       method: 'POST',
@@ -2196,10 +2181,10 @@ function printCAPA(capaId) {
     .then(r => r.json())
     .then(d => {
       rcaAssessment = d;
-      btn.disabled = false; btn.textContent = 'ðŸ”„ Reassess Score';
+      btn.disabled = false; btn.textContent = ' Reassess Score';
       const score   = d.overall_score || 0;
-      const verdict = score >= 75 ? 'Strong RCA' : score >= 55 ? 'Moderate RCA' : 'Needs Improvement';
-      const color   = score >= 75 ? 'var(--green)' : score >= 55 ? 'var(--amber)' : 'var(--red)';
+      const verdict = score >= 75  'Strong RCA' : score >= 55  'Moderate RCA' : 'Needs Improvement';
+      const color   = score >= 75  'var(--green)' : score >= 55  'var(--amber)' : 'var(--red)';
 
       // Re-render with scores
       if (currentMethod === '5why') render5Why(rcaData, true);
@@ -2207,7 +2192,7 @@ function printCAPA(capaId) {
 
       _showRCAScoreBadge(score);
 
-      // Auto-show Sync Now if score â‰¥ 55
+      // Auto-show Sync Now if score >= 55
       if (score >= 55) {
         const rcaSummary = document.getElementById('rcaSummary');
         const existing   = document.getElementById('rcaSyncBanner');
@@ -2215,21 +2200,21 @@ function printCAPA(capaId) {
           const sb = document.createElement('div');
           sb.id = 'rcaSyncBanner';
           sb.style.cssText = 'margin-top:8px;padding:8px 12px;background:var(--green-pale);border:1px solid #a3d4b5;border-radius:var(--r);display:flex;align-items:center;justify-content:space-between;';
-          sb.innerHTML = `<span style="font-size:11px;color:var(--green);font-weight:600;">âœ“ Score ${score}% â€” click to sync root cause to CAPA form</span>
-            <button onclick="useRootCause();document.getElementById('rcaSyncBanner')?.remove();"
-              style="background:var(--green);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font);">â†’ Sync Now</button>`;
+          sb.innerHTML = `<span style="font-size:11px;color:var(--green);font-weight:600;">OK Score ${score}% - click to sync root cause to CAPA form</span>
+            <button onclick="useRootCause();document.getElementById('rcaSyncBanner').remove();"
+              style="background:var(--green);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font);">-> Sync Now</button>`;
           rcaSummary.appendChild(sb);
         }
       }
-      setBanner(`âœ“ Reassessment: ${verdict} (${score}%)`, score>=75?'success':'warning');
+      setBanner(`OK Reassessment: ${verdict} (${score}%)`, score>=75'success':'warning');
     })
     .catch(() => {
-      btn.disabled = false; btn.textContent = 'ðŸ”„ Reassess Score';
-      setBanner('Reassessment error â€” check console', 'error');
+      btn.disabled = false; btn.textContent = ' Reassess Score';
+      setBanner('Reassessment error - check console', 'error');
     });
   }
 
-  /* â”€â”€ Show RCA buttons after run â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Show RCA buttons after run -------------------------- */
   function _showRCAButtons() {
     ['btnEditRCA','btnReassessRCA','btnAIImproveRCA'].forEach(id => {
       const el = document.getElementById(id);
@@ -2237,12 +2222,12 @@ function printCAPA(capaId) {
     });
   }
 
-  /* â”€â”€ Show RCA score badge below RCA panel header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Show RCA score badge below RCA panel header ---------- */
   function _showRCAScoreBadge(score) {
     const existing = document.getElementById('rcaScoreBadge');
     if (existing) existing.remove();
-    const color = score >= 75 ? 'var(--green)' : score >= 55 ? 'var(--amber)' : 'var(--red)';
-    const label = score >= 75 ? 'Strong' : score >= 55 ? 'Moderate' : 'Weak';
+    const color = score >= 75  'var(--green)' : score >= 55  'var(--amber)' : 'var(--red)';
+    const label = score >= 75  'Strong' : score >= 55  'Moderate' : 'Weak';
     const badge = document.createElement('div');
     badge.id = 'rcaScoreBadge';
     badge.style.cssText = `display:flex;align-items:center;justify-content:space-between;
@@ -2257,18 +2242,18 @@ function printCAPA(capaId) {
     if (content) content.insertBefore(badge, content.firstChild);
   }
 
-  /* â”€â”€ Clear helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Clear helpers ---------------------------------------- */
   function clearRCA() {
     document.getElementById('rcaContent').innerHTML = `
       <div class="empty-state">
-        <div class="empty-state__icon">ðŸ”Ž</div>
+        <div class="empty-state__icon"></div>
         <div class="empty-state__text">
           Click <strong>Run RCA Analysis</strong> to begin
         </div>
       </div>`;
     document.getElementById('rcaSummary').classList.remove('visible');
     document.getElementById('rcaStatus').textContent =
-      currentRecord ? 'Ready to analyse' : 'No record selected';
+      currentRecord  'Ready to analyse' : 'No record selected';
   }
 
   function clearForm() {
@@ -2285,7 +2270,7 @@ function printCAPA(capaId) {
     currentCapa = null;
   }
 
-  /* â”€â”€ Regulatory ref tag input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Regulatory ref tag input ----------------------------- */
   function bindRefInput() {
     const input = document.getElementById('refInput');
     if (!input) return;
@@ -2304,11 +2289,11 @@ function printCAPA(capaId) {
     tag.className = 'ref-tag';
     tag.innerHTML = `${text}
       <button class="ref-tag__remove" type="button"
-              onclick="this.parentElement.remove()">Ã—</button>`;
+              onclick="this.parentElement.remove()">X</button>`;
     row.appendChild(tag);
   }
 
-  /* â”€â”€ Banner helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* -- Banner helper ---------------------------------------- */
   function setBanner(msg, type) {
     const b = document.getElementById('banner');
     const icons = {info:'i',success:'OK',warning:'!',error:'X'};
@@ -2319,7 +2304,7 @@ function printCAPA(capaId) {
 
 
 <script>
-  /* â”€â”€ Upload Modal State â”€â”€ */
+  /* -- Upload Modal State -- */
   let _uploadFile   = null;
   let _extractedRec = null;
 
@@ -2334,7 +2319,7 @@ function printCAPA(capaId) {
     if (e.target === document.getElementById('uploadOverlay')) closeUploadModal();
   }
 
-  /* â”€â”€ Drag & Drop â”€â”€ */
+  /* -- Drag & Drop -- */
   function onDragOver(e) {
     e.preventDefault();
     document.getElementById('dropZone').classList.add('drag-over');
@@ -2352,10 +2337,10 @@ function printCAPA(capaId) {
     if (input.files[0]) setUploadFile(input.files[0]);
   }
 
-  /* â”€â”€ File icons by extension â”€â”€ */
+  /* -- File icons by extension -- */
   function fileIcon(name) {
     const ext = (name.split('.').pop() || 'FILE').toUpperCase();
-    return ext.length <= 5 ? ext : 'FILE';
+    return ext.length <= 5  ext : 'FILE';
   }
 
   function setUploadFile(file) {
@@ -2392,7 +2377,7 @@ function printCAPA(capaId) {
     el.textContent = msg;
   }
 
-  /* â”€â”€ Process Upload â†’ AI Extraction â”€â”€ */
+  /* -- Process Upload -> AI Extraction -- */
   async function processUpload() {
     if (!_uploadFile) return;
     const btn = document.getElementById('btnProcess');
@@ -2440,7 +2425,7 @@ function printCAPA(capaId) {
     setSelect('extSector',   r.sector);
   }
 
-  /* â”€â”€ Save & add to dropdown â”€â”€ */
+  /* -- Save & add to dropdown -- */
   function saveExtractedRecord() {
     if (!_extractedRec) return;
 
@@ -2481,9 +2466,7 @@ function printCAPA(capaId) {
   }
 
 
-  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     AI IMPROVE MODAL â€” inline CAPA page
-  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+     AI IMPROVE MODAL - inline CAPA page
   let _aiProposedModels = null;
   let _aiSelectedModelId = null;
 
@@ -2520,12 +2503,12 @@ function printCAPA(capaId) {
     .then(data => {
       _aiProposedModels = data;
       const clsMap = { basic: 'model-card--a', standard: 'model-card--b', enhanced: 'model-card--c' };
-      const icons  = { basic: 'ðŸ”µ', standard: 'ðŸŸ¡', enhanced: 'ðŸŸ¢' };
+      const icons  = { basic: '', standard: '', enhanced: '' };
       grid.innerHTML = data.models.map(m => `
         <div class="ai-model-card ${clsMap[m.id] || ''}" id="aimc-${m.id}"
              onclick="selectAIModel('${m.id}')">
-          <div class="ai-model-card__check">âœ…</div>
-          <div class="ai-model-card__icon">${m.icon || icons[m.id] || 'ðŸ¤–'}</div>
+          <div class="ai-model-card__check">OK</div>
+          <div class="ai-model-card__icon">${m.icon || icons[m.id] || ''}</div>
           <div class="ai-model-card__name">${m.name}</div>
           <div class="ai-model-card__score">~${m.estimated_score}%</div>
           <div class="ai-model-card__badge">${m.badge}</div>
@@ -2540,7 +2523,7 @@ function printCAPA(capaId) {
   function selectAIModel(id) {
     _aiSelectedModelId = id;
     document.querySelectorAll('.ai-model-card').forEach(c => c.classList.remove('ai-model-card--selected'));
-    document.getElementById('aimc-' + id)?.classList.add('ai-model-card--selected');
+    document.getElementById('aimc-' + id).classList.add('ai-model-card--selected');
     document.getElementById('btnApplyAIModel').disabled = false;
   }
 
@@ -2558,20 +2541,20 @@ function printCAPA(capaId) {
       // 5-Why: use chain if available, else build from categories
       if (model.chain && model.chain.length > 0) {
         rcaData.chain      = model.chain;
-        rcaData.root_cause = model.chain[model.chain.length - 1]?.because || '';
+        rcaData.root_cause = model.chain[model.chain.length - 1].because || '';
       } else if (model.categories) {
         const primaries = Object.values(model.categories)
           .flat().filter(c => c.primary).slice(0, 5);
         const whys = [
-          'Why did the quality event occur?',
-          'Why did this cause arise?',
-          'Why was this not prevented?',
-          'Why was the control missing?',
-          'Why was the root issue not addressed earlier?',
+          'Why did the quality event occur',
+          'Why did this cause arise',
+          'Why was this not prevented',
+          'Why was the control missing',
+          'Why was the root issue not addressed earlier',
         ];
         if (primaries.length) {
           rcaData.chain = primaries.map((c, i) => ({
-            level: i + 1, why: whys[i] || `Why ${i+1}?`,
+            level: i + 1, why: whys[i] || `Why ${i+1}`,
             because: c.text, is_root: i === primaries.length - 1,
           }));
           rcaData.root_cause = primaries[primaries.length - 1].text;
@@ -2585,9 +2568,9 @@ function printCAPA(capaId) {
 
     // Show reassess prompt
     const status = document.getElementById('rcaStatus');
-    if (status) status.textContent = `${model.name} applied â€” click Reassess Score`;
+    if (status) status.textContent = `${model.name} applied - click Reassess Score`;
     setBanner(
-      `âœ“ ${model.name} (~${model.estimated_score}%) applied â€” click Reassess Score to update accuracy, then Sync to CAPA form`,
+      `OK ${model.name} (~${model.estimated_score}%) applied - click Reassess Score to update accuracy, then Sync to CAPA form`,
       'success'
     );
   }

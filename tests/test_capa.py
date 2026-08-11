@@ -104,6 +104,8 @@ def test_upload_capa_attachments(admin_client):
     data = r.get_json()
     assert data["count"] == 2
     assert [a["name"] for a in data["attachments"]] == ["evidence-one.txt", "evidence-two.txt"]
+    assert all(a["storageKey"].startswith("capa_attachments/") for a in data["attachments"])
+    assert all(a["storageBackend"] == "local" for a in data["attachments"])
 
 def test_approve_capa_admin_only(admin_client, quality_client, user_client):
     # Get a CAPA ID first

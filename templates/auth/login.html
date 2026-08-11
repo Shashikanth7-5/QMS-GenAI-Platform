@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>AI QMS - Login</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{--blue:#1756b8;--blue2:#1d4ed8;--green:#10b981;--red:#ef4444;--navy:#0f172a;--font:'Inter',sans-serif;}
@@ -73,19 +73,19 @@
     </div>
     <div class="hero-content">
       <div class="hero-title">AI-Powered<br/><span>Quality Management</span><br/>System</div>
-      <div class="hero-desc">Generate CAPA drafts, perform root cause analysis, and evaluate compliance triggers â€” all in one platform.</div>
+      <div class="hero-desc">Generate CAPA drafts, perform root cause analysis, and evaluate compliance triggers - all in one platform.</div>
       <div class="hero-feat"><div class="hero-dot"></div>AI-generated CAPA drafts in seconds</div>
       <div class="hero-feat"><div class="hero-dot" style="background:#7c3aed;"></div>5-Why and Fishbone RCA analysis</div>
       <div class="hero-feat"><div class="hero-dot" style="background:#10b981;"></div>Regulatory-mapped decision trees</div>
       <div class="hero-feat"><div class="hero-dot" style="background:#f59e0b;"></div>Medical Device &amp; BioPharma workflows</div>
     </div>
-    <div style="font-size:11px;color:rgba(255,255,255,.3);">Cognizant BlueBolt Â· Sprint 2 Â· 2026</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.3);">Cognizant BlueBolt  -  Sprint 2  -  2026</div>
   </div>
   <div class="form-wrap">
     <div class="form-title">Sign in</div>
     <div class="form-sub">Enter your credentials to access AI Quality Management System</div>
     {% if error %}
-    <div class="error-box"><span style="flex-shrink:0;">âš </span><span>{{ error }}</span></div>
+    <div class="error-box"><span style="flex-shrink:0;">Warning</span><span>{{ error }}</span></div>
     {% endif %}
     <form method="POST" action="/login">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -101,9 +101,9 @@
         <input type="checkbox" id="remember" name="remember"/>
         <label for="remember">Keep me signed in</label>
       </div>
-      <button class="btn-login" type="submit">ðŸ” Sign In</button>
+      <button class="btn-login" type="submit"> Sign In</button>
     </form>
-    <div class="register-link">Don't have an account? <a href="/register">Request access â†’</a></div>
+    <div class="register-link">Don't have an account <a href="/register">Request access -></a></div>
   </div>
 </div>
 </body>

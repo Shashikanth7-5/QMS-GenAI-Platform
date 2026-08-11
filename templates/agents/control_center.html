@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% set active_tab = 'agents' %}
+
+{% block title %}Agent Control Center{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Agent Control Center</h1>
+    <p class="page-subtitle">Supervisor status, autonomous run health, alerts, and agent audit trail.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn--secondary" onclick="refreshAgents()">Refresh</button>
+    <button class="btn btn--primary" id="btnRunSupervisor" onclick="runSupervisor()">Run Supervisor Now</button>
+  </div>
+</div>
+
+<div class="banner banner--info" id="agentBanner"><span>i</span> Loading agent status...</div>
+
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-card__label">Pending Records</div>
+    <div class="metric-card__value" id="pendingRecords">-</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Active Runs</div>
+    <div class="metric-card__value" id="activeRuns">-</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Dead Letters</div>
+    <div class="metric-card__value" id="deadLetters">-</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Kill Switch</div>
+    <div class="metric-card__value" id="killSwitch">-</div>
+  </div>
+</div>
+
+<div class="grid grid--2">
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Latest Supervisor Run</div>
+        <div class="panel__subtitle">Every 20 minutes, Monday-Friday when Celery Beat is running</div>
+      </div>
+    </div>
+    <div class="panel__body">
+      <pre class="json-box" id="latestRun">{}</pre>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Alerts</div>
+        <div class="panel__subtitle">Agent errors, stuck runs, and notification failures</div>
+      </div>
+    </div>
+    <div class="panel__body">
+      <div id="alertsList" class="stack-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">Dead Letter Queue</div>
+      <div class="panel__subtitle">Records parked after retry exhaustion</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Record ID</th>
+          <th>Attempts</th>
+          <th>Last Error</th>
+          <th>Parked At</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="deadLetterBody">
+        <tr><td colspan="5" class="table__empty">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">Agent Audit Trail</div>
+      <div class="panel__subtitle">Recent agent actions from the regulated audit trail</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Agent</th>
+          <th>Event</th>
+          <th>Status</th>
+          <th>Record</th>
+          <th>Run</th>
+        </tr>
+      </thead>
+      <tbody id="auditBody">
+        <tr><td colspan="6" class="table__empty">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .grid--2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
+  .json-box {
+    background:#0f172a;
+    color:#dbeafe;
+    border-radius:10px;
+    padding:14px;
+    min-height:180px;
+    overflow:auto;
+    font-size:12px;
+  }
+  .stack-list { display:flex; flex-direction:column; gap:10px; }
+  .alert-item {
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 12px;
+    background:rgba(255,255,255,.82);
+    font-size:12px;
+  }
+  .alert-item__title { font-weight:800; color:var(--text); }
+  .alert-item__meta { color:var(--text-muted); font-size:11px; margin-top:3px; }
+  @media (max-width: 960px) { .grid--2 { grid-template-columns:1fr; } }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function setAgentBanner(message, type='info') {
+  const b = document.getElementById('agentBanner');
+  const icons = {info:'i',success:'OK',warning:'!',error:'X'};
+  b.className = `banner banner--${type}`;
+  b.innerHTML = `<span>${icons[type] || 'i'}</span> ${message}`;
+}
+
+function fmt(value) {
+  return value ? new Date(value).toLocaleString('en-GB') : '-';
+}
+
+function refreshAgents() {
+  Promise.all([
+    fetch('/api/agents/status').then(r => r.json()),
+    fetch('/api/agents/audit?limit=50').then(r => r.json()),
+  ]).then(([status, audit]) => {
+    document.getElementById('pendingRecords').textContent = status.pendingRecords - '-';
+    document.getElementById('activeRuns').textContent = (status.activeRuns || []).length;
+    document.getElementById('deadLetters').textContent = (status.deadLetterQueue || []).length;
+    document.getElementById('killSwitch').textContent = status.killSwitchActive  'ON' : 'OFF';
+    document.getElementById('latestRun').textContent = JSON.stringify(status.latestRun || {}, null, 2);
+
+    const alerts = status.alerts || [];
+    document.getElementById('alertsList').innerHTML = alerts.length  alerts.map(a => `
+      <div class="alert-item">
+        <div class="alert-item__title">${a.agent || '-'} - ${a.event || '-'}</div>
+        <div>${a.status || '-'}</div>
+        <div class="alert-item__meta">${fmt(a.timestamp)} ${a.recordId  ' | ' + a.recordId : ''}</div>
+      </div>
+    `).join('') : '<div class="table__empty">No agent alerts.</div>';
+
+    const dead = status.deadLetterQueue || [];
+    document.getElementById('deadLetterBody').innerHTML = dead.length  dead.map(d => `
+      <tr>
+        <td class="table__id">${d.recordId || '-'}</td>
+        <td>${d.attempts || '-'}</td>
+        <td>${d.lastError || '-'}</td>
+        <td>${fmt(d.parkedAt)}</td>
+        <td><button class="btn--run" onclick="requeueRecord('${d.recordId}')">Requeue</button></td>
+      </tr>
+    `).join('') : '<tr><td colspan="5" class="table__empty">No dead-lettered records.</td></tr>';
+
+    const events = audit.events || [];
+    document.getElementById('auditBody').innerHTML = events.length  events.map(e => `
+      <tr>
+        <td>${fmt(e.timestamp)}</td>
+        <td>${e.agent || '-'}</td>
+        <td>${e.event || '-'}</td>
+        <td><span class="badge">${e.status || '-'}</span></td>
+        <td>${e.recordId || '-'}</td>
+        <td>${e.runId || '-'}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="6" class="table__empty">No agent audit events.</td></tr>';
+
+    setAgentBanner('Agent status loaded.', 'success');
+  }).catch(err => setAgentBanner('Agent status error: ' + err.message, 'error'));
+}
+
+function runSupervisor() {
+  const btn = document.getElementById('btnRunSupervisor');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  fetch('/api/agents/supervisor/run', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({limit: 50})
+  }).then(r => r.json()).then(data => {
+    setAgentBanner(`Supervisor run complete: ${data.processed || 0} processed, ${data.errors || 0} errors.`, data.status === 'ok'  'success' : 'warning');
+    refreshAgents();
+  }).catch(err => setAgentBanner('Supervisor run error: ' + err.message, 'error'))
+    .finally(() => { btn.disabled = false; btn.textContent = 'Run Supervisor Now'; });
+}
+
+function requeueRecord(recordId) {
+  fetch(`/api/agents/supervisor/dead-letter/${encodeURIComponent(recordId)}/requeue`, {method:'POST'})
+    .then(r => r.json())
+    .then(data => {
+      setAgentBanner(data.requeued  `Record ${recordId} requeued.` : `Record ${recordId} not found in dead-letter queue.`, data.requeued  'success' : 'warning');
+      refreshAgents();
+    })
+    .catch(err => setAgentBanner('Requeue error: ' + err.message, 'error'));
+}
+
+document.addEventListener('DOMContentLoaded', refreshAgents);
+</script>
+{% endblock %}

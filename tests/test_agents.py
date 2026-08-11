@@ -48,3 +48,11 @@ def test_admin_access_agent_admin_only(admin_client, user_client):
     r_admin = admin_client.post("/api/agents/admin/access-review")
     assert r_admin.status_code == 200
     assert r_admin.get_json()["agent"] == "admin_access_agent"
+
+
+def test_agent_control_center_admin_only(admin_client, user_client):
+    r_user = user_client.get("/admin/agents")
+    assert r_user.status_code == 403
+    r_admin = admin_client.get("/admin/agents")
+    assert r_admin.status_code == 200
+    assert b"Agent Control Center" in r_admin.data

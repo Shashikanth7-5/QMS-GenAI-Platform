@@ -24,7 +24,7 @@ def _limiter():
 
 
 def _is_safe_redirect(target: str) -> bool:
-    """Only allow same-host relative redirects to defeat ?next= open-redirect."""
+    """Only allow same-host relative redirects to defeat next= open-redirect."""
     if not target:
         return False
     ref_url = urlparse(request.host_url)

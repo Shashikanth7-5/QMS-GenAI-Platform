@@ -17,11 +17,15 @@ from auth.users import get_user_by_username
 from config import (API_V1_ALLOW_ANONYMOUS, API_V1_KEY, CORS_ORIGINS,
                     IS_PRODUCTION, RATE_LIMIT_API_V1, SF_WEBHOOK_SECRET)
 from data.records import (get_all_capas, get_all_records, get_capa_by_id,
-                          get_record_by_id, save_capa, update_capa_status)
+                          get_record_by_id, save_capa, update_capa_status,
+                          upsert_external_record)
 from services.ai_service import generate_capa
+from services.agents.orchestrator import CapaAgentOrchestrator
 from services.logging_config import get_logger
 from services.rca_service import build_fishbone, build_five_why
 from services.security import capa_content_hash
+from services.workflow_config import (is_agent_eligible, normalize_record_type,
+                                      workflow_snapshot)
 
 log = get_logger(__name__)
 
@@ -142,6 +146,55 @@ def _err(message, status=400, code=None):
     }), status
 
 
+def _external_user(body: dict) -> dict:
+    user = body.get("user") or body.get("currentUser") or {}
+    username = (
+        user.get("username")
+        or user.get("userName")
+        or user.get("email")
+        or body.get("triggeredBy")
+        or "external-user"
+    )
+    return {
+        "username": username,
+        "fullName": user.get("fullName") or user.get("name") or username,
+        "email": user.get("email", ""),
+        "role": user.get("role") or user.get("profile") or "external",
+    }
+
+
+def _normalize_external_record(body: dict) -> dict:
+    source = body.get("externalSystem") or body.get("sourceSystem") or "external_qms"
+    record = dict(body.get("record") or body.get("qualityEvent") or {})
+    if not record:
+        raise ValueError("record or qualityEvent payload is required")
+    record_id = (
+        record.get("id")
+        or record.get("recordId")
+        or record.get("externalId")
+        or record.get("caseId")
+    )
+    if not record_id:
+        raise ValueError("External record requires id, recordId, externalId, or caseId")
+    user = _external_user(body)
+    record["id"] = record_id
+    record["type"] = normalize_record_type(record.get("type") or record.get("category") or record.get("eventType"))
+    record["status"] = record.get("status") or record.get("workflowState") or "Draft Generated"
+    record["title"] = record.get("title") or record.get("subject") or f"Quality Event {record_id}"
+    record["description"] = record.get("description") or record.get("details") or record.get("summary") or ""
+    record["priority"] = record.get("priority") or record.get("riskRating") or "Medium"
+    record["sector"] = record.get("sector") or record.get("businessUnit") or "Medical Device"
+    record["owner"] = record.get("owner") or user["username"]
+    record["createdBy"] = user["username"]
+    record["_source"] = source
+    record["external"] = {
+        "system": source,
+        "objectType": body.get("objectType") or record.get("objectType") or "QualityEvent",
+        "callbackUrl": body.get("callbackUrl", ""),
+    }
+    return record
+
+
 # ══════════════════════════════════════════════════════════════
 # HEALTH
 # ══════════════════════════════════════════════════════════════
@@ -155,6 +208,85 @@ def health():
         "capas":     len(get_all_capas()),
         "mock_mode": os.getenv("MOCK_MODE", "true"),
     })
+
+
+@api_v1_bp.route("/workflow-config", methods=["GET"])
+@require_api_key
+def api_workflow_config():
+    return _ok(workflow_snapshot())
+
+
+@api_v1_bp.route("/integrations/quality-event/capa", methods=["POST"])
+@require_api_key
+def api_external_quality_event_capa():
+    """Entry point for TrackWise/Salesforce 'Create CAPA with AI' actions."""
+    body = request.get_json(silent=True) or {}
+    options = body.get("options") or {}
+    user = _external_user(body)
+    try:
+        normalized = _normalize_external_record(body)
+    except ValueError as exc:
+        return _err(str(exc), 400, "invalid_external_record")
+
+    eligible, reason = is_agent_eligible(normalized)
+    imported = upsert_external_record(normalized)
+    if not eligible and not options.get("force", False):
+        return _ok({
+            "integrationStatus": "skipped",
+            "reason": reason,
+            "record": imported,
+            "workflow": workflow_snapshot(),
+            "ui": {
+                "showMessage": reason,
+                "allowManualFallback": True,
+                "radioButtonAction": "disabled_by_workflow_state",
+            },
+        }, 202)
+
+    save_draft = options.get("saveDraft", True)
+    result = CapaAgentOrchestrator().run(
+        imported["id"],
+        triggered_by=user["username"],
+        save_draft=save_draft,
+        decision_answers=body.get("answers") or body.get("decisionAnswers"),
+    )
+    saved = result.get("savedCapa") or {}
+    capa_id = saved.get("capaId") or (result.get("draft") or {}).get("capaId")
+    review_state = saved.get("status") or ("Draft Generated" if result.get("draft") else "Not Triggered")
+    return _ok({
+        "integrationStatus": "completed" if result.get("status") == "ok" else "error",
+        "externalSystem": normalized.get("_source"),
+        "triggeredBy": user,
+        "record": imported,
+        "agentRun": {
+            "id": result.get("agentRunId"),
+            "status": result.get("status"),
+            "capaTriggered": result.get("capaTriggered"),
+            "turnsUsed": result.get("turnsUsed"),
+            "steps": result.get("steps", []),
+            "error": result.get("error"),
+        },
+        "capa": {
+            "id": capa_id,
+            "draft": result.get("draft"),
+            "saved": saved or None,
+            "reviewState": review_state,
+            "requiresHumanApproval": result.get("requiresHumanApproval", True),
+            "eSignatureRequiredFor": workflow_snapshot().get("esign", {}).get("required_for", ["Approved", "Rejected"]),
+        },
+        "ui": {
+            "radioButtonAction": "create_capa_with_ai",
+            "showSubmitForReview": bool(saved),
+            "showApproveReject": bool(saved),
+            "openDraftUrl": f"/capa/create?id={imported['id']}&capaId={capa_id}" if capa_id else "",
+            "manualFallbackAvailable": True,
+        },
+        "notifications": {
+            "creatorEmail": user.get("email", ""),
+            "approvalEmailAvailable": bool(user.get("email")),
+        },
+        "workflow": workflow_snapshot(),
+    }, 201 if saved else 200)
 
 
 # ══════════════════════════════════════════════════════════════

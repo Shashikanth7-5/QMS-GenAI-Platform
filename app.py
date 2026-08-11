@@ -18,9 +18,19 @@ if _ROOT not in sys.path:
 
 from flask import Flask, jsonify, request
 from flask_login import LoginManager
-from flask_wtf.csrf import CSRFProtect
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+try:
+    from flask_wtf.csrf import CSRFProtect
+except ModuleNotFoundError:
+    CSRFProtect = None
+
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+except ModuleNotFoundError:
+    Limiter = None
+
+    def get_remote_address():
+        return request.remote_addr or "127.0.0.1"
 
 from services.logging_config import configure_logging, get_logger
 
@@ -33,28 +43,50 @@ def _install_extensions(app: Flask) -> None:
     from config import (
         CSRF_ENABLED,
         CSRF_TIME_LIMIT_SECONDS,
+        IS_PRODUCTION,
         RATE_LIMIT_DEFAULT,
         RATE_LIMIT_ENABLED,
         RATE_LIMIT_STORAGE,
     )
 
-    # Always init CSRFProtect so csrf_token() is available in templates
-    # (test / dev disable enforcement via WTF_CSRF_ENABLED=False).
     app.config["WTF_CSRF_ENABLED"] = CSRF_ENABLED
     app.config["WTF_CSRF_TIME_LIMIT"] = CSRF_TIME_LIMIT_SECONDS
-    csrf = CSRFProtect()
-    csrf.init_app(app)
-    app.extensions["qms_csrf"] = csrf
+    if CSRFProtect is not None:
+        # Always init CSRFProtect so csrf_token() is available in templates
+        # (test / dev disable enforcement via WTF_CSRF_ENABLED=False).
+        csrf = CSRFProtect()
+        csrf.init_app(app)
+        app.extensions["qms_csrf"] = csrf
+    else:
+        if IS_PRODUCTION:
+            raise RuntimeError("flask-wtf is required in production. Install requirements.txt cleanly.")
+        log.warning("dependency.missing", extra={"package": "flask-wtf", "fallback": "csrf_disabled"})
 
-    limiter = Limiter(
-        key_func=get_remote_address,
-        storage_uri=RATE_LIMIT_STORAGE,
-        default_limits=[RATE_LIMIT_DEFAULT] if RATE_LIMIT_ENABLED else [],
-        enabled=RATE_LIMIT_ENABLED,
-        headers_enabled=True,
-    )
-    limiter.init_app(app)
-    app.extensions["qms_limiter"] = limiter
+        class _NoopCSRF:
+            def exempt(self, *_args, **_kwargs):
+                return None
+
+        @app.context_processor
+        def _csrf_token_fallback():
+            return {"csrf_token": lambda: ""}
+
+        app.extensions["qms_csrf"] = _NoopCSRF()
+
+    if Limiter is not None:
+        limiter = Limiter(
+            key_func=get_remote_address,
+            storage_uri=RATE_LIMIT_STORAGE,
+            default_limits=[RATE_LIMIT_DEFAULT] if RATE_LIMIT_ENABLED else [],
+            enabled=RATE_LIMIT_ENABLED,
+            headers_enabled=True,
+        )
+        limiter.init_app(app)
+        app.extensions["qms_limiter"] = limiter
+    else:
+        if IS_PRODUCTION:
+            raise RuntimeError("flask-limiter is required in production. Install requirements.txt cleanly.")
+        log.warning("dependency.missing", extra={"package": "flask-limiter", "fallback": "rate_limit_disabled"})
+        app.extensions["qms_limiter"] = None
 
 
 def _apply_security_headers(response):
@@ -159,11 +191,34 @@ def create_app() -> Flask:
 
     @app.get("/readyz")
     def readyz():
+        import socket
         from database import check_db_connection
+        from services.storage import storage_status
+        from services.celery_app import EAGER
 
         db_ok = check_db_connection()
-        payload = {"status": "ok" if db_ok else "degraded", "db": db_ok}
-        return jsonify(payload), 200 if db_ok else 503
+        smtp_host = os.getenv("SMTP_HOST", "").strip()
+        smtp_ok = bool(smtp_host)
+        if smtp_host:
+            try:
+                with socket.create_connection((smtp_host, int(os.getenv("SMTP_PORT", "25"))), timeout=3):
+                    smtp_ok = True
+            except OSError:
+                smtp_ok = False
+        storage = storage_status()
+        hardening = {
+            "csrf": CSRFProtect is not None,
+            "rateLimiter": Limiter is not None,
+        }
+        payload = {
+            "status": "ok" if db_ok and storage.get("writable") else "degraded",
+            "db": db_ok,
+            "celery": {"eager": EAGER, "brokerConfigured": bool(os.getenv("CELERY_BROKER_URL", "").strip())},
+            "smtp": {"configured": bool(smtp_host), "reachable": smtp_ok},
+            "storage": storage,
+            "hardening": hardening,
+        }
+        return jsonify(payload), 200 if db_ok and storage.get("writable") else 503
 
     app.after_request(_apply_security_headers)
     return app

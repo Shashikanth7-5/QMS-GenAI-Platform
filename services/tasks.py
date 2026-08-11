@@ -85,3 +85,20 @@ def generate_capa_async(self, record_id: str, actor: dict = None) -> dict:
     except Exception as exc:
         log.exception("tasks.generate_capa_failed", extra={"record_id": record_id})
         return {"record_id": record_id, "status": "error", "error": str(exc)}
+
+
+@celery_app.task(name="qms.agent_supervisor_run", bind=True)
+def agent_supervisor_run(self) -> dict:
+    """Scheduled autonomous agent scan. Intended for Celery Beat every 20 minutes."""
+    try:
+        from config import AGENT_SUPERVISOR_ALLOW_WEEKEND, AGENT_SUPERVISOR_LIMIT
+        from services.agents.supervisor import AgentSupervisor
+
+        return AgentSupervisor().run_once(
+            triggered_by="celery-beat",
+            limit=AGENT_SUPERVISOR_LIMIT,
+            allow_weekend=AGENT_SUPERVISOR_ALLOW_WEEKEND,
+        )
+    except Exception as exc:
+        log.exception("tasks.agent_supervisor_failed")
+        return {"status": "error", "error": str(exc)}

@@ -9,11 +9,11 @@
     <div class="page-subtitle">System-wide quality record and CAPA insights</div>
   </div>
   <div class="page-actions">
-    <button class="btn btn--secondary" onclick="loadCharts()">ðŸ”„ Refresh</button>
+    <button class="btn btn--secondary" onclick="loadCharts()"> Refresh</button>
   </div>
 </div>
 
-<div class="banner banner--info" id="banner"><span>â„¹</span> Loading analytics dataâ€¦</div>
+<div class="banner banner--info" id="banner"><span>Info</span> Loading analytics data...</div>
 
 <!-- Summary metric strip -->
 <div class="metrics" id="summaryMetrics" style="margin-bottom:24px;"></div>
@@ -24,7 +24,7 @@
   <!-- Priority distribution -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">âš  Priority Distribution</div>
+      <div class="panel__title">Warning Priority Distribution</div>
       <div class="panel__subtitle">All quality records by risk level</div>
     </div>
     <div class="panel__body" style="display:flex;justify-content:center;align-items:center;min-height:260px;">
@@ -35,7 +35,7 @@
   <!-- CAPA status -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">âœ… CAPA Status Pipeline</div>
+      <div class="panel__title">OK CAPA Status Pipeline</div>
       <div class="panel__subtitle">CAPA records by workflow stage</div>
     </div>
     <div class="panel__body" style="display:flex;justify-content:center;align-items:center;min-height:260px;">
@@ -50,7 +50,7 @@
   <!-- Record type breakdown -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">ðŸ“‹ Record Type Breakdown</div>
+      <div class="panel__title"> Record Type Breakdown</div>
       <div class="panel__subtitle">Complaints vs Deviations vs Change Controls</div>
     </div>
     <div class="panel__body" style="min-height:260px;">
@@ -61,7 +61,7 @@
   <!-- Status pipeline -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">ðŸ”„ Workflow Status Pipeline</div>
+      <div class="panel__title"> Workflow Status Pipeline</div>
       <div class="panel__subtitle">Records at each processing stage</div>
     </div>
     <div class="panel__body" style="min-height:260px;">
@@ -112,7 +112,7 @@ function makeDonut(id, labels, values, colors){
           legend:{position:'bottom',labels:{font:{size:11},padding:12}},
           tooltip:{
             callbacks:{
-              label: c => ` ${c.label}: ${c.raw} (${total?Math.round(c.raw/total*100):0}%)`
+              label: c => ` ${c.label}: ${c.raw} (${totalMath.round(c.raw/total*100):0}%)`
             }
           },
           datalabels:{
@@ -121,7 +121,7 @@ function makeDonut(id, labels, values, colors){
             font:{size:10, weight:'bold'},
             textAlign:'center',
             formatter:(value) => {
-              const pct = total ? Math.round(value/total*100) : 0;
+              const pct = total  Math.round(value/total*100) : 0;
               return `${value}\n${pct}%`;
             }
           }
@@ -148,7 +148,7 @@ function makeDonut(id, labels, values, colors){
             align:'end',
             color:'#334155',
             font:{size:11, weight:'bold'},
-            formatter: v => v > 0 ? v : ''
+            formatter: v => v > 0  v : ''
           }
         },
         scales:{
@@ -166,7 +166,7 @@ function makeDonut(id, labels, values, colors){
       .then(r=>{if(!r.ok) throw new Error('Not authorised');return r.json();})
       .then(d=>{
         document.getElementById('banner').className='banner banner--success';
-        document.getElementById('banner').innerHTML='<span>âœ“</span> Analytics loaded';
+        document.getElementById('banner').innerHTML='<span>OK</span> Analytics loaded';
 
         /* Summary strip */
         const p=d.priority, s=d.status, t=d.type, c=d.capa_status;
@@ -197,7 +197,7 @@ function makeDonut(id, labels, values, colors){
       })
       .catch(e=>{
         document.getElementById('banner').className='banner banner--error';
-        document.getElementById('banner').innerHTML=`<span>âœ—</span> ${e.message}`;
+        document.getElementById('banner').innerHTML=`<span>Error</span> ${e.message}`;
       });
   }
 

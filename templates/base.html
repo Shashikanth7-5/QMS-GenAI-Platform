@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="csrf-token" content="{{ csrf_token() }}"/>
   <title>{% block title %}AI Quality Management System{% endblock %}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -66,9 +66,7 @@
     }
     a { color: var(--blue); text-decoration: none; }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        NAVBAR
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .navbar {
       position: sticky; top: 0; z-index: 200;
       height: 56px;
@@ -218,9 +216,7 @@
     .user-dropdown__item--danger:hover { background: var(--red-pale); }
     .user-dropdown__divider { height: 1px; background: var(--border); margin: 4px 0; }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        TAB BAR
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .tabbar {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -256,14 +252,10 @@
       font-size: 10px; font-weight: 600;
     }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        LAYOUT
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .layout { display: block; min-height: calc(100vh - 56px); }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        SIDEBAR
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .sidebar {
       display: none;
       width: var(--sidebar-w); flex-shrink: 0;
@@ -346,9 +338,7 @@
     .sidebar-stat__label { color: rgba(255,255,255,0.35); }
     .sidebar-stat__value { font-weight: 600; color: rgba(255,255,255,0.75); }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        MAIN
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .main {
       padding:28px 32px;
       overflow-x:auto;
@@ -361,9 +351,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        BANNER
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .banner {
       display: flex; align-items: center; gap: 10px;
       padding: 11px 16px; border-radius: var(--r-lg);
@@ -376,9 +364,7 @@
     .banner--warning { background:var(--amber-pale);  border-color:#fde68a; color:#92400e; }
     .banner--error   { background:var(--red-pale);    border-color:#fecaca; color:#991b1b; }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        METRIC CARDS
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .metrics {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(138px,1fr));
@@ -419,9 +405,7 @@
     .metric-card--amber  .metric-card__value { color: var(--amber); }
     .metric-card--purple .metric-card__value { color: var(--purple); }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        BUTTONS
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .btn {
       display: inline-flex; align-items: center;
       justify-content: center; gap: 6px;
@@ -458,9 +442,7 @@
     }
     .btn--sm { height:30px; padding:0 12px; font-size:11px; }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        BADGES
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .badge {
       display: inline-flex; align-items: center;
       padding: 3px 9px; font-size: 10px; font-weight: 700;
@@ -479,9 +461,7 @@
     .badge--cc       { background:var(--purple-pale); color:var(--purple); border-color:#ddd6fe; }
     .badge--nc       { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        FILTERS BAR
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .filters {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--r-xl); padding: 14px 18px;
@@ -514,9 +494,7 @@
     }
     .search-input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        TABLE
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .table-wrap {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--r-xl); overflow:hidden; box-shadow:var(--shadow-sm);
@@ -546,9 +524,7 @@
       color:var(--text-muted); font-size:13px;
     }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        PAGE HEADER
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .page-header {
       display:flex; align-items:flex-start;
       justify-content:space-between; flex-wrap:wrap;
@@ -558,9 +534,7 @@
     .page-subtitle { font-size:12px; color:var(--text-muted); margin-top:4px; max-width:560px; line-height:1.6; }
     .page-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        HELP MODAL
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .help-overlay {
       display: none;
       position: fixed; inset: 0; z-index: 500;
@@ -709,7 +683,6 @@
 </head>
 <body>
 
-<!-- â•â•â• NAVBAR â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <header class="navbar">
   <div class="navbar__brand">
     <div class="navbar__logo">AI</div>
@@ -728,6 +701,9 @@
     {% if current_user.is_authenticated and current_user.sees_all_records() %}
     <a href="/analytics" class="navbar__link {% if active_tab=='analytics' %}navbar__link--active{% endif %}">Analytics</a>
     {% endif %}
+    {% if current_user.is_authenticated and current_user.is_admin() %}
+    <a href="/admin/agents" class="navbar__link {% if active_tab=='agents' %}navbar__link--active{% endif %}">Agents</a>
+    {% endif %}
   </div>
 
   <div class="navbar__right">
@@ -738,7 +714,7 @@
 
     <!-- Help button -->
     <button class="btn-help" onclick="openHelp()" title="Help & Guide">
-      ?
+
     </button>
 
     <!-- User dropdown -->
@@ -764,6 +740,7 @@
         <button class="user-dropdown__item" onclick="openHelp()">Help & Guide</button>
         {% if current_user.is_authenticated and current_user.is_admin() %}
         <a href="/admin/users" class="user-dropdown__item">Manage Users</a>
+        <a href="/admin/agents" class="user-dropdown__item">Agent Control Center</a>
         <a href="/audit-trail" class="user-dropdown__item">Audit Trail</a>
         {% endif %}
         <div class="user-dropdown__divider"></div>
@@ -775,10 +752,8 @@
   </div>
 </header>
 
-<!-- â•â•â• TAB BAR â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 
 
-<!-- â•â•â• LAYOUT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="layout">
 
   <!-- SIDEBAR -->
@@ -800,17 +775,17 @@
 
     <div class="sidebar__section">Source Filters</div>
 
-    <a href="/?type=complaint" class="sidebar__item {% if active_filter=='complaint' %}sidebar__item--active{% endif %}">
+    <a href="/type=complaint" class="sidebar__item {% if active_filter=='complaint' %}sidebar__item--active{% endif %}">
       <span class="sidebar__icon">CP</span> Complaints
-      <span class="sidebar__count" id="sbComplaintCount">â€”</span>
+      <span class="sidebar__count" id="sbComplaintCount">-</span>
     </a>
-    <a href="/?type=deviation" class="sidebar__item {% if active_filter=='deviation' %}sidebar__item--active{% endif %}">
+    <a href="/type=deviation" class="sidebar__item {% if active_filter=='deviation' %}sidebar__item--active{% endif %}">
       <span class="sidebar__icon">DV</span> Deviations
-      <span class="sidebar__count" id="sbDeviationCount">â€”</span>
+      <span class="sidebar__count" id="sbDeviationCount">-</span>
     </a>
-    <a href="/?type=cc" class="sidebar__item {% if active_filter=='cc' %}sidebar__item--active{% endif %}">
+    <a href="/type=cc" class="sidebar__item {% if active_filter=='cc' %}sidebar__item--active{% endif %}">
       <span class="sidebar__icon">CC</span> Change Control
-      <span class="sidebar__count" id="sbCCCount">â€”</span>
+      <span class="sidebar__count" id="sbCCCount">-</span>
     </a>
 
     <div class="sidebar__section" style="margin-top:16px;">Agent</div>
@@ -826,19 +801,19 @@
       <canvas id="sidebarChart" height="140"></canvas>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:8px;">
         <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:6px 8px;text-align:center;">
-          <div style="font-size:18px;font-weight:700;color:#3b82f6;" id="sbTotal">â€”</div>
+          <div style="font-size:18px;font-weight:700;color:#3b82f6;" id="sbTotal">-</div>
           <div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Records</div>
         </div>
         <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:6px 8px;text-align:center;">
-          <div style="font-size:18px;font-weight:700;color:#ef4444;" id="sbCritical">â€”</div>
+          <div style="font-size:18px;font-weight:700;color:#ef4444;" id="sbCritical">-</div>
           <div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Critical</div>
         </div>
         <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:6px 8px;text-align:center;">
-          <div style="font-size:18px;font-weight:700;color:#10b981;" id="sbEligible">â€”</div>
+          <div style="font-size:18px;font-weight:700;color:#10b981;" id="sbEligible">-</div>
           <div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Eligible</div>
         </div>
         <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:6px 8px;text-align:center;">
-          <div style="font-size:18px;font-weight:700;color:#f59e0b;" id="sbCAPAs">â€”</div>
+          <div style="font-size:18px;font-weight:700;color:#f59e0b;" id="sbCAPAs">-</div>
           <div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">CAPAs</div>
         </div>
       </div>
@@ -863,7 +838,12 @@
       <span class="sidebar__icon">US</span> Manage Users
       <span class="sidebar__count" id="pendingCount" style="display:none;background:rgba(239,68,68,0.3);color:#fca5a5;"></span>
     </a>
-    <a href="/audit-trail" class="user-dropdown__item">Audit Trail</a>
+    <a href="/admin/agents" class="sidebar__item {% if request.path == '/admin/agents' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">AG</span> Agent Control Center
+    </a>
+    <a href="/audit-trail" class="sidebar__item {% if request.path == '/audit-trail' %}sidebar__item--active{% endif %}">
+      <span class="sidebar__icon">AU</span> Audit Trail
+    </a>
     {% endif %}
 
   </aside>
@@ -875,7 +855,6 @@
 
 </div>
 
-<!-- â•â•â• HELP MODAL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="help-overlay" id="helpOverlay" onclick="closeHelpOnBg(event)">
   <div class="help-modal">
 
@@ -892,16 +871,16 @@
       <!-- Tabs -->
       <div class="help-tabs" style="display:none;">
         <button class="help-tab help-tab--active" onclick="showHelpTab('how')">
-          ðŸ—º How it works
+           How it works
         </button>
         <button class="help-tab" onclick="showHelpTab('users')">
-          ðŸ‘¥ Demo Users
+           Demo Users
         </button>
         <button class="help-tab" onclick="showHelpTab('workflow')">
-          ðŸ”„ Workflow
+           Workflow
         </button>
         <button class="help-tab" onclick="showHelpTab('api')">
-          ðŸ”Œ API Endpoints
+           API Endpoints
         </button>
       </div>
 
@@ -911,7 +890,7 @@
           <div class="help-step">
             <div class="help-step__num">1</div>
             <div>
-              <div class="help-step__title">ðŸ“Š Dashboard â€” View Quality Records</div>
+              <div class="help-step__title"> Dashboard - View Quality Records</div>
               <div class="help-step__desc">
                 The dashboard shows all 14 quality records (Complaints, Deviations, Change Controls)
                 loaded from the Python backend. Use filters to narrow by type, priority, or sector.
@@ -922,9 +901,9 @@
           <div class="help-step">
             <div class="help-step__num">2</div>
             <div>
-              <div class="help-step__title">ðŸ“‹ Draft CAPA â€” Generate &amp; Save CAPA Drafts</div>
+              <div class="help-step__title"> Draft CAPA - Generate &amp; Save CAPA Drafts</div>
               <div class="help-step__desc">
-                Select any record from the dropdown. Click <strong>Generate CAPA</strong> â€” the AI
+                Select any record from the dropdown. Click <strong>Generate CAPA</strong> - the AI
                 service auto-fills root cause, corrective action, preventive action, regulatory
                 references, and effectiveness check. Edit any field, then <strong>Save Draft</strong>.
               </div>
@@ -933,10 +912,10 @@
           <div class="help-step">
             <div class="help-step__num">3</div>
             <div>
-              <div class="help-step__title">ðŸ” RCA Analysis â€” 5-Why &amp; Fishbone</div>
+              <div class="help-step__title"> RCA Analysis - 5-Why &amp; Fishbone</div>
               <div class="help-step__desc">
                 Select a record, choose 5-Why or Fishbone method, click <strong>Generate RCA</strong>.
-                Then click <strong>Assess Accuracy</strong> â€” each step is scored on Specificity,
+                Then click <strong>Assess Accuracy</strong> - each step is scored on Specificity,
                 Actionability, and Completeness. Edit weak steps and <strong>Re-assess</strong>
                 until score is Strong, then <strong>Approve &amp; Submit to CAPA</strong>.
               </div>
@@ -945,10 +924,10 @@
           <div class="help-step">
             <div class="help-step__num">4</div>
             <div>
-              <div class="help-step__title">ðŸŒ³ CAPA Trigger â€” Should a CAPA be raised?</div>
+              <div class="help-step__title"> CAPA Trigger - Should a CAPA be raised</div>
               <div class="help-step__desc">
                 Select Complaint, Deviation, or Change Control. Answer each of the 6 gate questions
-                Yes/No. The Python backend evaluates gates in order â€” the first Yes triggers a CAPA
+                Yes/No. The Python backend evaluates gates in order - the first Yes triggers a CAPA
                 recommendation with the regulatory reference. All No = no CAPA needed.
               </div>
             </div>
@@ -956,10 +935,10 @@
           <div class="help-step">
             <div class="help-step__num" style="background:linear-gradient(135deg,#f59e0b,#d97706);">5</div>
             <div>
-              <div class="help-step__title">ðŸ”® Use Case 3 â€” Coming in Sprint 2</div>
+              <div class="help-step__title"> Use Case 3 - Coming in Sprint 2</div>
               <div class="help-step__desc">
                 The third use case module is planned for Sprint 2. The backend folder structure
-                is already in place â€” a new <code>routes/usecase3.py</code> and
+                is already in place - a new <code>routes/usecase3.py</code> and
                 <code>templates/usecase3/</code> are all that's needed.
               </div>
             </div>
@@ -1057,17 +1036,17 @@
       <div class="help-tab-content active" id="help-workflow">
         <div style="background:var(--bg);border-radius:var(--r-lg);padding:16px;font-size:12px;line-height:1.8;color:var(--text-mid);">
           <strong style="color:var(--text);">Recommended demo flow (8 minutes):</strong><br/><br/>
-          <strong>1.</strong> Login as <code>admin / admin</code> â†’ lands on Dashboard<br/>
-          <strong>2.</strong> Show filters â€” click <strong>Complaints</strong> in sidebar â†’ filters table<br/>
-          <strong>3.</strong> Click <strong>â–¶ Generate CAPA</strong> on CMP-2024-0891<br/>
-          <strong>4.</strong> Show CAPA form auto-filling â€” edit root cause â€” Save Draft<br/>
+          <strong>1.</strong> Login as <code>admin / admin</code> -> lands on Dashboard<br/>
+          <strong>2.</strong> Show filters - click <strong>Complaints</strong> in sidebar -> filters table<br/>
+          <strong>3.</strong> Click <strong>Run Generate CAPA</strong> on CMP-2024-0891<br/>
+          <strong>4.</strong> Show CAPA form auto-filling - edit root cause - Save Draft<br/>
           <strong>5.</strong> Go to <strong>RCA Analysis</strong> tab<br/>
-          <strong>6.</strong> Select same record â†’ Generate RCA â†’ Assess Accuracy<br/>
-          <strong>7.</strong> Show score bars â€” edit one step â€” Re-assess â†’ improvement<br/>
+          <strong>6.</strong> Select same record -> Generate RCA -> Assess Accuracy<br/>
+          <strong>7.</strong> Show score bars - edit one step - Re-assess -> improvement<br/>
           <strong>8.</strong> Approve &amp; Submit to CAPA<br/>
-          <strong>9.</strong> Go to <strong>CAPA Trigger</strong> â†’ select Complaint â†’ answer gates<br/>
+          <strong>9.</strong> Go to <strong>CAPA Trigger</strong> -> select Complaint -> answer gates<br/>
           <strong>10.</strong> Show CAPA Triggered result with regulatory reference<br/>
-          <strong>11.</strong> Logout â†’ login as <code>dheeraj</code> to show multi-user
+          <strong>11.</strong> Logout -> login as <code>dheeraj</code> to show multi-user
         </div>
       </div>
 
@@ -1138,7 +1117,7 @@
             <tr>
               <td><span class="api-method api-method--get">GET</span></td>
               <td><span class="api-url">/api/analytics</span></td>
-              <td>Chart data â€” priority, status, type breakdown</td>
+              <td>Chart data - priority, status, type breakdown</td>
             </tr>
             <tr>
               <td><span class="api-method api-method--post">POST</span></td>
@@ -1148,7 +1127,7 @@
             <tr>
               <td><span class="api-method api-method--post">POST</span></td>
               <td><span class="api-url">/api/records/upload</span></td>
-              <td>Upload document â†’ AI extracts quality record</td>
+              <td>Upload document -> AI extracts quality record</td>
             </tr>
           </tbody>
         </table>
@@ -1162,7 +1141,7 @@
 {% block extra_scripts %}{% endblock %}
 
 <script>
-  /* â”€â”€ Load sidebar stats â”€â”€ */
+  /* -- Load sidebar stats -- */
 fetch('/api/metrics')
     .then(r => r.json())
     .then(d => {
@@ -1170,7 +1149,7 @@ fetch('/api/metrics')
       s('sbTotal',    d.total);
       s('sbEligible', d.eligible);
       s('sbCritical', d.critical);
-      s('sbCAPAs',    d.capa_drafts || 'â€”');
+      s('sbCAPAs',    d.capa_drafts || '-');
       s('tabCount',   d.eligible);
 
       /* Mini donut chart in sidebar */
@@ -1197,11 +1176,11 @@ fetch('/api/metrics')
                 display: c => c.dataset.data[c.dataIndex] > 0,
                 color: '#fff',
                 font: { size: 9, weight: 'bold' },
-                formatter: v => v > 0 ? v : ''
+                formatter: v => v > 0  v : ''
               }
             }
           },
-          plugins: typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : []
+          plugins: typeof ChartDataLabels !== 'undefined'  [ChartDataLabels] : []
         });
       }
     }).catch(()=>{});
@@ -1216,7 +1195,7 @@ fetch('/api/metrics')
       s('sbCCCount',        count('cc'));
     }).catch(()=>{});
 
-  /* â”€â”€ Load current user â”€â”€ */
+  /* -- Load current user -- */
   fetch('/api/auth/me')
     .then(r => r.json())
     .then(u => {
@@ -1229,7 +1208,7 @@ fetch('/api/metrics')
       if (av) {
         /* Build initials from full_name if avatar_initials not provided */
         const initials = u.avatar_initials ||
-          (u.full_name || '?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+          (u.full_name || '').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
         const colors = ['#1756b8','#0f6e56','#7c3aed','#b45309','#c0392b','#1e6b3a'];
         const color  = u.color || colors[(u.id || 0) % colors.length];
         av.textContent      = initials;
@@ -1237,7 +1216,7 @@ fetch('/api/metrics')
       }
     }).catch(()=>{});
 
-  /* â”€â”€ User dropdown â”€â”€ */
+  /* -- User dropdown -- */
   function toggleUserMenu() {
     document.getElementById('userDropdown').classList.toggle('open');
   }
@@ -1247,7 +1226,7 @@ fetch('/api/metrics')
     }
   });
 
-  /* â”€â”€ Help modal â”€â”€ */
+  /* -- Help modal -- */
   function openHelp() {
     document.getElementById('helpOverlay').classList.add('open');
   }
@@ -1266,7 +1245,7 @@ fetch('/api/metrics')
     document.getElementById(`help-${id}`).classList.add('active');
   }
 
-  /* â”€â”€ Pending user count badge (admin only) â”€â”€ */
+  /* -- Pending user count badge (admin only) -- */
   {% if current_user.is_authenticated and current_user.is_admin() %}
   fetch('/api/auth/pending-count')
     .then(r => r.json())
@@ -1284,55 +1263,6 @@ fetch('/api/metrics')
       }
     }).catch(() => {});
   {% endif %}
-
-  const badUiText = /(?:Ã[\s\S]{0,18}|Â·|Â|â[\s\S]{0,18}|ð[\s\S]{0,18}|Ÿ[\s\S]{0,8}|�)/g;
-  const badUiProbe = /(?:Ã[\s\S]{0,18}|Â·|Â|â[\s\S]{0,18}|ð[\s\S]{0,18}|Ÿ[\s\S]{0,8}|�)/;
-  const nonAsciiUiText = /[^\x09\x0A\x0D\x20-\x7E]/g;
-  const hasBadUiText = value => badUiProbe.test(value || '') || /[^\x09\x0A\x0D\x20-\x7E]/.test(value || '');
-  function normalizeVisibleText(value) {
-    return (value || '')
-      .replace(badUiText, '')
-      .replace(nonAsciiUiText, '')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-  }
-
-  function cleanVisibleText(root = document.body) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        const parent = node.parentElement;
-        if (!parent || ['SCRIPT','STYLE','TEXTAREA'].includes(parent.tagName)) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        return hasBadUiText(node.nodeValue)
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_SKIP;
-      }
-    });
-    const dirtyNodes = [];
-    while (walker.nextNode()) dirtyNodes.push(walker.currentNode);
-    dirtyNodes.forEach(node => {
-      node.nodeValue = normalizeVisibleText(node.nodeValue);
-    });
-
-    root.querySelectorAll?.('[placeholder], [title], [aria-label]').forEach(el => {
-      ['placeholder','title','aria-label'].forEach(attr => {
-        const val = el.getAttribute(attr);
-        if (val && hasBadUiText(val)) el.setAttribute(attr, normalizeVisibleText(val));
-      });
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    cleanVisibleText();
-    const observer = new MutationObserver(mutations => {
-      mutations.forEach(m => {
-        m.addedNodes.forEach(node => {
-          if (node.nodeType === Node.ELEMENT_NODE) cleanVisibleText(node);
-          else if (node.nodeType === Node.TEXT_NODE && hasBadUiText(node.nodeValue)) {
-            node.nodeValue = normalizeVisibleText(node.nodeValue);
-          }
-        });
       });
     });
     observer.observe(document.body, { childList: true, subtree: true });
@@ -1355,7 +1285,7 @@ fetch('/api/metrics')
       init = init || {};
       var method = (init.method || (typeof input !== "string" && input.method) || "GET").toUpperCase();
       if (STATE_CHANGING[method]) {
-        var url = typeof input === "string" ? input : (input && input.url) || "";
+        var url = typeof input === "string"  input : (input && input.url) || "";
         // Same-origin only — don't leak the token to third parties.
         var isSameOrigin = url.startsWith("/") || url.startsWith(window.location.origin);
         if (isSameOrigin) {

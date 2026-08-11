@@ -510,12 +510,12 @@ def _build_request(prompt: str, stream: bool = False):
             url = (
                 f"https://generativelanguage.googleapis.com/v1beta/models"
                 f"/{AI_MODEL}:streamGenerateContent"
-                f"?key={AI_API_KEY}&alt=sse"
+                f"key={AI_API_KEY}&alt=sse"
             )
         else:
             url = (
                 f"https://generativelanguage.googleapis.com/v1beta/models"
-                f"/{AI_MODEL}:generateContent?key={AI_API_KEY}"
+                f"/{AI_MODEL}:generateContentkey={AI_API_KEY}"
             )
         headers = {"Content-Type": "application/json"}
         payload = {

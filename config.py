@@ -148,6 +148,16 @@ AGENT_KILL_SWITCH    = os.getenv("AGENT_KILL_SWITCH", "false").lower() == "true"
 AGENT_MAX_TURNS      = int(os.getenv("AGENT_MAX_TURNS", "12"))
 AGENT_MAX_RETRIES    = int(os.getenv("AGENT_MAX_RETRIES", "2"))
 AGENT_DEADLETTER_MAX = int(os.getenv("AGENT_DEADLETTER_MAX", "100"))
+AGENT_SUPERVISOR_INTERVAL_SECONDS = int(os.getenv("AGENT_SUPERVISOR_INTERVAL_SECONDS", "1200"))
+AGENT_SUPERVISOR_LIMIT = int(os.getenv("AGENT_SUPERVISOR_LIMIT", "50"))
+AGENT_SUPERVISOR_ALLOW_WEEKEND = os.getenv("AGENT_SUPERVISOR_ALLOW_WEEKEND", "false").lower() == "true"
+
+# File storage
+UPLOAD_STORAGE_BACKEND = os.getenv("UPLOAD_STORAGE_BACKEND", "local").strip().lower()
+UPLOAD_STORAGE_DIR = os.getenv(
+    "UPLOAD_STORAGE_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"),
+)
 
 # ── Logging ────────────────────────────────────────────────
 LOG_LEVEL  = os.getenv("LOG_LEVEL", "INFO").upper()

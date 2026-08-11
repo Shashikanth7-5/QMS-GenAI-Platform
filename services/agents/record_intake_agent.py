@@ -6,6 +6,7 @@ class RecordIntakeAgent:
 
     def run(self, record_id: str) -> AgentResult:
         from data.records import get_record_by_id
+        from services.workflow_config import normalize_record_type
 
         record = get_record_by_id(record_id)
         if not record:
@@ -13,7 +14,7 @@ class RecordIntakeAgent:
 
         required = ["id", "type", "title", "description", "priority", "sector"]
         missing = [field for field in required if not record.get(field)]
-        source_type = record.get("type", "")
+        source_type = normalize_record_type(record.get("type", ""))
         supported = source_type in {"complaint", "deviation", "cc", "nc", "audit"}
         warnings = []
         if missing:
@@ -42,4 +43,3 @@ class RecordIntakeAgent:
             {"record": normalized, "missingFields": missing},
             warnings,
         )
-

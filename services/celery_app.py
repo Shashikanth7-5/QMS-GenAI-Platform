@@ -7,9 +7,11 @@
 
 import os
 from celery import Celery
+from celery.schedules import schedule
 
 # In production, set CELERY_BROKER_URL=redis://<host>:6379/0 in .env
 _BROKER = os.getenv("CELERY_BROKER_URL", "").strip()
+_SUPERVISOR_INTERVAL = int(os.getenv("AGENT_SUPERVISOR_INTERVAL_SECONDS", "1200"))
 
 celery_app = Celery("qms")
 
@@ -22,6 +24,13 @@ if _BROKER:
         result_serializer="json",
         accept_content=["json"],
         task_track_started=True,
+        timezone=os.getenv("CELERY_TIMEZONE", "Asia/Kolkata"),
+        beat_schedule={
+            "qms-agent-supervisor-every-20-minutes": {
+                "task": "qms.agent_supervisor_run",
+                "schedule": schedule(run_every=_SUPERVISOR_INTERVAL),
+            },
+        },
     )
     EAGER = False
 else:

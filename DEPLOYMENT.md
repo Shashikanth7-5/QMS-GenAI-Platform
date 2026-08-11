@@ -1,35 +1,133 @@
-# Sprint 3 Week 4 Deployment
+# Production Deployment Checklist
 
-## Local Container Run
+This project is cloud-ready when the web, worker, beat scheduler, database,
+Redis broker, SMTP, and upload storage are all configured.
+
+## Required Processes
+
+- `web`: Flask/Gunicorn application
+- `worker`: Celery worker for async/background jobs
+- `beat`: Celery Beat scheduler for autonomous agent scans every 20 minutes
+
+`Procfile` commands:
+
+```text
+web: gunicorn --bind 0.0.0.0:${PORT:-5000} --workers ${WEB_CONCURRENCY:-2} --threads ${WEB_THREADS:-4} --timeout ${WEB_TIMEOUT:-120} app:app
+worker: celery -A services.celery_app:celery_app worker --loglevel=${CELERY_LOG_LEVEL:-INFO}
+beat: celery -A services.celery_app:celery_app beat --loglevel=${CELERY_LOG_LEVEL:-INFO}
+```
+
+Docker Compose includes all three processes plus PostgreSQL and Redis:
 
 ```powershell
 docker compose up --build
 ```
 
-The web app runs at `http://localhost:5000`.
-
-## Services
-
-- `web`: Flask app served by Gunicorn.
-- `worker`: Celery worker for async CAPA batch jobs.
-- `redis`: Celery broker/result backend.
-- `qms_data`: Docker volume for SQLite data and ChromaDB persistence.
-
-## Environment
-
-Set these in `.env` or the deployment platform:
+## Required Environment Variables
 
 ```text
-SECRET_KEY=change-me
-MOCK_MODE=true
-AI_PROVIDER=mock
-AI_API_KEY=
-AI_MODEL=mock-mode
-AI_BASE_URL=
-CELERY_BROKER_URL=redis://redis:6379/0
-DATABASE_URL=sqlite:////app/data/qms_data.db
+FLASK_ENV=production
+SECRET_KEY=<64+ random chars>
+API_V1_KEY=<strong integration API key>
+DATABASE_URL=postgresql+psycopg2://<user>:<pass>@<host>:5432/<db>
+CELERY_BROKER_URL=redis://<host>:6379/0
+RATE_LIMIT_STORAGE_URI=redis://<host>:6379/1
+UPLOAD_STORAGE_BACKEND=local
+UPLOAD_STORAGE_DIR=/app/uploads
+SMTP_HOST=<smtp host>
+SMTP_PORT=587
+SMTP_FROM=qms-workflow@yourcompany.com
+SMTP_USERNAME=<smtp user>
+SMTP_PASSWORD=<smtp password>
+SMTP_STARTTLS=true
+AGENT_ALERT_EMAIL=qms-admins@yourcompany.com
+SEED_BUILTIN_USERS=false
+MOCK_MODE=false
+AI_PROVIDER=<mock|openai|anthropic|azure|gemini|groq|bedrock>
+AI_API_KEY=<provider key>
+AI_MODEL=<model name>
 ```
 
-## CI
+## Autonomous Agents
 
-GitHub Actions runs `python -m pytest -q` on every push and pull request.
+Celery Beat runs:
+
+```text
+qms.agent_supervisor_run
+```
+
+Default schedule:
+
+```text
+AGENT_SUPERVISOR_INTERVAL_SECONDS=1200
+AGENT_SUPERVISOR_LIMIT=50
+AGENT_SUPERVISOR_ALLOW_WEEKEND=false
+```
+
+The supervisor:
+
+- scans eligible records
+- skips weekends by default
+- invokes intake, decision, RCA scoring, and CAPA draft agents
+- saves qualifying CAPA drafts for human review
+- retries failures
+- parks repeated failures in dead-letter queue
+- sends alert email when SMTP is configured
+
+Admin UI:
+
+```text
+/admin/agents
+```
+
+## Upload Storage
+
+Current production-ready option is a mounted persistent volume:
+
+```text
+UPLOAD_STORAGE_BACKEND=local
+UPLOAD_STORAGE_DIR=/app/uploads
+```
+
+For Azure App Service, mount Azure Files to `/app/uploads`.
+For AWS/ECS, mount EFS to `/app/uploads`.
+For Render/Railway, use their persistent disk option when available.
+
+## Health / Readiness
+
+```text
+/healthz
+/readyz
+```
+
+`/readyz` reports:
+
+- database connectivity
+- Celery broker configured/eager status
+- SMTP configured/reachable
+- upload storage writable
+- CSRF/rate limiter hardening package availability
+
+## Production Fail-Fast
+
+In production, the app refuses to start if these hardening dependencies are
+missing:
+
+- `flask-wtf`
+- `flask-limiter`
+
+Install dependencies cleanly:
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+## External Integration
+
+Main endpoint for TrackWise/Salesforce/Java QMS:
+
+```text
+POST /api/v1/integrations/quality-event/capa
+```
+
+See `INTEGRATION_READY.md` for payload and response contract.

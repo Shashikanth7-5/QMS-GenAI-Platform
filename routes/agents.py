@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from functools import wraps
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from config import RATE_LIMIT_AGENTS
@@ -76,6 +76,12 @@ def _on_registered(setup_state):
             limiter.limit(RATE_LIMIT_AGENTS)(agents_bp)
         except Exception:
             log.exception("agent.rate_limit_attach_failed")
+
+
+@agents_bp.route("/admin/agents")
+@admin_required
+def page_agent_control_center():
+    return render_template("agents/control_center.html", active_tab="agents")
 
 
 @agents_bp.route("/api/agents/record/intake", methods=["POST"])

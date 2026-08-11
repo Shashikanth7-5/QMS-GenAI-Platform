@@ -1,13 +1,10 @@
 # routes/capa.py
-import os
 from datetime import datetime
 from functools import wraps
-from uuid import uuid4
 
 from flask import (Blueprint, Response, jsonify, render_template, request,
                    stream_with_context)
 from flask_login import current_user, login_required
-from werkzeug.utils import secure_filename
 
 from auth.users import get_user_by_username
 from data.records import (add_uploaded_record, get_all_capas, get_all_records,
@@ -25,10 +22,10 @@ from services.audit_service import (ACTION_CAPA_BATCH_RUN,
 from services.ingestion_service import allowed_file, process_upload
 from services.logging_config import get_logger
 from services.security import capa_content_hash
+from services.storage import save_upload
 
 logger = get_logger(__name__)
 capa_bp = Blueprint("capa", __name__)
-_ATTACHMENT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "capa_attachments")
 
 _TYPE_LABEL = {
     "complaint": "Complaint", "deviation": "Deviation",
@@ -316,30 +313,17 @@ def api_upload_capa_attachments():
         return jsonify({"error": "No files provided"}), 400
 
     saved = []
-    today = datetime.now().strftime("%Y%m%d")
-    target_dir = os.path.join(_ATTACHMENT_DIR, today)
-    os.makedirs(target_dir, exist_ok=True)
-
     for file in files:
         if not file or not file.filename:
             continue
         if not allowed_file(file.filename):
             return jsonify({"error": f"Unsupported file type: {file.filename}"}), 400
 
-        original_name = secure_filename(file.filename)
-        stored_name = f"{uuid4().hex}_{original_name}"
-        stored_path = os.path.join(target_dir, stored_name)
-        file.save(stored_path)
-        size = os.path.getsize(stored_path)
-        saved.append({
-            "id": stored_name,
-            "name": original_name,
-            "size": size,
-            "type": file.mimetype or "Unknown",
-            "storedPath": stored_path,
-            "uploadedAt": datetime.now().isoformat(),
-            "uploadedBy": current_user.username,
-        })
+        saved.append(save_upload(
+            file,
+            namespace="capa_attachments",
+            uploaded_by=current_user.username,
+        ))
 
     return jsonify({"attachments": saved, "count": len(saved)})
 

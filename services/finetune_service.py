@@ -208,7 +208,7 @@ def generate_with_ollama(record: Dict, model: str = "llama3") -> dict:
         raw = resp.json().get("response", "{}")
         return json.loads(raw)
     except Exception as e:
-        raise RuntimeError(f"Ollama error: {e}. Is Ollama running? Try: ollama serve")
+        raise RuntimeError(f"Ollama error: {e}. Is Ollama running Try: ollama serve")
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -119,6 +119,64 @@ def add_uploaded_record(record: Dict) -> Dict:
         return rec.to_dict()
 
 
+def upsert_external_record(record: Dict) -> Dict:
+    """Create or update a quality record supplied by an external QMS."""
+    from services.workflow_config import normalize_record_type
+
+    record_id = (
+        record.get("id")
+        or record.get("recordId")
+        or record.get("externalId")
+        or record.get("caseId")
+    )
+    if not record_id:
+        raise ValueError("External record must include id, recordId, externalId, or caseId")
+
+    with SessionLocal() as db:
+        existing = db.query(QualityRecord).filter(QualityRecord.id == record_id).first()
+        if existing:
+            existing.type = normalize_record_type(record.get("type") or record.get("category") or existing.type)
+            existing.sector = record.get("sector", existing.sector or "Medical Device")
+            existing.title = record.get("title", existing.title or "")
+            existing.description = record.get("description", existing.description or "")
+            existing.priority = record.get("priority", existing.priority or "Medium")
+            existing.status = record.get("status", existing.status or "Draft Generated")
+            existing.site = record.get("site", existing.site or "")
+            existing.owner = record.get("owner") or record.get("createdBy") or existing.owner or ""
+            existing.detected_date = record.get("detectedDate", existing.detected_date or "")
+            existing.product_family = record.get("productFamily", existing.product_family or "")
+            existing.batch_lot = record.get("batchLot", existing.batch_lot or "")
+            existing.regulatory_refs = record.get("regulatoryRef", existing.regulatory_refs or [])
+            existing.source = record.get("_source", "external")
+            existing.age_days = _age(existing.detected_date)
+            existing.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
+            return existing.to_dict()
+
+        rec = QualityRecord(
+            id=record_id,
+            type=normalize_record_type(record.get("type") or record.get("category") or "deviation"),
+            sector=record.get("sector", "Medical Device"),
+            title=record.get("title", ""),
+            description=record.get("description", ""),
+            priority=record.get("priority", "Medium"),
+            status=record.get("status", "Draft Generated"),
+            site=record.get("site", ""),
+            owner=record.get("owner") or record.get("createdBy") or "",
+            detected_date=record.get("detectedDate", ""),
+            product_family=record.get("productFamily", ""),
+            batch_lot=record.get("batchLot", ""),
+            regulatory_refs=record.get("regulatoryRef", []),
+            source=record.get("_source", "external"),
+            age_days=_age(record.get("detectedDate")),
+        )
+        db.add(rec)
+        db.commit()
+        db.refresh(rec)
+        return rec.to_dict()
+
+
 def _c2d(c: CAPARecord) -> Dict:
     record = getattr(c, "record", None)
     return {

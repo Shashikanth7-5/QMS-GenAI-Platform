@@ -36,9 +36,9 @@ class DecisionEligibilityAgent:
     ) -> AgentResult:
         from services.rca_service import evaluate_gates
 
-        source = record.get("type") or "deviation"
-        if source not in {"complaint", "deviation", "cc"}:
-            source = "deviation"
+        from services.workflow_config import decision_source_for
+
+        source = decision_source_for(record.get("type") or "deviation")
 
         inferred = self._infer_answers(source, record)
         answers = dict(inferred)

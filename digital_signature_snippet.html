@@ -131,22 +131,22 @@ function openSigModal(capaId, action) {
 
   const isApprove = action === 'approve';
   document.getElementById('sigTitle').textContent =
-    isApprove ? 'Electronic Signature — Approve CAPA'
+    isApprove  'Electronic Signature — Approve CAPA'
               : 'Electronic Signature — Reject CAPA';
   document.getElementById('sigIntentTitle').textContent =
-    isApprove ? `Approving CAPA ${capaId}` : `Rejecting CAPA ${capaId}`;
+    isApprove  `Approving CAPA ${capaId}` : `Rejecting CAPA ${capaId}`;
   document.getElementById('sigIntentText').textContent =
     isApprove
-      ? 'By signing, you confirm this CAPA is complete and approved for implementation.'
+       'By signing, you confirm this CAPA is complete and approved for implementation.'
       : 'By signing, you confirm this CAPA requires revision and is being returned to the author.';
   document.getElementById('sigMeaning').value =
     isApprove
-      ? 'I have reviewed and approve this CAPA for implementation'
+       'I have reviewed and approve this CAPA for implementation'
       : 'I have reviewed and reject this CAPA — revision required';
 
   const btn = document.getElementById('sigSubmitBtn');
   btn.className = `sig-btn-submit sig-btn-${action}`;
-  btn.textContent = isApprove ? '✅ Sign & Approve' : '✕ Sign & Reject';
+  btn.textContent = isApprove  '✅ Sign & Approve' : '✕ Sign & Reject';
 
   document.getElementById('sigUsername').value = '';
   document.getElementById('sigPassword').value = '';
@@ -196,12 +196,12 @@ async function submitSignature() {
       document.getElementById('sigError').textContent =
         '⚠ Incorrect username or password. Please try again.';
       btn.disabled = false;
-      btn.textContent = _sigAction === 'approve' ? '✅ Sign & Approve' : '✕ Sign & Reject';
+      btn.textContent = _sigAction === 'approve'  '✅ Sign & Approve' : '✕ Sign & Reject';
       return;
     }
 
     // Step 2: update CAPA status
-    const newStatus = _sigAction === 'approve' ? 'Approved' : 'Rejected';
+    const newStatus = _sigAction === 'approve'  'Approved' : 'Rejected';
     const statusRes = await fetch(`/api/capas/${_sigCapaId}/status`, {
       method:  'PATCH',
       headers: {'Content-Type': 'application/json'},
