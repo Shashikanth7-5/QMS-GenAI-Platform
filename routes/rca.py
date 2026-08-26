@@ -8,13 +8,27 @@
 from flask import Blueprint, jsonify, render_template, request
 from flask_login import login_required
 
+from config import RATE_LIMIT_LLM
 from services.ai_service  import generate_rca
+from services.logging_config import get_logger
 from services.rca_service import (
     assess_five_why, assess_fishbone,
     propose_three_models,
 )
 
+log = get_logger(__name__)
 rca_bp = Blueprint("rca", __name__)
+
+
+@rca_bp.record_once
+def _attach_llm_rate_limit(setup_state):
+    """Apply per-user LLM cost cap to every RCA route."""
+    limiter = setup_state.app.extensions.get("qms_limiter") if setup_state.app else None
+    if limiter:
+        try:
+            limiter.limit(RATE_LIMIT_LLM)(rca_bp)
+        except Exception:
+            log.exception("rca.rate_limit_attach_failed")
 
 
 @rca_bp.route("/rca/analyze")
@@ -27,13 +41,13 @@ def page_rca():
 @rca_bp.route("/api/rca/fishbone", methods=["POST"])
 @login_required
 def api_fishbone():
-    body   = request.get_json(force=True) or {}
+    body   = request.get_json(silent=True) or {}
     record = body.get("record", {})
     if not record:
         return jsonify({"error": "Missing 'record'"}), 400
     try:
         return jsonify(generate_rca(record, method="fishbone"))
-    except Exception as e:
+    except Exception:
         # Never return 502 — always give the user something to work with
         from services.rca_service import build_fishbone
         result = build_fishbone(record)
@@ -44,13 +58,13 @@ def api_fishbone():
 @rca_bp.route("/api/rca/five-why", methods=["POST"])
 @login_required
 def api_five_why():
-    body   = request.get_json(force=True) or {}
+    body   = request.get_json(silent=True) or {}
     record = body.get("record", {})
     if not record:
         return jsonify({"error": "Missing 'record'"}), 400
     try:
         return jsonify(generate_rca(record, method="5why"))
-    except Exception as e:
+    except Exception:
         from services.rca_service import build_five_why
         result = build_five_why(record)
         result["_fallback"] = True
@@ -64,7 +78,7 @@ def api_assess():
     Returns per-step scores + overall verdict + AI improvement suggestions.
     If overall_score < 55, needs_ai_help = True is returned.
     """
-    body     = request.get_json(force=True) or {}
+    body     = request.get_json(silent=True) or {}
     method   = body.get("method", "5why")
     rca_data = body.get("rca_data", {})
     if not rca_data:
@@ -86,7 +100,7 @@ def api_propose():
     Called when: user clicks 'AI Improve' OR score < 55%.
     Body: { record: {...}, method: '5why' | 'fishbone' }
     """
-    body   = request.get_json(force=True) or {}
+    body   = request.get_json(silent=True) or {}
     record = body.get("record", {})
     method = body.get("method", "fishbone")
     if not record:
