@@ -1,0 +1,107 @@
+# Default values for qms-genai.
+# Override per-environment via `helm install -f values-prod.yaml`.
+
+image:
+  repository: ghcr.io/shashikanth7-5/qms-genai-platform
+  tag: "latest"       # override in CI to the git SHA
+  pullPolicy: IfNotPresent
+
+# Application settings — non-secret. Secret material lives in
+# `secretsManager` (see below) and is injected via projected volumes.
+env:
+  FLASK_ENV: production
+  LOG_FORMAT: json
+  LOG_LEVEL: INFO
+  RATE_LIMIT_STORAGE_URI: redis://redis-master.qms.svc.cluster.local:6379/1
+  CELERY_BROKER_URL: redis://redis-master.qms.svc.cluster.local:6379/0
+  DATABASE_URL: ""    # set from Secrets Manager
+  MOCK_MODE: "false"
+  AI_PROVIDER: anthropic
+  AI_MODEL: claude-sonnet-4-6
+  UPLOAD_STORAGE_BACKEND: s3
+  UPLOAD_STORAGE_BUCKET: qms-uploads-prod
+  AGENT_AUTOSAVE_CAPA_DRAFT: "false"
+  AGENT_SUPERVISOR_INTERVAL_SECONDS: "1200"
+  AGENT_SUPERVISOR_ALLOW_WEEKEND: "false"
+  API_V1_ALLOW_ANONYMOUS: "false"
+
+# Secrets are pulled from AWS Secrets Manager via the external-secrets
+# operator. Provisioning docs live in DEPLOY.md.
+secretsManager:
+  provider: aws           # aws | gcp | azure | none
+  secretName: qms/prod/env  # ARN or resource name
+  keys:
+    - SECRET_KEY
+    - DATABASE_URL
+    - AI_API_KEY
+
+# Alembic migration Job (runs via Helm pre-install / pre-upgrade hook).
+migrations:
+  enabled: true
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits:   {cpu: 500m, memory: 512Mi}
+
+# Web pods handle HTTP + agent HTTP APIs.
+web:
+  replicaCount: 3
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits:   {cpu: 1000m, memory: 1Gi}
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 65
+  readinessProbe:
+    httpGet: {path: /readyz, port: 5000}
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  livenessProbe:
+    httpGet: {path: /healthz, port: 5000}
+    initialDelaySeconds: 30
+    periodSeconds: 30
+
+# Celery workers run the agent pipeline + async CAPA generation.
+worker:
+  replicaCount: 2
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits:   {cpu: 1000m, memory: 1Gi}
+
+# Celery beat schedules the supervisor + housekeeping tasks.
+beat:
+  replicaCount: 1
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits:   {cpu: 300m, memory: 512Mi}
+
+ingress:
+  enabled: true
+  className: nginx
+  host: qms.example.com
+  tls:
+    enabled: true
+    secretName: qms-tls
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 30m
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+
+serviceAccount:
+  create: true
+  # For AWS IRSA / GCP Workload Identity — inject via helm --set on install.
+  annotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
