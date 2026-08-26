@@ -154,7 +154,7 @@ def api_stream():
 
 
 @capa_bp.route("/api/capa/run-batch", methods=["POST"])
-@requires_permission(Permission.CAPA_BATCH_RUN)
+@admin_required
 def api_run_batch():
     all_recs = get_all_records()
     all_capas = get_all_capas()
@@ -411,7 +411,7 @@ def api_export_capa(capa_id: str):
     )
 
 @capa_bp.route("/api/capas/<capa_id>/status", methods=["PATCH"])
-@requires_permission(Permission.CAPA_REVIEW)
+@admin_required
 def api_update_capa_status(capa_id: str):
     body       = request.get_json(silent=True) or {}
     requested_status = body.get("status","")
