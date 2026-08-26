@@ -204,7 +204,7 @@
 {% endblock %}
 
 {% block extra_styles %}
-<style>
+<style nonce="{{ csp_nonce }}">
   .section-tab {
     flex:1;padding:13px 20px;font-size:13px;font-weight:600;
     border:none;background:none;cursor:pointer;color:var(--text-muted);
@@ -237,7 +237,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   /* -- State -- */
   const USER_ROLE     = "{{ current_user.role }}";
   const SEES_ALL      = {{ 'true' if current_user.sees_all_records() else 'false' }};
@@ -589,7 +589,7 @@
     const b=document.getElementById('banner');
     const icons={info:'i',success:'OK',warning:'!',error:'X'};
     b.className=`banner banner--${type}`;
-    b.innerHTML=`<span>${icons[type]||'i'}</span> ${msg}`;
+    b.innerHTML=`<span>${escapeHtml(icons[type]||'i')}</span> ${escapeHtml(msg)}`;
   }
 
   /* -- Boot -- */

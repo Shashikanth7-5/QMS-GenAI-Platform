@@ -15,6 +15,7 @@
 import os
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from flask import Blueprint, jsonify, render_template, request
 from flask_login import current_user, login_required
@@ -32,9 +33,63 @@ log = get_logger(__name__)
 
 _SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
-# Small in-memory extraction store. Persisting extractions is tracked as a
-# Version@2+ item — for now this survives one worker process only.
-_EXTRACTION_STORE: list = []
+
+# ── Persistent extraction store (qms_rag_extractions) ─────
+# Version@3: was a module-level list; moved to DB so /api/rag/ask
+# works across worker processes and survives restarts.
+
+def _extractions_session():
+    from database import SessionLocal
+    return SessionLocal()
+
+
+def _persist_extraction(extraction: dict) -> dict:
+    from models import RagExtraction
+    with _extractions_session() as session:
+        row = RagExtraction(
+            id=extraction["id"],
+            filename=extraction["filename"],
+            file_type=extraction.get("fileType") or "",
+            file_size=int(extraction.get("fileSize") or 0),
+            extracted_by=extraction["extractedBy"],
+            is_image=bool(extraction.get("isImage")),
+            text_preview=extraction.get("textPreview", ""),
+            record_json=extraction.get("record") or {},
+        )
+        session.add(row)
+        session.commit()
+        return row.to_dict()
+
+
+def _load_extraction(extraction_id: str) -> Optional[dict]:
+    from models import RagExtraction
+    with _extractions_session() as session:
+        row = session.query(RagExtraction).filter(RagExtraction.id == extraction_id).first()
+        return row.to_dict() if row else None
+
+
+def _list_extractions(username: str, *, admin: bool) -> list[dict]:
+    from models import RagExtraction
+    with _extractions_session() as session:
+        q = session.query(RagExtraction)
+        if not admin:
+            q = q.filter(RagExtraction.extracted_by == username)
+        rows = q.order_by(RagExtraction.extracted_at.desc()).limit(500).all()
+        return [r.to_dict() for r in rows]
+
+
+def _delete_extraction(extraction_id: str, *, username: str, admin: bool) -> bool:
+    from models import RagExtraction
+    with _extractions_session() as session:
+        row = session.query(RagExtraction).filter(RagExtraction.id == extraction_id).first()
+        if not row:
+            return False
+        if not admin and row.extracted_by != username:
+            return False
+        session.delete(row)
+        session.commit()
+        return True
+
 
 rag_bp = Blueprint("rag", __name__)
 
@@ -99,11 +154,15 @@ def api_rag_extract():
             "textPreview": text_preview,
             "isImage":     isinstance(raw_content, dict),
         }
-        _EXTRACTION_STORE.append(extraction)
+        try:
+            persisted = _persist_extraction(extraction)
+        except Exception:
+            log.exception("rag.extraction_persist_failed", extra={"filename": file.filename})
+            persisted = extraction
         return jsonify({
             "success": True,
             "record":  saved,
-            "extraction": {**extraction, "record": saved},
+            "extraction": {**persisted, "record": saved},
             "message": f"Record {saved['id']} extracted.",
         })
     except ValueError as exc:
@@ -123,9 +182,7 @@ def api_rag_ask():
     if len(question) > 2000:
         return jsonify({"error": "Question is too long (max 2000 chars)"}), 400
 
-    extraction = next(
-        (e for e in _EXTRACTION_STORE if e["id"] == extraction_id), None
-    )
+    extraction = _load_extraction(extraction_id)
     if not extraction:
         return jsonify({"error": "Extraction not found"}), 404
     if extraction["extractedBy"] != current_user.username and not current_user.is_admin():
@@ -179,9 +236,7 @@ def api_rag_ask():
 @rag_bp.route("/api/rag/history")
 @login_required
 def api_rag_history():
-    history = _EXTRACTION_STORE if current_user.is_admin() else [
-        e for e in _EXTRACTION_STORE if e["extractedBy"] == current_user.username
-    ]
+    history = _list_extractions(current_user.username, admin=current_user.is_admin())
     return jsonify({
         "history": [
             {
@@ -191,11 +246,11 @@ def api_rag_history():
                 "fileSize":    e["fileSize"],
                 "extractedAt": e["extractedAt"],
                 "extractedBy": e["extractedBy"],
-                "recordTitle": e["record"].get("title", ""),
-                "recordType":  e["record"].get("type", ""),
+                "recordTitle": (e.get("record") or {}).get("title", ""),
+                "recordType":  (e.get("record") or {}).get("type", ""),
                 "isImage":     e["isImage"],
             }
-            for e in reversed(history)
+            for e in history
         ],
         "total": len(history),
     })
@@ -204,12 +259,9 @@ def api_rag_history():
 @rag_bp.route("/api/rag/history/<ext_id>", methods=["DELETE"])
 @login_required
 def api_delete_extraction(ext_id):
-    extraction = next((e for e in _EXTRACTION_STORE if e["id"] == ext_id), None)
-    if not extraction:
-        return jsonify({"error": "Not found"}), 404
-    if extraction["extractedBy"] != current_user.username and not current_user.is_admin():
-        return jsonify({"error": "Not authorised"}), 403
-    _EXTRACTION_STORE.remove(extraction)
+    ok = _delete_extraction(ext_id, username=current_user.username, admin=current_user.is_admin())
+    if not ok:
+        return jsonify({"error": "Not found or not authorised"}), 404
     return jsonify({"deleted": ext_id})
 
 

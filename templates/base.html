@@ -8,7 +8,7 @@
   <meta name="csrf-token" content="{{ csrf_token() }}"/>
   <title>{% block title %}AI Quality Management System{% endblock %}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <style>
+  <style nonce="{{ csp_nonce }}">
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -670,7 +670,7 @@
     ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
   </style>
   {% block extra_styles %}{% endblock %}
-  <style>
+  <style nonce="{{ csp_nonce }}">
     .panel__header {
       background: linear-gradient(135deg, rgba(234,246,255,0.96), rgba(232,251,244,0.96)) !important;
       border-bottom: 1px solid rgba(47,128,237,0.16) !important;
@@ -1144,7 +1144,7 @@
 
 {% block extra_scripts %}{% endblock %}
 
-<script>
+<script nonce="{{ csp_nonce }}">
   /* -- Load sidebar stats -- */
 fetch('/api/metrics')
     .then(r => r.json())
@@ -1269,7 +1269,7 @@ fetch('/api/metrics')
   {% endif %}
 </script>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   // ── CSRF shim ─────────────────────────────────────────────
   // Adds X-CSRFToken to every same-origin state-changing fetch()
   // so cookie-authenticated AJAX calls (/api/capa/*, /api/agents/*, etc.)

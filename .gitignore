@@ -50,7 +50,7 @@ logs/
 recover_err.txt
 fix_ssl.py
 test_gemini.py
-QMS-GENAI/
+/QMS-GENAI/
 
 # ── Large committed sample assets ─────────────────────────
 QMS_GenAI_1000_Records.xlsx

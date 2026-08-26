@@ -89,7 +89,31 @@ def _install_extensions(app: Flask) -> None:
         app.extensions["qms_limiter"] = None
 
 
+def _bind_request_context():
+    """Attach a request-scoped run_id + tenant + user so every log line
+    (and downstream Celery task via ``services.run_context.snapshot()``)
+    carries correlation IDs."""
+    from flask import g
+    from services import run_context
+    incoming = (request.headers.get("X-Request-Id") or "").strip()
+    if incoming and 1 <= len(incoming) <= 80 and incoming.replace("-", "").replace("_", "").isalnum():
+        run_context.set_run_id(incoming)
+    else:
+        run_context.set_run_id(run_context.new_run_id("REQ"))
+    run_context.set_tenant_id(request.headers.get("X-Tenant-Id") or None)
+    try:
+        from flask_login import current_user
+        if getattr(current_user, "is_authenticated", False):
+            run_context.set_user(current_user.username)
+    except Exception:
+        pass
+    # Nonce for CSP — used by base.html for every inline <script>/<style>.
+    import secrets as _secrets
+    g.csp_nonce = _secrets.token_urlsafe(16)
+
+
 def _apply_security_headers(response):
+    from flask import g
     from config import IS_PRODUCTION
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
@@ -101,25 +125,34 @@ def _apply_security_headers(response):
     response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
     response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
     if IS_PRODUCTION:
-        # 6-month HSTS with subdomains and preload readiness.
         response.headers.setdefault(
             "Strict-Transport-Security",
             "max-age=15552000; includeSubDomains",
         )
-    # Baseline CSP. 'unsafe-inline' remains until inline scripts/styles are
-    # nonce-refactored (Version@2). Chart.js and Google Fonts are allowed.
+    # Propagate correlation id to callers.
+    from services.run_context import get_run_id
+    run_id = get_run_id()
+    if run_id:
+        response.headers.setdefault("X-Request-Id", run_id)
+
+    # CSP with a per-request nonce. 'unsafe-inline' is retained as a
+    # transitional fallback for browsers that ignore nonces; modern
+    # browsers only honor the nonce (nonces take precedence).
+    nonce = getattr(g, "csp_nonce", "")
     response.headers.setdefault(
         "Content-Security-Policy",
-        "default-src 'self'; "
-        "img-src 'self' data: blob:; "
-        "font-src 'self' https://fonts.gstatic.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "connect-src 'self'; "
-        "frame-ancestors 'none'; "
-        "form-action 'self'; "
-        "base-uri 'self'; "
-        "object-src 'none'",
+        (
+            "default-src 'self'; "
+            "img-src 'self' data: blob:; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://fonts.googleapis.com; "
+            f"script-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'; "
+            "base-uri 'self'; "
+            "object-src 'none'"
+        ),
     )
     return response
 
@@ -249,7 +282,16 @@ def create_app() -> Flask:
         }
         return jsonify(payload), 200 if db_ok and storage.get("writable") else 503
 
+    app.before_request(_bind_request_context)
     app.after_request(_apply_security_headers)
+
+    # Expose the nonce to templates via ctx processor so {{ csp_nonce }}
+    # works in every render.
+    @app.context_processor
+    def _inject_csp_nonce():
+        from flask import g
+        return {"csp_nonce": getattr(g, "csp_nonce", "")}
+
     return app
 
 
