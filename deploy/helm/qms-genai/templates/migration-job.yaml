@@ -1,0 +1,52 @@
+{{- if .Values.migrations.enabled }}
+# Runs alembic upgrade head as a Helm pre-install/pre-upgrade hook so schema
+# is current before the web deployment rolls. The on-startup retry loop in
+# web-deployment.yaml remains as a defence-in-depth fallback (see comment
+# there).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "qms-genai.name" . }}-migrate
+  labels:
+    {{- include "qms-genai.labels" . | nindent 4 }}
+    qms.role: migrate
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "qms-genai.selectorLabels" . | nindent 8 }}
+        qms.role: migrate
+    spec:
+      serviceAccountName: {{ include "qms-genai.name" . }}
+      restartPolicy: OnFailure
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - "alembic upgrade head"
+          env:
+            {{- include "qms-genai.envList" . | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ include "qms-genai.name" . }}-secrets
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
