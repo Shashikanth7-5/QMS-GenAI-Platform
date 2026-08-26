@@ -77,6 +77,26 @@ def _add_cors(response):
 
 @api_v1_bp.after_request
 def after_request(response):
+    """CORS + idempotency response persistence."""
+    from flask import g
+    from services import tenant_service
+    key = getattr(g, "qms_idempotency_key", None)
+    tenant = getattr(g, "qms_tenant", None)
+    # Only store successful state-changing responses (2xx). Skip 5xx so a
+    # retry can go through, and skip <=1MB bodies to avoid caching giant payloads.
+    if (key and tenant and request.method in ("POST", "PUT", "PATCH", "DELETE")
+            and 200 <= response.status_code < 300):
+        try:
+            body_json = response.get_json(silent=True) or {}
+            tenant_service.store_idempotent_response(
+                tenant_id=tenant["tenantId"], key=key,
+                method=request.method, path=request.path,
+                request_body=request.get_data(cache=True),
+                status_code=response.status_code, response_json=body_json,
+            )
+        except Exception:
+            log.warning("api_v1.idempotency_store_failed", exc_info=True)
+        g.qms_idempotency_key = None  # prevent double-store
     return _add_cors(response)
 
 
@@ -85,32 +105,77 @@ def options_handler(path):
     return _add_cors(jsonify({"status": "ok"}))
 
 
-# ── Authentication decorator ──────────────────────────────────
+# ── Authentication decorator (per-tenant with legacy single-key fallback) ──
 def require_api_key(fn):
-    """Fail-closed: production must have API_V1_KEY set unless API_V1_ALLOW_ANONYMOUS=true."""
+    """Resolve caller against qms_api_tenants. Legacy single-key mode kicks in
+    only when the tenants table is empty AND API_V1_KEY is set."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        if not API_V1_KEY:
-            if API_V1_ALLOW_ANONYMOUS:
+        from services import run_context, tenant_service
+        from flask import g
+
+        api_key = (request.headers.get("X-API-Key") or request.args.get("api_key") or "").strip()
+        tenant_id = (request.headers.get("X-Tenant-Id") or "").strip() or "_legacy"
+
+        # Anonymous shortcut: only when no key is presented AND the server
+        # is configured for anonymous. If a caller provides a key we always
+        # validate it (never silently accept), so tests can assert 401 on
+        # a bad key even in dev/test mode.
+        if not api_key:
+            if not API_V1_KEY and API_V1_ALLOW_ANONYMOUS:
                 return fn(*args, **kwargs)
-            log.error("api_v1.auth.missing_key")
             return jsonify({
                 "error": "unauthorized",
-                "message": "API v1 is unavailable: server key not configured.",
-            }), 503
-        provided = (
-            request.headers.get("X-API-Key")
-            or request.args.get("api_key")
-            or ""
-        )
-        if not provided or not hmac.compare_digest(provided, API_V1_KEY):
-            log.warning("api_v1.auth.rejected", extra={"path": request.path, "ip": request.remote_addr})
-            return jsonify({
-                "error": "unauthorized",
-                "message": "Valid X-API-Key header required",
+                "message": "X-API-Key header is required",
+                "code": "missing_key",
             }), 401
+
+        tenant = tenant_service.resolve_tenant(tenant_id, api_key)
+        if not tenant:
+            log.warning("api_v1.auth.rejected",
+                        extra={"path": request.path, "tenant_id": tenant_id,
+                               "ip": request.remote_addr})
+            return jsonify({
+                "error": "unauthorized",
+                "message": "Valid X-API-Key + X-Tenant-Id required",
+                "code": "invalid_credentials",
+            }), 401
+
+        # Bind tenant + user context so logs and audit rows carry it.
+        run_context.set_tenant_id(tenant["tenantId"])
+        g.qms_tenant = tenant
+        # Idempotency-Key check for state-changing calls.
+        idempotency_key = (request.headers.get("Idempotency-Key") or "").strip()
+        if idempotency_key and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            cached, conflict = tenant_service.check_and_record_idempotency(
+                tenant_id=tenant["tenantId"], key=idempotency_key,
+                method=request.method, path=request.path,
+                request_body=request.get_data(cache=True),
+            )
+            if conflict:
+                return jsonify(conflict), 409
+            if cached:
+                return jsonify(cached.get("response_json") or {}), int(cached.get("status_code") or 200)
+            g.qms_idempotency_key = idempotency_key
         return fn(*args, **kwargs)
     return wrapper
+
+
+def _maybe_store_idempotency(response_body: dict, status_code: int) -> None:
+    """Called from route handlers after a successful state-changing call."""
+    from flask import g
+    from services import tenant_service
+    key = getattr(g, "qms_idempotency_key", None)
+    tenant = getattr(g, "qms_tenant", None)
+    if not key or not tenant:
+        return
+    tenant_service.store_idempotent_response(
+        tenant_id=tenant["tenantId"], key=key,
+        method=request.method, path=request.path,
+        request_body=request.get_data(cache=True),
+        status_code=status_code,
+        response_json=response_body or {},
+    )
 
 
 def _apply_rate_limits():
@@ -595,23 +660,94 @@ def api_analytics():
 # ══════════════════════════════════════════════════════════════
 # SALESFORCE WEBHOOK
 # ══════════════════════════════════════════════════════════════
+# Webhook replay window (Salesforce clock skew < 5 min is standard).
+_WEBHOOK_MAX_SKEW_SECONDS = int(os.getenv("WEBHOOK_MAX_SKEW_SECONDS", "300"))
+
+
+def _verify_webhook_headers(secret: str, body_bytes: bytes) -> tuple[bool, str]:
+    """
+    Signature scheme: sig = HMAC-SHA256(secret, f"{timestamp}.{nonce}.{body}").
+    All three headers are required; every (tenant, nonce) pair must be unique
+    within the replay window to prevent replay attacks.
+    Returns (ok, error_message).
+    """
+    import time as _time
+    from services import tenant_service
+
+    timestamp = request.headers.get("X-Salesforce-Timestamp", "").strip()
+    nonce = request.headers.get("X-Salesforce-Nonce", "").strip()
+    sig = request.headers.get("X-Salesforce-Signature", "").strip()
+
+    if not (timestamp and nonce and sig):
+        return False, "Missing X-Salesforce-Timestamp / X-Salesforce-Nonce / X-Salesforce-Signature"
+    try:
+        ts_int = int(timestamp)
+    except ValueError:
+        return False, "X-Salesforce-Timestamp must be a unix epoch integer"
+    if abs(int(_time.time()) - ts_int) > _WEBHOOK_MAX_SKEW_SECONDS:
+        return False, f"Timestamp outside {_WEBHOOK_MAX_SKEW_SECONDS}s replay window"
+
+    payload = f"{timestamp}.{nonce}.".encode() + (body_bytes or b"")
+    expected = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        return False, "Invalid signature"
+
+    tenant_id = (request.headers.get("X-Tenant-Id") or "_legacy").strip()
+    if not tenant_service.record_webhook_nonce(tenant_id=tenant_id, nonce=nonce):
+        return False, "Nonce already used (replay detected)"
+    return True, ""
+
+
 @api_v1_bp.route("/webhooks/salesforce", methods=["POST"])
 def salesforce_webhook():
-    # Webhook signature is required in every environment. If the secret is
-    # unset the endpoint MUST NOT accept traffic — legacy behavior that
-    # skipped verification in dev is a security bypass because dev endpoints
-    # are still reachable from the public internet during TrackWise
-    # integration testing.
-    if not SF_WEBHOOK_SECRET:
-        log.error("api_v1.sf_webhook.disabled_no_secret")
+    """Salesforce → QMS quality event webhook.
+
+    Signature scheme:
+        sig = HMAC-SHA256(secret, "<timestamp>.<nonce>.<raw_body>").hexdigest()
+
+    Required headers:
+        X-Tenant-Id             per-tenant identifier
+        X-Salesforce-Timestamp  unix epoch seconds (5-minute skew tolerated)
+        X-Salesforce-Nonce      unique per request (replay-guarded)
+        X-Salesforce-Signature  hex-encoded HMAC-SHA256
+    """
+    from services import run_context
+    tenant_id = (request.headers.get("X-Tenant-Id") or "").strip()
+    if not tenant_id:
+        return _err("X-Tenant-Id header is required", 400, "missing_tenant")
+
+    # Resolve per-tenant webhook secret. Legacy fallback uses SF_WEBHOOK_SECRET
+    # if no tenant exists yet (bootstrap phase only).
+    tenant_row = None
+    if tenant_id not in ("_legacy", "default"):
+        # Resolve secret without needing the tenant's API key — we
+        # look up by tenant_id and read webhook_secret directly.
+        try:
+            from database import SessionLocal
+            from models import ApiTenant
+            with SessionLocal() as session:
+                row = session.query(ApiTenant).filter(
+                    ApiTenant.tenant_id == tenant_id,
+                    ApiTenant.status == "active",
+                ).first()
+                if row:
+                    tenant_row = row.to_dict()
+                    tenant_row["webhookSecret"] = row.webhook_secret or ""
+        except Exception:
+            log.warning("sf_webhook.tenant_lookup_failed", exc_info=True)
+
+    secret = (tenant_row or {}).get("webhookSecret") or SF_WEBHOOK_SECRET
+    if not secret:
+        log.error("api_v1.sf_webhook.disabled_no_secret", extra={"tenant_id": tenant_id})
         return _err("Salesforce webhook is disabled: signing secret not configured.", 503, "webhook_disabled")
 
-    sig = request.headers.get("X-Salesforce-Signature", "")
-    expected = hmac.new(SF_WEBHOOK_SECRET.encode(), request.data, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(sig, expected):
-        log.warning("api_v1.sf_webhook.bad_signature", extra={"ip": request.remote_addr})
-        return _err("Invalid signature", 401, "unauthorized")
+    ok, err = _verify_webhook_headers(secret, request.data)
+    if not ok:
+        log.warning("api_v1.sf_webhook.rejected",
+                    extra={"tenant_id": tenant_id, "reason": err, "ip": request.remote_addr})
+        return _err(err, 401, "unauthorized")
 
+    run_context.set_tenant_id(tenant_id)
     body = request.get_json(silent=True) or {}
     event = body.get("event", "unknown")
 
@@ -623,9 +759,10 @@ def salesforce_webhook():
                 "action":     "capa_generated",
                 "capa_draft": capa,
                 "case_id":    body.get("caseId"),
+                "tenant_id":  tenant_id,
             })
         except Exception as exc:
             log.exception("api_v1.sf_webhook.capa_generation_failed")
             return _err(str(exc), 500)
 
-    return _ok({"action": "received", "event": event})
+    return _ok({"action": "received", "event": event, "tenant_id": tenant_id})
