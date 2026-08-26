@@ -32,10 +32,11 @@ httpx==0.27.2
 # ── Document parsing ───────────────────────────────────────────
 # pdfplumber pulls pdfminer-six; the 0.11.7 line ships the fixed
 # pdfminer-six (>=20250506) that closes PYSEC-2026-1761/1762.
-pdfplumber==0.11.7
-# Pin pdfminer.six explicitly; pdfplumber 0.11.7 declares a floor that
-# still allows the vulnerable 20250506 wheel. Closes PYSEC-2026-1761/1762.
-pdfminer.six>=20251230
+# pdfplumber 0.11.10 pins pdfminer.six==20260107, which is the first
+# release free of PYSEC-2026-1761/1762. Do NOT add an explicit
+# pdfminer.six pin here — pdfplumber's == pin conflicts with any
+# additional constraint.
+pdfplumber==0.11.10
 openpyxl==3.1.2
 python-docx==1.1.0
 # Pillow bumped to 12.x closes ~20 CVE advisories against 10.x.
