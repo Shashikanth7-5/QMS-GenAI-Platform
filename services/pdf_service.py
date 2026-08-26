@@ -100,6 +100,20 @@ def _fmt_refs(refs):
     return "\u2014"
 
 
+# Per-section body cap. Without this, a 10 MB blob of pasted notes causes
+# ReportLab to render an unboundedly tall Paragraph and consume worker
+# memory. 20 000 chars ~= 8 pages of dense text \u2014 enough for real CAPAs.
+_PDF_MAX_BODY_CHARS = 20000
+
+
+def _truncate_body(text: str, limit: int = _PDF_MAX_BODY_CHARS) -> str:
+    if not isinstance(text, str):
+        return "" if text is None else str(text)
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "\n\n[\u2026truncated \u2014 see full record in the QMS UI]"
+
+
 def build_capa_pdf(capa: dict, similar: list = None) -> bytes:
     """
     Render a CAPA dict to PDF bytes. `similar` (optional) is the RAG
@@ -144,11 +158,11 @@ def build_capa_pdf(capa: dict, similar: list = None) -> bytes:
     ]
     for label, text in sections:
         story.append(Paragraph(label, ss["SectionH"]))
-        story.append(Paragraph(_pdf_text(text), ss["Body"]))
+        story.append(Paragraph(_pdf_text(_truncate_body(text)), ss["Body"]))
 
     if capa.get("notes"):
         story.append(Paragraph("Additional Notes", ss["SectionH"]))
-        story.append(Paragraph(_pdf_text(capa["notes"]), ss["Body"]))
+        story.append(Paragraph(_pdf_text(_truncate_body(capa["notes"])), ss["Body"]))
 
     # Optional RAG related cases
     if similar:
