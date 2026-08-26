@@ -1,5 +1,5 @@
 # routes/analytics.py
-from flask import request, current_app
+from flask import request
 from collections import Counter
 from flask import Blueprint, jsonify, render_template
 from flask_login import login_required, current_user
