@@ -158,23 +158,23 @@ function refreshAgents() {
     fetch('/api/agents/status').then(r => r.json()),
     fetch('/api/agents/audit?limit=50').then(r => r.json()),
   ]).then(([status, audit]) => {
-    document.getElementById('pendingRecords').textContent = status.pendingRecords - '-';
+    document.getElementById('pendingRecords').textContent = status.pendingRecords ?? '-';
     document.getElementById('activeRuns').textContent = (status.activeRuns || []).length;
     document.getElementById('deadLetters').textContent = (status.deadLetterQueue || []).length;
-    document.getElementById('killSwitch').textContent = status.killSwitchActive  'ON' : 'OFF';
+    document.getElementById('killSwitch').textContent = status.killSwitchActive ? 'ON' : 'OFF';
     document.getElementById('latestRun').textContent = JSON.stringify(status.latestRun || {}, null, 2);
 
     const alerts = status.alerts || [];
-    document.getElementById('alertsList').innerHTML = alerts.length  alerts.map(a => `
+    document.getElementById('alertsList').innerHTML = alerts.length ? alerts.map(a => `
       <div class="alert-item">
         <div class="alert-item__title">${a.agent || '-'} - ${a.event || '-'}</div>
         <div>${a.status || '-'}</div>
-        <div class="alert-item__meta">${fmt(a.timestamp)} ${a.recordId  ' | ' + a.recordId : ''}</div>
+        <div class="alert-item__meta">${fmt(a.timestamp)} ${a.recordId ? ' | ' + a.recordId : ''}</div>
       </div>
     `).join('') : '<div class="table__empty">No agent alerts.</div>';
 
     const dead = status.deadLetterQueue || [];
-    document.getElementById('deadLetterBody').innerHTML = dead.length  dead.map(d => `
+    document.getElementById('deadLetterBody').innerHTML = dead.length ? dead.map(d => `
       <tr>
         <td class="table__id">${d.recordId || '-'}</td>
         <td>${d.attempts || '-'}</td>
@@ -185,7 +185,7 @@ function refreshAgents() {
     `).join('') : '<tr><td colspan="5" class="table__empty">No dead-lettered records.</td></tr>';
 
     const events = audit.events || [];
-    document.getElementById('auditBody').innerHTML = events.length  events.map(e => `
+    document.getElementById('auditBody').innerHTML = events.length ? events.map(e => `
       <tr>
         <td>${fmt(e.timestamp)}</td>
         <td>${e.agent || '-'}</td>
@@ -209,7 +209,7 @@ function runSupervisor() {
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({limit: 50})
   }).then(r => r.json()).then(data => {
-    setAgentBanner(`Supervisor run complete: ${data.processed || 0} processed, ${data.errors || 0} errors.`, data.status === 'ok'  'success' : 'warning');
+    setAgentBanner(`Supervisor run complete: ${data.processed || 0} processed, ${data.errors || 0} errors.`, data.status === 'ok' ? 'success' : 'warning');
     refreshAgents();
   }).catch(err => setAgentBanner('Supervisor run error: ' + err.message, 'error'))
     .finally(() => { btn.disabled = false; btn.textContent = 'Run Supervisor Now'; });
@@ -219,7 +219,7 @@ function requeueRecord(recordId) {
   fetch(`/api/agents/supervisor/dead-letter/${encodeURIComponent(recordId)}/requeue`, {method:'POST'})
     .then(r => r.json())
     .then(data => {
-      setAgentBanner(data.requeued  `Record ${recordId} requeued.` : `Record ${recordId} not found in dead-letter queue.`, data.requeued  'success' : 'warning');
+      setAgentBanner(data.requeued ? `Record ${recordId} requeued.` : `Record ${recordId} not found in dead-letter queue.`, data.requeued ? 'success' : 'warning');
       refreshAgents();
     })
     .catch(err => setAgentBanner('Requeue error: ' + err.message, 'error'));

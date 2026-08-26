@@ -455,7 +455,7 @@
 
 {% block extra_scripts %}
 <script>
-   STATE
+/* STATE */
 let allRecords      = [];
 let filteredRecords = [];
 let currentRecord   = null;
@@ -470,7 +470,7 @@ let proposedModels  = null;
 const TYPE_LBL  = {complaint:'Complaint',deviation:'Deviation',cc:'Change Ctrl',nc:'NC'};
 const CAT_ICONS = {Man:'Man',Machine:'Machine',Method:'Method',Material:'Material',Measurement:'Measurement',Environment:'Environment'};
 
-   BOOT
+/* BOOT */
 document.addEventListener('DOMContentLoaded', () => {
   loadRecords();
   bindTypeFilter();
@@ -482,9 +482,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-   RECORDS - FIX: limit=2000 to show all imported records
+/* Records - limit=2000 to show all imported records */
 function loadRecords() {
-  fetch('/api/recordslimit=2000').then(r=>r.json()).then(data=>{
+  fetch('/api/records?limit=2000').then(r=>r.json()).then(data=>{
     allRecords = filteredRecords = data.records||[];
     renderRecordList(allRecords);
     document.getElementById('recordCount').textContent = `${allRecords.length} records`;
@@ -501,7 +501,7 @@ function renderRecordList(recs) {
     const prioCls={Critical:'chip--critical',High:'chip--high',Medium:'chip--medium'}[r.priority]||'chip--medium';
     const typeCls={complaint:'chip--complaint',deviation:'chip--deviation',cc:'chip--cc'}[r.type]||'';
     return `
-      <div class="record-item ${currentRecord.id===r.id'record-item--active':''}"
+      <div class="record-item ${currentRecord && currentRecord.id === r.id ? 'record-item--active' : ''}"
            onclick='selectRecord(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
         <div class="record-item__id">${r.id}</div>
         <div class="record-item__title">${r.title}</div>
@@ -535,7 +535,7 @@ function bindTypeFilter() {
   });
 }
 
-   STEP 1 - SELECT RECORD
+/* STEP 1 - SELECT RECORD */
 function selectRecord(rec) {
   if (typeof rec==='string') rec=JSON.parse(rec);
   currentRecord = rec;
@@ -548,7 +548,7 @@ function selectRecord(rec) {
   setStep(1); resetWorkspaceOutput();
 }
 
-   STEP 2 - GENERATE
+/* STEP 2 - GENERATE */
 function generateRCA() {
   if (!currentRecord) return;
   const btn = document.getElementById('btnGenerate');
@@ -557,7 +557,7 @@ function generateRCA() {
   showOutput('<div class="spinner"></div>');
   hideVerdict();
 
-  const ep = currentMethod==='5why''/api/rca/five-why':'/api/rca/fishbone';
+  const ep = currentMethod === '5why' ? '/api/rca/five-why' : '/api/rca/fishbone';
   fetch(ep, {method:'POST', headers:{'Content-Type':'application/json'},
              body:JSON.stringify({record:currentRecord})})
     .then(r=>r.json())
@@ -578,7 +578,7 @@ function generateRCA() {
     });
 }
 
-   STEP 3 - ASSESS
+/* STEP 3 - ASSESS */
 function assessRCA() {
   if (!rcaData) return;
   const btn=document.getElementById('btnAssess');
@@ -609,8 +609,8 @@ function assessRCA() {
         hideBtn('btnAIImprove');
         setBanner(
           `Assessment: ${data.verdict} (${data.overall_score}%) - `+
-          (data.ready_to_submit  'Ready to approve' : 'Edit flagged steps and re-assess'),
-          data.verdict_color==='green''success':data.verdict_color==='amber''warning':'error'
+          (data.ready_to_submit ? 'Ready to approve' : 'Edit flagged steps and re-assess'),
+          data.verdict_color === 'green' ? 'success' : data.verdict_color === 'amber' ? 'warning' : 'error'
         );
       }
       setStatus('Assessment complete');
@@ -621,7 +621,7 @@ function assessRCA() {
     });
 }
 
-   STEP 4 - AI IMPROVE POPUP
+/* STEP 4 - AI IMPROVE POPUP */
 function openAIImprove() {
   if (!assessmentData) { assessRCA(); return; }
   document.getElementById('aiOverlay').classList.add('open');
@@ -639,10 +639,10 @@ function buildAIPopup() {
   const d = assessmentData;
   document.getElementById('aiModalSub').textContent =
     `Overall score: ${d.overall_score}% - ${d.verdict}. `+
-    (d.needs_ai_help  'Score is below 55% - AI will propose improved models.' :
+    (d.needs_ai_help ? 'Score is below 55% - AI will propose improved models.' :
      'Select a model below to upgrade your RCA quality.');
 
-  const overallColor = d.overall_score>=75'var(--green)':d.overall_score>=55'var(--amber)':'var(--red)';
+  const overallColor = d.overall_score >= 75 ? 'var(--green)' : d.overall_score >= 55 ? 'var(--amber)' : 'var(--red)';
   document.getElementById('aiScoreSummary').innerHTML = `
     <div class="score-card score-card--overall">
       <div class="score-card__val" style="color:${overallColor}">${d.overall_score}%</div>
@@ -654,7 +654,7 @@ function buildAIPopup() {
     </div>
     <div class="score-card">
       <div class="score-card__val" style="font-size:14px;margin-top:6px;">
-        ${d.needs_ai_help  'Needs improvement' : 'Acceptable'}
+        ${d.needs_ai_help ? 'Needs improvement' : 'Acceptable'}
       </div>
       <div class="score-card__label">Status</div>
     </div>`;
@@ -816,7 +816,7 @@ function applySelectedModel() {
   setStatus('Model applied - re-assess to score');
 }
 
-   STEP 5 - EDIT MODE
+/* STEP 5 - EDIT MODE */
 function toggleEditMode() {
   editMode = !editMode;
   const btn    = document.getElementById('btnEdit');
@@ -845,7 +845,7 @@ function toggleEditMode() {
   }
 }
 
-   RE-ASSESS with edited content
+/* RE-ASSESS with edited content */
 function reAssessRCA() {
   // Read edited values back into rcaData
   if (currentMethod === 'fishbone') {
@@ -863,7 +863,7 @@ function reAssessRCA() {
       const ta = document.querySelector(`.why-answer-edit[data-idx="${i}"]`);
       if (ta && ta.value.trim()) step.because = ta.value.trim();
     });
-    const last = rcaData.chain.[rcaData.chain.length-1];
+    const last = rcaData.chain?.[rcaData.chain.length - 1];
     if (last) rcaData.root_cause = last.because;
   }
 
@@ -873,7 +873,7 @@ function reAssessRCA() {
   assessRCA();
 }
 
-   STEP 6 - APPROVE + AUTO-REDIRECT TO CAPA
+/* STEP 6 - APPROVE + AUTO-REDIRECT TO CAPA */
 function approveRCA() {
   if (!rcaData) return;
 
@@ -881,12 +881,12 @@ function approveRCA() {
   let rootCause = '';
   if (currentMethod === '5why') {
     rootCause = rcaData.root_cause
-      || rcaData.chain.[rcaData.chain.length-1].because
+      || rcaData.chain?.[rcaData.chain.length - 1]?.because
       || '';
   } else {
     const primaries = Object.values(rcaData.categories||{})
       .flatMap(c => c.filter(x=>x.primary).map(x=>x.text));
-    rootCause = primaries.slice(0,2).join('; ') + (primaries.length  '.' : '');
+    rootCause = primaries.slice(0, 2).join('; ') + (primaries.length ? '.' : '');
   }
 
   const score = assessmentData.overall_score || '-';
@@ -936,7 +936,7 @@ function submitToCAPA() {
   let rootCause = '';
   if (currentMethod === '5why') {
     rootCause = rcaData.root_cause
-      || rcaData.chain.[rcaData.chain.length-1].because
+      || rcaData.chain?.[rcaData.chain.length - 1]?.because
       || document.getElementById('rcSummaryText').textContent
       || '';
   } else {
@@ -956,21 +956,21 @@ function submitToCAPA() {
 
   setBanner('Transferring to CAPA Creation...', 'success');
   setTimeout(() => {
-    window.location.href = `/capa/create${params.toString()}`;
+    window.location.href = `/capa/create?${params.toString()}`;
   }, 400);
 }
 
-   RENDER FUNCTIONS
+/* RENDER FUNCTIONS */
 function render5Why(data, scored) {
   const steps = (scored && assessmentData.assessed_steps)
-     assessmentData.assessed_steps
+    ? assessmentData.assessed_steps
     : data.chain || [];
 
   const html = steps.map((s,i) => {
     const score = s.score;
     const badge = score
-       `<span class="cause-score-badge score--${score.color}">${score.overall}%</span>` : '';
-    const bars = score  `
+      ? `<span class="cause-score-badge score--${score.color}">${score.overall}%</span>` : '';
+    const bars = score ? `
       <div class="score-bars">
         ${['specificity','actionability','completeness'].map(k=>`
           <div class="score-bar">
@@ -982,12 +982,12 @@ function render5Why(data, scored) {
           </div>`).join('')}
       </div>` : '';
     const hint = score && score.overall < 55
-       `<div class="cause-ai-hint visible">Suggestion: ${score.improvement}</div>` : '';
+      ? `<div class="cause-ai-hint visible">Suggestion: ${score.improvement}</div>` : '';
 
     return `
       <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px dashed var(--border);">
         <div style="width:28px;height:28px;border-radius:50%;
-                    background:${s.is_root'var(--red)':'var(--blue)'};color:#fff;
+                    background:${s.is_root ? 'var(--red)' : 'var(--blue)'};color:#fff;
                     font-size:11px;font-weight:700;display:flex;align-items:center;
                     justify-content:center;flex-shrink:0;margin-top:4px;">
           ${s.level}
@@ -1004,7 +1004,7 @@ function render5Why(data, scored) {
                     data-idx="${i}" rows="3"
                     placeholder="Edit this step: add SOP references, equipment IDs, and dates."
                     >${s.because}</textarea>
-          ${s.is_root'<span style="display:inline-block;background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;text-transform:uppercase;margin-top:4px;">Root Cause</span>':''}
+          ${s.is_root ? '<span style="display:inline-block;background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;text-transform:uppercase;margin-top:4px;">Root Cause</span>' : ''}
           ${bars}${hint}
         </div>
       </div>`;
@@ -1016,7 +1016,7 @@ function render5Why(data, scored) {
 
 function renderFishbone(data, scored) {
   const cats = (scored && assessmentData.assessed_categories)
-     assessmentData.assessed_categories
+    ? assessmentData.assessed_categories
     : data.categories || {};
 
   const html = Object.entries(cats).map(([cat, causes]) => {
@@ -1024,8 +1024,8 @@ function renderFishbone(data, scored) {
     const causesHtml = causes.map((c,i) => {
       const score = c.score;
       const badge = score
-         `<span class="cause-score-badge score--${score.color}">${score.overall}%</span>` : '';
-      const bars = score  `
+        ? `<span class="cause-score-badge score--${score.color}">${score.overall}%</span>` : '';
+      const bars = score ? `
         <div class="score-bars">
           ${['specificity','actionability','completeness'].map(k=>`
             <div class="score-bar">
@@ -1037,17 +1037,17 @@ function renderFishbone(data, scored) {
             </div>`).join('')}
         </div>` : '';
       const hint = score && score.overall < 55
-         `<div class="cause-ai-hint visible">Suggestion: ${score.improvement}</div>` : '';
+        ? `<div class="cause-ai-hint visible">Suggestion: ${score.improvement}</div>` : '';
 
       return `
         <div class="cause-row">
           <div class="cause-row__top">
             <input type="checkbox" class="cause-checkbox"
-                   ${c.primary'checked':''}
+                   ${c.primary ? 'checked' : ''}
                    onchange="togglePrimary('${cat}',${i},this.checked)"/>
             <div style="flex:1;">
-              <span class="cause-text ${c.primary'cause-text--primary':''}">
-                ${c.primary'* ':''} ${c.text}
+              <span class="cause-text ${c.primary ? 'cause-text--primary' : ''}">
+                ${c.primary ? '* ' : ''} ${c.text}
               </span>
               ${badge}
             </div>
@@ -1062,7 +1062,7 @@ function renderFishbone(data, scored) {
     }).join('');
 
     return `
-      <div class="fb-cat ${hasPrimary'fb-cat--primary':''}">
+      <div class="fb-cat ${hasPrimary ? 'fb-cat--primary' : ''}">
         <div class="fb-cat__title">
           <span>${CAT_ICONS[cat]||'Category'}</span> ${cat}
         </div>
@@ -1078,7 +1078,7 @@ function renderFishbone(data, scored) {
 }
 
 function addCause(cat) {
-  if (!rcaData.categories.[cat]) return;
+  if (!rcaData.categories[cat]) return;
   rcaData.categories[cat].push({text: '', primary: false});
   renderFishbone(rcaData, false);
   document.getElementById('rcaOutput').classList.add('edit-mode');
@@ -1087,7 +1087,7 @@ function addCause(cat) {
 }
 
 function togglePrimary(cat, idx, checked) {
-  if (rcaData.categories.[cat].[idx] !== undefined) {
+  if (rcaData.categories[cat]?.[idx] !== undefined) {
     rcaData.categories[cat][idx].primary = checked;
   }
 }
@@ -1104,7 +1104,7 @@ function renderVerdictBar(a) {
   bar.style.display = 'flex';
 }
 
-   UTILITIES
+/* UTILITIES */
 function switchMethod(m) {
   currentMethod = m;
   document.getElementById('tab5why').classList.toggle('method-tab--active', m==='5why');
@@ -1122,7 +1122,7 @@ function resetWorkspaceOutput() {
   ['btnAssess','btnEdit','btnReAssess','btnApprove','btnAIImprove'].forEach(hideBtn);
   const gb=document.getElementById('btnGenerate');
   gb.textContent='Generate RCA'; gb.disabled=!currentRecord;
-  setStatus(currentRecord'Ready - click Generate RCA':'No record selected');
+  setStatus(currentRecord ? 'Ready - click Generate RCA' : 'No record selected');
 }
 
 function resetWorkspace() {

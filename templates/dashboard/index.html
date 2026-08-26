@@ -274,7 +274,7 @@
   }
   function ageBadge(d){
     if(!d) return '<span style="color:var(--text-muted);font-size:11px;">-</span>';
-    const cls = d>30'color:var(--red)':d>14'color:var(--amber)':'color:var(--text-muted)';
+    const cls = d > 30 ? 'color:var(--red)' : d > 14 ? 'color:var(--amber)' : 'color:var(--text-muted)';
     return `<span style="font-size:11px;${cls}">${d}d</span>`;
   }
 
@@ -323,7 +323,7 @@
   /* -- Section tabs -- */
   function showSection(s){
     document.getElementById('sectionQuality').style.display = s==='quality'?'':'none';
-    document.getElementById('sectionCAPAs').style.display   = s==='capas''':'none';
+    document.getElementById('sectionCAPAs').style.display   = s==='capas'?'':'none';
     document.getElementById('tabQuality').classList.toggle('section-tab--active',s==='quality');
     document.getElementById('tabCAPAs').classList.toggle('section-tab--active',s==='capas');
   }
@@ -373,7 +373,7 @@
     const tbody = document.getElementById('tableBody');
     if(!recs.length){
       tbody.innerHTML = SEES_ALL
-         '<tr><td colspan="9" class="table__empty">No records match filters.</td></tr>'
+        ? '<tr><td colspan="9" class="table__empty">No records match filters.</td></tr>'
         : '<tr><td colspan="9" class="table__empty">No records found. Enter a Record ID above to search.</td></tr>';
       return;
     }
@@ -383,7 +383,7 @@
       const canAct = true;
       const existingCapa = capaByRecord[r.id];
       const recordLink = existingCapa
-         `/capa/create?id=${encodeURIComponent(r.id)}&capaId=${encodeURIComponent(existingCapa.capaId)}`
+        ? `/capa/create?id=${encodeURIComponent(r.id)}&capaId=${encodeURIComponent(existingCapa.capaId)}`
         : `/capa/create?id=${encodeURIComponent(r.id)}`;
       let action = '';
       if(canAct){
@@ -395,7 +395,7 @@
         }
       }
       return `
-      <tr class="${r.status==='Under Review''row--review':r.status==='Approved''row--approved':''}" onclick="toggleRecordDetails('${r.id}')" style="cursor:pointer;">
+      <tr class="${r.status==='Under Review' ? 'row--review' : r.status==='Approved' ? 'row--approved' : ''}" onclick="toggleRecordDetails('${r.id}')" style="cursor:pointer;">
         <td class="table__id"><a href="${recordLink}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;">${r.id}</a></td>
         <td style="font-size:12px;line-height:1.4;">${r.title}
           <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${r.sector||''}</div>
@@ -419,7 +419,7 @@
               <div><strong>Status:</strong> ${r.status||'-'}</div>
               <div><strong>Owner:</strong> ${r.owner||'-'}</div>
               <div><strong>Detected:</strong> ${r.detectedDate||'-'}</div>
-              <div><strong>CAPA:</strong> ${existingCapa  `${existingCapa.capaId} (${existingCapa.status})` : 'Not created yet'}</div>
+              <div><strong>CAPA:</strong> ${existingCapa ? `${existingCapa.capaId} (${existingCapa.status})` : 'Not created yet'}</div>
               <div><strong>Refs:</strong> ${(r.regulatoryRef||[]).join(', ') || '-'}</div>
             </div>
           </div>
@@ -430,7 +430,7 @@
 
   function toggleRecordDetails(recordId){
     const row = document.getElementById(`detail-${recordId}`);
-    if(row) row.style.display = row.style.display === 'none'  '' : 'none';
+    if(row) row.style.display = row.style.display === 'none' ? '' : 'none';
   }
 
   /* -- Render CAPA table -- */
@@ -448,12 +448,12 @@
     }
     if(!capas.length){
       tbody.innerHTML=`<tr><td colspan="9" class="table__empty">${
-        allCapas.length===0'No CAPA drafts yet.':'No CAPAs match filters.'
+        allCapas.length===0 ? 'No CAPA drafts yet.' : 'No CAPAs match filters.'
       }</td></tr>`;
       return;
     }
     tbody.innerHTML = capas.map(c=>{
-      const date = c.createdAtnew Date(c.createdAt).toLocaleDateString('en-GB'):'-';
+      const date = c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-GB') : '-';
       const prio = c.priority||'-';
       /* Admin-only approve/reject/close buttons */
       let statusBtns = '';
@@ -470,7 +470,7 @@
         }
       }
       return `
-      <tr class="${c.status==='Approved''row--approved':(c.status==='Under Review'||c.status==='Pending Correction')'row--review':''}">
+      <tr class="${c.status==='Approved' ? 'row--approved' : (c.status==='Under Review'||c.status==='Pending Correction') ? 'row--review' : ''}">
         <td style="font-family:monospace;font-size:11px;color:var(--green);font-weight:700;"><a href="/capa/create?id=${c.sourceRecordId}&capaId=${c.capaId}" style="color:inherit;text-decoration:underline;">${c.capaId}</a></td>
         <td style="font-family:monospace;font-size:10px;color:var(--blue);"><a href="/capa/create?id=${c.sourceRecordId}&capaId=${c.capaId}" style="color:inherit;text-decoration:underline;">${c.sourceRecordId}</a></td>
         <td style="font-size:12px;max-width:200px;">${c.sourceRecordTitle||'-'}
@@ -510,7 +510,7 @@
       eSignature = {
         password,
         meaning: newStatus === 'Approved'
-           'I approve this CAPA workflow decision.'
+          ? 'I approve this CAPA workflow decision.'
           : 'I reject this CAPA and route it back for correction.',
       };
     }
@@ -563,8 +563,8 @@
       .then(r=>r.json().then(data=>({ok:r.ok,data})))
       .then(({ok,data})=>{
         if(!ok) throw new Error(data.error||data.summary||'Agent review failed');
-        const decision = data.capaTriggered  'CAPA recommended' : 'Monitor only';
-        const draft = data.draft  ' Draft prepared for human review.' : '';
+        const decision = data.capaTriggered ? 'CAPA recommended' : 'Monitor only';
+        const draft = data.draft ? ' Draft prepared for human review.' : '';
         setBanner(`Agent review complete: ${decision}.${draft}`,'success');
       })
       .catch(err=>setBanner('Agent review error: '+err.message,'error'))

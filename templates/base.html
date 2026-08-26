@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="csrf-token" content="{{ csrf_token() }}"/>
   <title>{% block title %}AI Quality Management System{% endblock %}</title>
-  <link href="https://fonts.googleapis.com/css2family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -66,7 +66,7 @@
     }
     a { color: var(--blue); text-decoration: none; }
 
-       NAVBAR
+    /* Navbar */
     .navbar {
       position: sticky; top: 0; z-index: 200;
       height: 56px;
@@ -216,7 +216,7 @@
     .user-dropdown__item--danger:hover { background: var(--red-pale); }
     .user-dropdown__divider { height: 1px; background: var(--border); margin: 4px 0; }
 
-       TAB BAR
+    /* Tab bar */
     .tabbar {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -252,12 +252,16 @@
       font-size: 10px; font-weight: 600;
     }
 
-       LAYOUT
-    .layout { display: block; min-height: calc(100vh - 56px); }
+    /* Layout */
+    .layout {
+      display: block;
+      min-height: calc(100vh - 56px);
+      width: 100%;
+    }
 
-       SIDEBAR
+    /* Sidebar is retained in markup for compatibility; top navigation is the active UI. */
     .sidebar {
-      display: none;
+      display: none !important;
       width: var(--sidebar-w); flex-shrink: 0;
       background: var(--navy-mid);
       border-right: 1px solid rgba(255,255,255,0.05);
@@ -338,7 +342,7 @@
     .sidebar-stat__label { color: rgba(255,255,255,0.35); }
     .sidebar-stat__value { font-weight: 600; color: rgba(255,255,255,0.75); }
 
-       MAIN
+    /* Main content */
     .main {
       padding:28px 32px;
       overflow-x:auto;
@@ -351,7 +355,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-       BANNER
+    /* Banner */
     .banner {
       display: flex; align-items: center; gap: 10px;
       padding: 11px 16px; border-radius: var(--r-lg);
@@ -364,7 +368,7 @@
     .banner--warning { background:var(--amber-pale);  border-color:#fde68a; color:#92400e; }
     .banner--error   { background:var(--red-pale);    border-color:#fecaca; color:#991b1b; }
 
-       METRIC CARDS
+    /* Metric cards */
     .metrics {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(138px,1fr));
@@ -405,7 +409,7 @@
     .metric-card--amber  .metric-card__value { color: var(--amber); }
     .metric-card--purple .metric-card__value { color: var(--purple); }
 
-       BUTTONS
+    /* Buttons */
     .btn {
       display: inline-flex; align-items: center;
       justify-content: center; gap: 6px;
@@ -442,7 +446,7 @@
     }
     .btn--sm { height:30px; padding:0 12px; font-size:11px; }
 
-       BADGES
+    /* Badges */
     .badge {
       display: inline-flex; align-items: center;
       padding: 3px 9px; font-size: 10px; font-weight: 700;
@@ -461,7 +465,7 @@
     .badge--cc       { background:var(--purple-pale); color:var(--purple); border-color:#ddd6fe; }
     .badge--nc       { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
 
-       FILTERS BAR
+    /* Filters bar */
     .filters {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--r-xl); padding: 14px 18px;
@@ -494,7 +498,7 @@
     }
     .search-input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
 
-       TABLE
+    /* Table */
     .table-wrap {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--r-xl); overflow:hidden; box-shadow:var(--shadow-sm);
@@ -524,7 +528,7 @@
       color:var(--text-muted); font-size:13px;
     }
 
-       PAGE HEADER
+    /* Page header */
     .page-header {
       display:flex; align-items:flex-start;
       justify-content:space-between; flex-wrap:wrap;
@@ -534,7 +538,7 @@
     .page-subtitle { font-size:12px; color:var(--text-muted); margin-top:4px; max-width:560px; line-height:1.6; }
     .page-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 
-       HELP MODAL
+    /* Help modal */
     .help-overlay {
       display: none;
       position: fixed; inset: 0; z-index: 500;
@@ -775,15 +779,15 @@
 
     <div class="sidebar__section">Source Filters</div>
 
-    <a href="/type=complaint" class="sidebar__item {% if active_filter=='complaint' %}sidebar__item--active{% endif %}">
+    <a href="/?type=complaint" class="sidebar__item {% if active_filter=='complaint' %}sidebar__item--active{% endif %}">
       <span class="sidebar__icon">CP</span> Complaints
       <span class="sidebar__count" id="sbComplaintCount">-</span>
     </a>
-    <a href="/type=deviation" class="sidebar__item {% if active_filter=='deviation' %}sidebar__item--active{% endif %}">
+    <a href="/?type=deviation" class="sidebar__item {% if active_filter=='deviation' %}sidebar__item--active{% endif %}">
       <span class="sidebar__icon">DV</span> Deviations
       <span class="sidebar__count" id="sbDeviationCount">-</span>
     </a>
-    <a href="/type=cc" class="sidebar__item {% if active_filter=='cc' %}sidebar__item--active{% endif %}">
+    <a href="/?type=cc" class="sidebar__item {% if active_filter=='cc' %}sidebar__item--active{% endif %}">
       <span class="sidebar__icon">CC</span> Change Control
       <span class="sidebar__count" id="sbCCCount">-</span>
     </a>
@@ -1176,11 +1180,11 @@ fetch('/api/metrics')
                 display: c => c.dataset.data[c.dataIndex] > 0,
                 color: '#fff',
                 font: { size: 9, weight: 'bold' },
-                formatter: v => v > 0  v : ''
+                formatter: v => v > 0 ? v : ''
               }
             }
           },
-          plugins: typeof ChartDataLabels !== 'undefined'  [ChartDataLabels] : []
+          plugins: typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : []
         });
       }
     }).catch(()=>{});
@@ -1263,10 +1267,6 @@ fetch('/api/metrics')
       }
     }).catch(() => {});
   {% endif %}
-      });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-  });
 </script>
 
 <script>
@@ -1285,7 +1285,7 @@ fetch('/api/metrics')
       init = init || {};
       var method = (init.method || (typeof input !== "string" && input.method) || "GET").toUpperCase();
       if (STATE_CHANGING[method]) {
-        var url = typeof input === "string"  input : (input && input.url) || "";
+        var url = typeof input === "string" ? input : (input && input.url) || "";
         // Same-origin only — don't leak the token to third parties.
         var isSameOrigin = url.startsWith("/") || url.startsWith(window.location.origin);
         if (isSameOrigin) {

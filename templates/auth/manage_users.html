@@ -286,7 +286,7 @@
   }
   function filterTable(tbodyId,q){
     document.querySelectorAll('#'+tbodyId+' tr[data-search]').forEach(r=>{
-      r.style.display=r.dataset.search.includes(q.toLowerCase())'':'none';
+      r.style.display = r.dataset.search.includes(q.toLowerCase()) ? '' : 'none';
     });
   }
   function openRejectModal(uid,name,uname){

@@ -1467,14 +1467,14 @@
       _showRCAScoreBadge(score);
     }
     const msg = score
-       `OK RCA (${score}%) transferred from RCA Analysis - root cause pre-filled. Generate CAPA to complete.`
+      ? `OK RCA (${score}%) transferred from RCA Analysis - root cause pre-filled. Generate CAPA to complete.`
       : 'OK RCA root cause transferred - review and generate CAPA.';
     setBanner(msg, 'success');
   }
 
   /* -- Load all records into dropdown ---------------------- */
   function loadRecordOptions() {
-    return fetch('/api/recordslimit=2000')
+    return fetch('/api/records?limit=2000')
       .then(r => r.json())
       .then(data => {
         const sel = document.getElementById('recordSelect');
@@ -1521,7 +1521,7 @@
   /* -- Fill source record fields (read-only) ---------------- */
   function loadExistingCapaForRecord(recordId) {
     fetch(`/api/capas/by-record/${encodeURIComponent(recordId)}`)
-      .then(r => r.ok  r.json() : null)
+      .then(r => r.ok ? r.json() : null)
       .then(capa => {
         if (!capa) return;
         currentCapa = capa;
@@ -1563,8 +1563,8 @@
     const authority = document.getElementById('fAuthorityNotification').value === 'Yes';
     const supplierFields = document.getElementById('supplierFields');
     const authorityFields = document.getElementById('authorityFields');
-    if (supplierFields) supplierFields.style.display = supplier  '' : 'none';
-    if (authorityFields) authorityFields.style.display = authority  '' : 'none';
+    if (supplierFields) supplierFields.style.display = supplier ? '' : 'none';
+    if (authorityFields) authorityFields.style.display = authority ? '' : 'none';
   }
 
   function collectCapaMetadata() {
@@ -1599,7 +1599,7 @@
     set('fImpactDetail', meta.impactAssessmentDetail);
     set('fSupplierDetails', meta.supplierDetails);
     set('fAuthorityDetails', meta.authorityDetails);
-    capaAttachments = Array.isArray(meta.attachments)  meta.attachments : [];
+    capaAttachments = Array.isArray(meta.attachments) ? meta.attachments : [];
     renderCapaAttachments();
     evaluateCapaEligibility();
   }
@@ -1635,7 +1635,7 @@
     } catch (err) {
       capaAttachments = capaAttachments.map(file =>
         file.uploadStatus === 'Uploading'
-           {...file, uploadStatus: 'Upload failed: ' + err.message}
+          ? {...file, uploadStatus: 'Upload failed: ' + err.message}
           : file
       );
       setBanner('Attachment upload failed: ' + err.message, 'error');
@@ -1743,7 +1743,7 @@
     summaryEl.classList.remove('visible');
 
     const endpoint = rcaMethod === '5why'
-       '/api/rca/five-why' : '/api/rca/fishbone';
+      ? '/api/rca/five-why' : '/api/rca/fishbone';
 
     fetch(endpoint, {
       method: 'POST',
@@ -1756,7 +1756,7 @@
       currentMethod = rcaMethod;
       if (rcaMethod === '5why') render5Why(data, false);
       else                       renderFishbone(data, false);
-      statusEl.textContent = `OK ${rcaMethod === '5why'  '5-Why' : 'Fishbone'} complete`;
+      statusEl.textContent = `OK ${rcaMethod === '5why' ? '5-Why' : 'Fishbone'} complete`;
       _showRCAButtons();
     })
     .catch(err => {
@@ -1768,23 +1768,23 @@
   /* -- Render 5-Why chain (editable + score badges) ----------- */
   function render5Why(data, scored) {
     const steps = (scored && rcaAssessment.assessed_steps)
-       rcaAssessment.assessed_steps : (data.chain || []);
+      ? rcaAssessment.assessed_steps : (data.chain || []);
     const html = steps.map((s,i) => {
       const score = s.score;
       const badge = score
-         `<span style="background:${score.color==='green''var(--green-pale)':score.color==='amber''var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green''var(--green)':score.color==='amber''var(--amber)':'var(--red)'};border:1px solid;border-radius:20px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;">${score.overall}%</span>` : '';
-      const bars = score  `<div style="margin-top:4px;font-size:10px;color:var(--text-muted);">
+        ? `<span style="background:${score.color==='green' ? 'var(--green-pale)' : score.color==='amber' ? 'var(--amber-pale)' : 'var(--red-pale)'};color:${score.color==='green' ? 'var(--green)' : score.color==='amber' ? 'var(--amber)' : 'var(--red)'};border:1px solid;border-radius:20px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;">${score.overall}%</span>` : '';
+      const bars = score ? `<div style="margin-top:4px;font-size:10px;color:var(--text-muted);">
         Specificity: ${score.specificity}%  -  Actionability: ${score.actionability}%  -  Completeness: ${score.completeness}%
       </div>` : '';
       return `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px dashed var(--border);">
-        <div style="width:26px;height:26px;border-radius:50%;background:${s.is_root'var(--red)':'var(--blue)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;">${s.level}</div>
+        <div style="width:26px;height:26px;border-radius:50%;background:${s.is_root ? 'var(--red)' : 'var(--blue)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;">${s.level}</div>
         <div style="flex:1;">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:3px;">${s.why}${badge}</div>
           <div class="why-answer-display" style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:3px;">${s.because}</div>
           <textarea class="why-answer-edit" data-idx="${i}" rows="2"
             style="display:none;width:100%;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
             placeholder="Edit this step - add SOP ref, equipment ID, date...">${s.because}</textarea>
-          ${s.is_root'<span style="background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;"> Root Cause</span>':''}
+          ${s.is_root ? '<span style="background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;"> Root Cause</span>' : ''}
           ${bars}
         </div>
       </div>`;
@@ -1801,25 +1801,25 @@
   /* -- Render Fishbone (editable + score badges + add field) - */
   function renderFishbone(data, scored) {
     const cats = (scored && rcaAssessment.assessed_categories)
-       rcaAssessment.assessed_categories : (data.categories || {});
+      ? rcaAssessment.assessed_categories : (data.categories || {});
     const html = Object.entries(cats).map(([cat, causes]) => {
       const hasPrimary = causes.some(c=>c.primary);
       const causesHtml = causes.map((c,i) => {
         const score = c.score;
         const badge = score
-           `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;background:${score.color==='green''var(--green-pale)':score.color==='amber''var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green''var(--green)':score.color==='amber''var(--amber)':'var(--red)'};">${score.overall}%</span>` : '';
+          ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;background:${score.color==='green' ? 'var(--green-pale)' : score.color==='amber' ? 'var(--amber-pale)' : 'var(--red-pale)'};color:${score.color==='green' ? 'var(--green)' : score.color==='amber' ? 'var(--amber)' : 'var(--red)'};">${score.overall}%</span>` : '';
         return `<div class="cause-row" style="margin-bottom:8px;">
           <div style="display:flex;align-items:flex-start;gap:6px;">
-            <input type="checkbox" style="margin-top:3px;accent-color:var(--blue);" ${c.primary'checked':''}
+            <input type="checkbox" style="margin-top:3px;accent-color:var(--blue);" ${c.primary ? 'checked' : ''}
               onchange="toggleFBPrimary('${cat}',${i},this.checked)"/>
-            <span class="fishbone-cause ${c.primary'fishbone-cause--primary':''}" style="flex:1;font-size:12px;">${c.primary'Warning ':'- '}${c.text}${badge}</span>
+            <span class="fishbone-cause ${c.primary ? 'fishbone-cause--primary' : ''}" style="flex:1;font-size:12px;">${c.primary ? 'Warning ' : '- '}${c.text}${badge}</span>
           </div>
           <textarea class="cause-edit-area" data-cat="${cat}" data-idx="${i}" rows="2"
             style="display:none;width:100%;margin-top:5px;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
             placeholder="Edit cause - add SOP ref, equipment ID, date...">${c.text}</textarea>
         </div>`;
       }).join('');
-      return `<div class="fishbone-cat ${hasPrimary'fishbone-cat--primary':''}">
+      return `<div class="fishbone-cat ${hasPrimary ? 'fishbone-cat--primary' : ''}">
         <div class="fishbone-cat__title"><span class="fishbone-cat__icon">${CAT_ICONS[cat]||'-'}</span>${cat}</div>
         ${causesHtml}
         <button onclick="addFBCause('${cat}')"
@@ -1840,7 +1840,7 @@
   }
 
   function addFBCause(cat) {
-    if (!rcaData.categories.[cat]) return;
+    if (!rcaData.categories[cat]) return;
     rcaData.categories[cat].push({text:'',primary:false});
     renderFishbone(rcaData,false);
     document.getElementById('rcaOutput').classList.add('edit-mode');
@@ -1849,7 +1849,7 @@
   }
 
   function toggleFBPrimary(cat,idx,checked) {
-    if(rcaData.categories.[cat].[idx]!==undefined)
+    if (rcaData.categories[cat]?.[idx] !== undefined)
       rcaData.categories[cat][idx].primary=checked;
   }
 
@@ -1987,7 +1987,7 @@
                 CAPA <strong>${result.capaId}</strong> saved. Record status - Under Review
                 <a href="/api/capa/${result.capaId}/export" target="_blank" class="btn btn--secondary btn--sm" style="margin-left:auto;">Export PDF</a>
                 <button onclick="printCAPA('${result.capaId}')" class="btn btn--secondary btn--sm">Print</button>
-                <a href="/section=capas" style="font-size:11px;color:var(--green);font-weight:600;">View in Dashboard</a>
+                <a href="/?section=capas" style="font-size:11px;color:var(--green);font-weight:600;">View in Dashboard</a>
             </div>`;
         setBanner(`${result.capaId} saved - view it in Dashboard CAPA Records tab`, 'success');
     })
@@ -2011,14 +2011,14 @@ function printCAPA(capaId) {
     }
 }
 
-     INQUIRY CHAT - grounded on the loaded record
+/* INQUIRY CHAT - grounded on the loaded record */
   let _inquiryHistory = [];   // [{role, content}, ...]
 
   function showInquiryPanel(rec) {
     const panel = document.getElementById('inquiryPanel');
     panel.classList.add('visible');
     document.getElementById('inquiryRecordLabel').textContent =
-      `${rec.id}  -  ${rec.title.substring(0,60)}${rec.title.length > 60  '...' : ''}`;
+      `${rec.id} - ${rec.title.substring(0, 60)}${rec.title.length > 60 ? '...' : ''}`;
   }
 
   function clearInquiry() {
@@ -2051,7 +2051,7 @@ function printCAPA(capaId) {
       .replace(/`(.+)`/g,'<code>$1</code>')
       .replace(/\n/g,'<br>');
     div.innerHTML = `
-      <div class="msg__avatar">${role === 'user'  '' : ''}</div>
+      <div class="msg__avatar">${role === 'user' ? 'U' : 'AI'}</div>
       <div class="msg__bubble">${html}</div>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
@@ -2092,7 +2092,7 @@ function printCAPA(capaId) {
       const t = document.getElementById('_typingMsg');
       if (t) t.remove();
 
-      const answer = data.error  `Warning ${data.error}` : (data.answer || 'No response.');
+      const answer = data.error ? `Warning ${data.error}` : (data.answer || 'No response.');
       _appendMsg('assistant', answer);
       if (!data.error) _inquiryHistory.push({ role: 'assistant', content: answer });
     } catch (err) {
@@ -2183,8 +2183,8 @@ function printCAPA(capaId) {
       rcaAssessment = d;
       btn.disabled = false; btn.textContent = ' Reassess Score';
       const score   = d.overall_score || 0;
-      const verdict = score >= 75  'Strong RCA' : score >= 55  'Moderate RCA' : 'Needs Improvement';
-      const color   = score >= 75  'var(--green)' : score >= 55  'var(--amber)' : 'var(--red)';
+      const verdict = score >= 75 ? 'Strong RCA' : score >= 55 ? 'Moderate RCA' : 'Needs Improvement';
+      const color   = score >= 75 ? 'var(--green)' : score >= 55 ? 'var(--amber)' : 'var(--red)';
 
       // Re-render with scores
       if (currentMethod === '5why') render5Why(rcaData, true);
@@ -2206,7 +2206,7 @@ function printCAPA(capaId) {
           rcaSummary.appendChild(sb);
         }
       }
-      setBanner(`OK Reassessment: ${verdict} (${score}%)`, score>=75'success':'warning');
+      setBanner(`OK Reassessment: ${verdict} (${score}%)`, score >= 75 ? 'success' : 'warning');
     })
     .catch(() => {
       btn.disabled = false; btn.textContent = ' Reassess Score';
@@ -2226,8 +2226,8 @@ function printCAPA(capaId) {
   function _showRCAScoreBadge(score) {
     const existing = document.getElementById('rcaScoreBadge');
     if (existing) existing.remove();
-    const color = score >= 75  'var(--green)' : score >= 55  'var(--amber)' : 'var(--red)';
-    const label = score >= 75  'Strong' : score >= 55  'Moderate' : 'Weak';
+    const color = score >= 75 ? 'var(--green)' : score >= 55 ? 'var(--amber)' : 'var(--red)';
+    const label = score >= 75 ? 'Strong' : score >= 55 ? 'Moderate' : 'Weak';
     const badge = document.createElement('div');
     badge.id = 'rcaScoreBadge';
     badge.style.cssText = `display:flex;align-items:center;justify-content:space-between;
@@ -2253,7 +2253,7 @@ function printCAPA(capaId) {
       </div>`;
     document.getElementById('rcaSummary').classList.remove('visible');
     document.getElementById('rcaStatus').textContent =
-      currentRecord  'Ready to analyse' : 'No record selected';
+      currentRecord ? 'Ready to analyse' : 'No record selected';
   }
 
   function clearForm() {
@@ -2340,7 +2340,7 @@ function printCAPA(capaId) {
   /* -- File icons by extension -- */
   function fileIcon(name) {
     const ext = (name.split('.').pop() || 'FILE').toUpperCase();
-    return ext.length <= 5  ext : 'FILE';
+    return ext.length <= 5 ? ext : 'FILE';
   }
 
   function setUploadFile(file) {
@@ -2466,7 +2466,7 @@ function printCAPA(capaId) {
   }
 
 
-     AI IMPROVE MODAL - inline CAPA page
+/* AI IMPROVE MODAL - inline CAPA page */
   let _aiProposedModels = null;
   let _aiSelectedModelId = null;
 
