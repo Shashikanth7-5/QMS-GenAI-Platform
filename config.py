@@ -152,6 +152,15 @@ AGENT_SUPERVISOR_INTERVAL_SECONDS = int(os.getenv("AGENT_SUPERVISOR_INTERVAL_SEC
 AGENT_SUPERVISOR_LIMIT = int(os.getenv("AGENT_SUPERVISOR_LIMIT", "50"))
 AGENT_SUPERVISOR_ALLOW_WEEKEND = os.getenv("AGENT_SUPERVISOR_ALLOW_WEEKEND", "false").lower() == "true"
 
+# AGENT_AUTOSAVE_CAPA_DRAFT — when the supervisor runs autonomously, should
+# it persist the generated CAPA draft to the DB? Default OFF in production so
+# every draft requires an explicit human "Approve" action. TrackWise pilot
+# tenants can opt-in by setting AGENT_AUTOSAVE_CAPA_DRAFT=true.
+AGENT_AUTOSAVE_CAPA_DRAFT = os.getenv(
+    "AGENT_AUTOSAVE_CAPA_DRAFT",
+    "false" if IS_PRODUCTION else "true",
+).lower() == "true"
+
 # File storage
 UPLOAD_STORAGE_BACKEND = os.getenv("UPLOAD_STORAGE_BACKEND", "local").strip().lower()
 UPLOAD_STORAGE_DIR = os.getenv(

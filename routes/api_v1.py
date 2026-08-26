@@ -580,16 +580,20 @@ def api_analytics():
 # ══════════════════════════════════════════════════════════════
 @api_v1_bp.route("/webhooks/salesforce", methods=["POST"])
 def salesforce_webhook():
-    if IS_PRODUCTION and not SF_WEBHOOK_SECRET:
+    # Webhook signature is required in every environment. If the secret is
+    # unset the endpoint MUST NOT accept traffic — legacy behavior that
+    # skipped verification in dev is a security bypass because dev endpoints
+    # are still reachable from the public internet during TrackWise
+    # integration testing.
+    if not SF_WEBHOOK_SECRET:
         log.error("api_v1.sf_webhook.disabled_no_secret")
         return _err("Salesforce webhook is disabled: signing secret not configured.", 503, "webhook_disabled")
 
-    if SF_WEBHOOK_SECRET:
-        sig = request.headers.get("X-Salesforce-Signature", "")
-        expected = hmac.new(SF_WEBHOOK_SECRET.encode(), request.data, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, expected):
-            log.warning("api_v1.sf_webhook.bad_signature", extra={"ip": request.remote_addr})
-            return _err("Invalid signature", 401, "unauthorized")
+    sig = request.headers.get("X-Salesforce-Signature", "")
+    expected = hmac.new(SF_WEBHOOK_SECRET.encode(), request.data, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        log.warning("api_v1.sf_webhook.bad_signature", extra={"ip": request.remote_addr})
+        return _err("Invalid signature", 401, "unauthorized")
 
     body = request.get_json(silent=True) or {}
     event = body.get("event", "unknown")

@@ -395,32 +395,32 @@
         }
       }
       return `
-      <tr class="${r.status==='Under Review' ? 'row--review' : r.status==='Approved' ? 'row--approved' : ''}" onclick="toggleRecordDetails('${r.id}')" style="cursor:pointer;">
-        <td class="table__id"><a href="${recordLink}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;">${r.id}</a></td>
-        <td style="font-size:12px;line-height:1.4;">${r.title}
-          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${r.sector||''}</div>
+      <tr class="${r.status==='Under Review' ? 'row--review' : r.status==='Approved' ? 'row--approved' : ''}" onclick="toggleRecordDetails('${escapeHtml(r.id)}')" style="cursor:pointer;">
+        <td class="table__id"><a href="${escapeHtml(recordLink)}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;">${escapeHtml(r.id)}</a></td>
+        <td style="font-size:12px;line-height:1.4;">${escapeHtml(r.title)}
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${escapeHtml(r.sector||'')}</div>
         </td>
         <td>${typeBadge(r.type)}</td>
-        <td style="font-size:11px;color:var(--text-muted);">${r.sector||'-'}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${escapeHtml(r.sector||'-')}</td>
         <td>${prioBadge(r.priority)}</td>
         <td>${statBadge(r.status)}</td>
-        <td style="font-size:11px;color:var(--text-muted);">${r.site||'-'}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${escapeHtml(r.site||'-')}</td>
         <td>${ageBadge(r.age||0)}</td>
         <td>${action}</td>
       </tr>
-      <tr id="detail-${r.id}" style="display:none;background:#f8fafc;">
+      <tr id="detail-${escapeHtml(r.id)}" style="display:none;background:#f8fafc;">
         <td colspan="9" style="padding:14px 18px;border-top:0;">
           <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px;">
             <div>
               <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Description</div>
-              <div style="font-size:12px;line-height:1.5;color:var(--text);">${r.description||'No description captured.'}</div>
+              <div style="font-size:12px;line-height:1.5;color:var(--text);">${escapeHtml(r.description||'No description captured.')}</div>
             </div>
             <div style="font-size:11px;color:var(--text-muted);line-height:1.7;">
-              <div><strong>Status:</strong> ${r.status||'-'}</div>
-              <div><strong>Owner:</strong> ${r.owner||'-'}</div>
-              <div><strong>Detected:</strong> ${r.detectedDate||'-'}</div>
-              <div><strong>CAPA:</strong> ${existingCapa ? `${existingCapa.capaId} (${existingCapa.status})` : 'Not created yet'}</div>
-              <div><strong>Refs:</strong> ${(r.regulatoryRef||[]).join(', ') || '-'}</div>
+              <div><strong>Status:</strong> ${escapeHtml(r.status||'-')}</div>
+              <div><strong>Owner:</strong> ${escapeHtml(r.owner||'-')}</div>
+              <div><strong>Detected:</strong> ${escapeHtml(r.detectedDate||'-')}</div>
+              <div><strong>CAPA:</strong> ${existingCapa ? `${escapeHtml(existingCapa.capaId)} (${escapeHtml(existingCapa.status)})` : 'Not created yet'}</div>
+              <div><strong>Refs:</strong> ${escapeHtml((r.regulatoryRef||[]).join(', ') || '-')}</div>
             </div>
           </div>
         </td>
@@ -471,12 +471,12 @@
       }
       return `
       <tr class="${c.status==='Approved' ? 'row--approved' : (c.status==='Under Review'||c.status==='Pending Correction') ? 'row--review' : ''}">
-        <td style="font-family:monospace;font-size:11px;color:var(--green);font-weight:700;"><a href="/capa/create?id=${c.sourceRecordId}&capaId=${c.capaId}" style="color:inherit;text-decoration:underline;">${c.capaId}</a></td>
-        <td style="font-family:monospace;font-size:10px;color:var(--blue);"><a href="/capa/create?id=${c.sourceRecordId}&capaId=${c.capaId}" style="color:inherit;text-decoration:underline;">${c.sourceRecordId}</a></td>
-        <td style="font-size:12px;max-width:200px;">${c.sourceRecordTitle||'-'}
-          <div style="font-size:10px;color:var(--text-muted);">${c.sector||''}</div>
+        <td style="font-family:monospace;font-size:11px;color:var(--green);font-weight:700;"><a href="/capa/create?id=${encodeURIComponent(c.sourceRecordId||'')}&capaId=${encodeURIComponent(c.capaId||'')}" style="color:inherit;text-decoration:underline;">${escapeHtml(c.capaId)}</a></td>
+        <td style="font-family:monospace;font-size:10px;color:var(--blue);"><a href="/capa/create?id=${encodeURIComponent(c.sourceRecordId||'')}&capaId=${encodeURIComponent(c.capaId||'')}" style="color:inherit;text-decoration:underline;">${escapeHtml(c.sourceRecordId)}</a></td>
+        <td style="font-size:12px;max-width:200px;">${escapeHtml(c.sourceRecordTitle||'-')}
+          <div style="font-size:10px;color:var(--text-muted);">${escapeHtml(c.sector||'')}</div>
         </td>
-        <td><span class="badge badge--${(c.sourceRecordType||'').toLowerCase()}">${c.sourceRecordType||'-'}</span></td>
+        <td><span class="badge badge--${escapeHtml((c.sourceRecordType||'').toLowerCase())}">${escapeHtml(c.sourceRecordType||'-')}</span></td>
         <td><span class="${PRIO_CLS[prio]||'badge'}">${prio}</span></td>
         <td>${capaStatBadge(c.status||'Under Review')}</td>
         <td style="font-size:11px;color:var(--text-muted);">${c.createdBy||'-'}</td>

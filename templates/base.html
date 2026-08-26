@@ -1297,6 +1297,20 @@ fetch('/api/metrics')
       return origFetch(input, init);
     };
   })();
+
+  // Global HTML-escape helper. Any place templates render user- or
+  // LLM-authored text via innerHTML MUST wrap the value with escapeHtml().
+  // textContent is preferred where markup isn't needed.
+  window.escapeHtml = function (value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/`/g, '&#96;');
+  };
 </script>
 
 </body>

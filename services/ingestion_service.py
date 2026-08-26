@@ -178,6 +178,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
         import httpx
         from config import AI_API_KEY, AI_MODEL, AI_BASE_URL
 
+        from services.guardrails import sanitize_prompt_text
         if AI_PROVIDER == "anthropic":
             user_content = (
                 [
@@ -185,7 +186,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
                     {"type":"text","text":_PROMPT.replace("{content}","[see image above]")},
                 ]
                 if is_image
-                else _PROMPT.replace("{content}", str(extracted)[:6000])
+                else _PROMPT.replace("{content}", sanitize_prompt_text(extracted, max_len=6000))
             )
             resp = httpx.post(
                 "https://api.anthropic.com/v1/messages",
@@ -204,7 +205,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
                     {"type":"image_url","image_url":{"url":f"data:{extracted['mime']};base64,{extracted['b64']}"}},
                 ]
                 if is_image
-                else _PROMPT.replace("{content}", str(extracted)[:6000])
+                else _PROMPT.replace("{content}", sanitize_prompt_text(extracted, max_len=6000))
             )
             resp = httpx.post(f"{base}/chat/completions",
                 headers={"Authorization":f"Bearer {AI_API_KEY}"},

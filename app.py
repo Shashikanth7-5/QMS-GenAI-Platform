@@ -90,15 +90,36 @@ def _install_extensions(app: Flask) -> None:
 
 
 def _apply_security_headers(response):
+    from config import IS_PRODUCTION
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    # Baseline CSP — templates use inline styles today, so unsafe-inline stays for now.
+    response.headers.setdefault(
+        "Permissions-Policy",
+        "geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()",
+    )
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+    if IS_PRODUCTION:
+        # 6-month HSTS with subdomains and preload readiness.
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=15552000; includeSubDomains",
+        )
+    # Baseline CSP. 'unsafe-inline' remains until inline scripts/styles are
+    # nonce-refactored (Version@2). Chart.js and Google Fonts are allowed.
     response.headers.setdefault(
         "Content-Security-Policy",
-        "default-src 'self'; img-src 'self' data:; "
-        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
-        "connect-src 'self'; frame-ancestors 'none'",
+        "default-src 'self'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'",
     )
     return response
 
