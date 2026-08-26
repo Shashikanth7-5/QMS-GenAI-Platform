@@ -170,7 +170,7 @@
 {% endblock %}
 
 {% block extra_styles %}
-<style>
+<style nonce="{{ csp_nonce }}">
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow);}
   .panel__header{padding:14px 18px;background:linear-gradient(135deg,#1e2d5f 0%,var(--navy) 100%);}
   .panel__title{font-size:13px;font-weight:600;color:#fff;}
@@ -203,7 +203,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   let _file=null, _record=null;
   const CAN_CAPA = {{ 'true' if current_user.can_create_capa() else 'false' }};
 

@@ -115,7 +115,7 @@
 {% endblock %}
 
 {% block extra_styles %}
-<style>
+<style nonce="{{ csp_nonce }}">
   .grid--2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
   .json-box {
     background:#0f172a;
@@ -141,12 +141,12 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 function setAgentBanner(message, type='info') {
   const b = document.getElementById('agentBanner');
   const icons = {info:'i',success:'OK',warning:'!',error:'X'};
   b.className = `banner banner--${type}`;
-  b.innerHTML = `<span>${icons[type] || 'i'}</span> ${message}`;
+  b.innerHTML = `<span>${escapeHtml(icons[type] || 'i')}</span> ${escapeHtml(message)}`;
 }
 
 function fmt(value) {
@@ -167,32 +167,32 @@ function refreshAgents() {
     const alerts = status.alerts || [];
     document.getElementById('alertsList').innerHTML = alerts.length ? alerts.map(a => `
       <div class="alert-item">
-        <div class="alert-item__title">${a.agent || '-'} - ${a.event || '-'}</div>
-        <div>${a.status || '-'}</div>
-        <div class="alert-item__meta">${fmt(a.timestamp)} ${a.recordId ? ' | ' + a.recordId : ''}</div>
+        <div class="alert-item__title">${escapeHtml(a.agent || '-')} - ${escapeHtml(a.event || '-')}</div>
+        <div>${escapeHtml(a.status || '-')}</div>
+        <div class="alert-item__meta">${escapeHtml(fmt(a.timestamp))} ${a.recordId ? ' | ' + escapeHtml(a.recordId) : ''}</div>
       </div>
     `).join('') : '<div class="table__empty">No agent alerts.</div>';
 
     const dead = status.deadLetterQueue || [];
     document.getElementById('deadLetterBody').innerHTML = dead.length ? dead.map(d => `
       <tr>
-        <td class="table__id">${d.recordId || '-'}</td>
-        <td>${d.attempts || '-'}</td>
-        <td>${d.lastError || '-'}</td>
-        <td>${fmt(d.parkedAt)}</td>
-        <td><button class="btn--run" onclick="requeueRecord('${d.recordId}')">Requeue</button></td>
+        <td class="table__id">${escapeHtml(d.recordId || '-')}</td>
+        <td>${escapeHtml(d.attempts || '-')}</td>
+        <td>${escapeHtml(d.lastError || '-')}</td>
+        <td>${escapeHtml(fmt(d.parkedAt))}</td>
+        <td><button class="btn--run" onclick="requeueRecord('${escapeHtml(d.recordId)}')">Requeue</button></td>
       </tr>
     `).join('') : '<tr><td colspan="5" class="table__empty">No dead-lettered records.</td></tr>';
 
     const events = audit.events || [];
     document.getElementById('auditBody').innerHTML = events.length ? events.map(e => `
       <tr>
-        <td>${fmt(e.timestamp)}</td>
-        <td>${e.agent || '-'}</td>
-        <td>${e.event || '-'}</td>
-        <td><span class="badge">${e.status || '-'}</span></td>
-        <td>${e.recordId || '-'}</td>
-        <td>${e.runId || '-'}</td>
+        <td>${escapeHtml(fmt(e.timestamp))}</td>
+        <td>${escapeHtml(e.agent || '-')}</td>
+        <td>${escapeHtml(e.event || '-')}</td>
+        <td><span class="badge">${escapeHtml(e.status || '-')}</span></td>
+        <td>${escapeHtml(e.recordId || '-')}</td>
+        <td>${escapeHtml(e.runId || '-')}</td>
       </tr>
     `).join('') : '<tr><td colspan="6" class="table__empty">No agent audit events.</td></tr>';
 

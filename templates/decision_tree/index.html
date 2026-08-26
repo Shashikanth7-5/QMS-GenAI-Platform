@@ -3,7 +3,7 @@
 {% block title %}AI QMS - Decision Tree{% endblock %}
 
 {% block extra_styles %}
-<style>
+<style nonce="{{ csp_nonce }}">
   /* -- Source type selector -- */
   .source-cards {
     display: grid;
@@ -435,7 +435,7 @@
 
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   /* -- State ------------------------------------------------ */
   let currentSource = null;
   let currentGates  = [];
@@ -681,7 +681,7 @@
     const b = document.getElementById('banner');
     const icons = {info:'Info',success:'OK',warning:'Warning',error:'Error'};
     b.className = `banner banner--${type}`;
-    b.innerHTML = `<span>${icons[type]}</span> ${msg}`;
+    b.innerHTML = `<span>${escapeHtml(icons[type] || '')}</span> ${escapeHtml(msg)}`;
   }
 </script>
 {% endblock %}
