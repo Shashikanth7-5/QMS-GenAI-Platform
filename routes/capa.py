@@ -9,16 +9,14 @@ from flask_login import current_user, login_required
 from auth.users import get_user_by_username
 from data.records import (add_uploaded_record, get_all_capas, get_all_records,
                           get_capa_by_id, get_capa_by_record_id,
-                          get_record_by_id, get_records_by_owner,
-                          get_capas_by_owner, save_capa, update_capa_status,
+                          get_record_by_id, get_capas_by_owner, save_capa, update_capa_status,
                           update_record_status)
 from services.agents.notifications import send_email_notification
 from services.agents.orchestrator import new_capa_id
 from services.ai_service import generate_capa, stream_capa
-from services.audit_service import (ACTION_CAPA_BATCH_RUN,
-                                    ACTION_CAPA_GENERATED, ACTION_CAPA_SAVED,
+from services.audit_service import (ACTION_CAPA_SAVED,
                                     ACTION_CAPA_STATUS_CHANGE,
-                                    ACTION_RECORD_UPLOADED, log)
+                                    log)
 from services.ingestion_service import allowed_file, process_upload
 from services.logging_config import get_logger
 from services.security import capa_content_hash

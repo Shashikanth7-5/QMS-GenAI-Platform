@@ -15,7 +15,7 @@ from flask import Blueprint, current_app, jsonify, request
 
 from auth.users import get_user_by_username
 from config import (API_V1_ALLOW_ANONYMOUS, API_V1_KEY, CORS_ORIGINS,
-                    IS_PRODUCTION, RATE_LIMIT_API_V1, SF_WEBHOOK_SECRET)
+                    RATE_LIMIT_API_V1, SF_WEBHOOK_SECRET)
 from data.records import (get_all_capas, get_all_records, get_capa_by_id,
                           get_record_by_id, save_capa, update_capa_status,
                           upsert_external_record)
