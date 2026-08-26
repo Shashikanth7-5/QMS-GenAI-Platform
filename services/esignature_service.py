@@ -18,7 +18,7 @@ as the entity mutation. This module never touches the entity itself.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 from threading import Lock
 from typing import Optional
 

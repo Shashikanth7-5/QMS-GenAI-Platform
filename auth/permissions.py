@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import wraps
-from typing import Iterable
 
 from flask import jsonify
 from flask_login import current_user, login_required

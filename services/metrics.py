@@ -26,7 +26,6 @@ from datetime import datetime, timedelta
 from typing import Iterable
 
 from flask import Blueprint, Response
-from flask_login import login_required
 
 from auth.permissions import Permission, requires_permission
 from services.logging_config import get_logger
