@@ -215,6 +215,10 @@ def create_app() -> Flask:
     app.register_blueprint(agents_bp)
     app.register_blueprint(api_v1_bp)
 
+    # Prometheus /metrics — auth-gated inside the blueprint.
+    from services.metrics import metrics_bp
+    app.register_blueprint(metrics_bp)
+
     # CSRF is only meaningful for cookie-authenticated form/JSON routes.
     # API v1 uses X-API-Key (bearer-style), so it's CSRF-exempt.
     csrf = app.extensions.get("qms_csrf")

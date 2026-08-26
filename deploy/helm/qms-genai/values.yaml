@@ -35,6 +35,15 @@ secretsManager:
     - DATABASE_URL
     - AI_API_KEY
 
+# Alembic migration Job (runs via Helm pre-install / pre-upgrade hook).
+migrations:
+  enabled: true
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits:   {cpu: 500m, memory: 512Mi}
+
 # Web pods handle HTTP + agent HTTP APIs.
 web:
   replicaCount: 3

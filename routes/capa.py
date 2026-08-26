@@ -8,6 +8,7 @@ from flask import (Blueprint, Response, jsonify, render_template, request,
 from flask_login import current_user, login_required
 
 from auth.users import get_user_by_username
+from auth.permissions import Permission, requires_permission
 from config import RATE_LIMIT_LLM
 from data.records import (add_uploaded_record, get_all_capas, get_all_records,
                           get_capa_by_id, get_capa_by_record_id,
@@ -51,15 +52,18 @@ _TYPE_LABEL = {
 }
 
 
-def _validate_esign(payload: dict, capa_body: dict | None = None):
+def _validate_esign(payload: dict, capa_body: dict | None = None,
+                    *, expected_action: str = "workflow"):
     esign = payload.get("eSignature") or {}
     password = esign.get("password", "")
     meaning = esign.get("meaning", "")
+    reason_code = esign.get("reasonCode", "")
+    reason_text = (esign.get("reasonText") or payload.get("comment") or "").strip()
     if not password:
         return None, (jsonify({
             "error": "Electronic signature required.",
             "basis": ["21 CFR Part 11 §11.200", "EU Annex 11"],
-            "message": "Approval/rejection requires password re-entry as reviewer e-signature.",
+            "message": "This action requires password re-entry as reviewer e-signature.",
         }), 400)
     if not current_user.check_password(password):
         logger.warning("capa.esign.rejected",
@@ -73,7 +77,10 @@ def _validate_esign(payload: dict, capa_body: dict | None = None):
         "signedBy": current_user.username,
         "signedByName": current_user.full_name,
         "signedByRole": current_user.role,
-        "meaning": meaning or "CAPA workflow decision",
+        "meaning": meaning or f"CAPA {expected_action} decision",
+        "reasonCode": reason_code,
+        "reasonText": reason_text,
+        "action": expected_action,
         "signedAt": datetime.utcnow().isoformat() + "Z",
         "basis": ["21 CFR Part 11 §11.200", "EU Annex 11"],
     }
@@ -147,7 +154,7 @@ def api_stream():
 
 
 @capa_bp.route("/api/capa/run-batch", methods=["POST"])
-@admin_required
+@requires_permission(Permission.CAPA_BATCH_RUN)
 def api_run_batch():
     all_recs = get_all_records()
     all_capas = get_all_capas()
@@ -323,6 +330,27 @@ def api_get_capa_by_record(record_id: str):
     return jsonify(capa)
 
 
+@capa_bp.route("/api/capas/<capa_id>/signatures", methods=["GET"])
+@login_required
+def api_capa_signatures(capa_id: str):
+    """Return every 21 CFR Part 11 e-signature bound to this CAPA."""
+    from services.esignature_service import signatures_for_entity
+    return jsonify({
+        "capaId": capa_id,
+        "signatures": signatures_for_entity("capa", capa_id),
+        "basis": ["21 CFR Part 11 §11.200", "EU Annex 11"],
+    })
+
+
+@capa_bp.route("/api/esignatures/verify", methods=["GET"])
+@requires_permission(Permission.METRICS_VIEW)
+def api_verify_esignature_chain():
+    """Recompute the SHA-256 chain over qms_esignatures. Regulator-facing."""
+    from services.esignature_service import verify_chain
+    limit = int(request.args.get("limit", 1000))
+    return jsonify(verify_chain(limit=limit))
+
+
 @capa_bp.route("/api/capa/attachments/upload", methods=["POST"])
 @login_required
 def api_upload_capa_attachments():
@@ -383,7 +411,7 @@ def api_export_capa(capa_id: str):
     )
 
 @capa_bp.route("/api/capas/<capa_id>/status", methods=["PATCH"])
-@admin_required
+@requires_permission(Permission.CAPA_REVIEW)
 def api_update_capa_status(capa_id: str):
     body       = request.get_json(silent=True) or {}
     requested_status = body.get("status","")
@@ -395,12 +423,30 @@ def api_update_capa_status(capa_id: str):
     old_status = existing.get("status","Unknown") if existing else "Unknown"
     if not existing:
         return jsonify({"error": f"CAPA {capa_id} not found"}), 404
-    if requested_status in {"Approved", "Rejected"}:
-        esign, esign_error = _validate_esign(body, capa_body=existing)
+
+    # 21 CFR Part 11 §11.200 — every meaningful state transition (approve,
+    # reject, close) requires password re-authentication + reason.
+    if requested_status == "Closed":
+        # Close is a QA_MANAGER/ADMIN action, tighter than review.
+        from auth.permissions import has_permission
+        if not has_permission(current_user, Permission.CAPA_CLOSE):
+            return jsonify({
+                "error": "Not authorised",
+                "missingPermissions": [Permission.CAPA_CLOSE.value],
+            }), 403
+
+    esign_gated = requested_status in {"Approved", "Rejected", "Closed"}
+    esign = None
+    if esign_gated:
+        action_label = {
+            "Approved": "approve",
+            "Rejected": "reject",
+            "Closed":   "close",
+        }[requested_status]
+        esign, esign_error = _validate_esign(body, capa_body=existing,
+                                             expected_action=action_label)
         if esign_error:
             return esign_error
-    else:
-        esign = None
 
     new_status = "Pending Correction" if requested_status == "Rejected" else requested_status
     creator_username = existing.get("createdByUsername", "")
@@ -410,8 +456,8 @@ def api_update_capa_status(capa_id: str):
     metadata = dict(existing.get("capaMetadata") or {})
     notification = {"emailSent": False, "recipient": creator_email}
 
-    if requested_status in {"Rejected", "Approved"}:
-        decision = "Rejected" if requested_status == "Rejected" else "Approved"
+    if esign_gated and esign:
+        decision = requested_status
         metadata["lastReview"] = {
             "decision": decision,
             "workflowStatus": new_status,
@@ -427,6 +473,29 @@ def api_update_capa_status(capa_id: str):
             "decision": decision,
             "capaId": capa_id,
         })
+        # Persist to the queryable qms_esignatures table (hash-chained
+        # across the whole signing history, not just per-CAPA).
+        try:
+            from services.esignature_service import record_signature
+            action_map = {"Approved": "capa_approve", "Rejected": "capa_reject",
+                          "Closed": "capa_close"}
+            record_signature(
+                entity_type="capa",
+                entity_id=capa_id,
+                action=action_map.get(requested_status, "capa_workflow"),
+                meaning=esign.get("meaning", ""),
+                signer_username=current_user.username,
+                signer_role=current_user.role,
+                signer_full_name=current_user.full_name or "",
+                signer_ip=request.remote_addr,
+                signer_user_agent=request.headers.get("User-Agent"),
+                reason_code=esign.get("reasonCode") or None,
+                reason_text=esign.get("reasonText") or comment or None,
+                content_hash=esign.get("capaHash"),
+            )
+        except Exception:
+            logger.warning("capa.esignature_persist_failed", exc_info=True,
+                           extra={"capa_id": capa_id, "status": requested_status})
 
     capa = update_capa_status(
         capa_id,

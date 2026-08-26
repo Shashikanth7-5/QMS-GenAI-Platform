@@ -22,6 +22,10 @@ spec:
         - name: web
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # NOTE: Alembic migrations are primarily applied by the pre-install /
+          # pre-upgrade Helm hook Job (see templates/migration-job.yaml).
+          # The retry loop below is a defence-in-depth fallback for direct
+          # `kubectl apply` deployments that bypass Helm hooks.
           command: ["sh", "-c"]
           args:
             - >

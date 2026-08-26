@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Api_Host__c</fullName>
+    <description>Base URL of the QMS GenAI Platform, used to build "Open in QMS" deep links from the LWC.</description>
+    <label>API Host</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Url</type>
+</CustomField>

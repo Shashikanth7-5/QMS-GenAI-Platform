@@ -107,22 +107,24 @@ def test_upload_capa_attachments(admin_client):
     assert all(a["storageKey"].startswith("capa_attachments/") for a in data["attachments"])
     assert all(a["storageBackend"] == "local" for a in data["attachments"])
 
-def test_approve_capa_admin_only(admin_client, quality_client, user_client):
-    # Get a CAPA ID first
+def test_approve_capa_permission_gating(admin_client, quality_client, user_client):
+    # improvement-v1 RBAC: quality (QA_MANAGER) has CAPA_REVIEW, user (SITE_LEAD) does not.
     capas = admin_client.get("/api/capas").get_json()["capas"]
     if not capas:
         pytest.skip("No CAPAs to test")
     cid = capas[0]["capaId"]
 
-    # quality cannot approve
-    r_q = quality_client.patch(f"/api/capas/{cid}/status",
-        data=json.dumps({"status":"Approved"}), content_type="application/json")
-    assert r_q.status_code == 403
-
-    # user cannot approve
+    # SITE_LEAD is denied at the decorator with 403 + missingPermissions.
     r_u = user_client.patch(f"/api/capas/{cid}/status",
         data=json.dumps({"status":"Approved"}), content_type="application/json")
     assert r_u.status_code == 403
+    assert "capa:review" in (r_u.get_json() or {}).get("missingPermissions", [])
+
+    # QA_MANAGER passes the perm check but is still e-sig-gated with 400.
+    r_q = quality_client.patch(f"/api/capas/{cid}/status",
+        data=json.dumps({"status":"Approved"}), content_type="application/json")
+    assert r_q.status_code == 400
+    assert "signature" in (r_q.get_json() or {}).get("error", "").lower()
 
 def test_approve_capa_requires_esign(admin_client):
     capas = admin_client.get("/api/capas").get_json()["capas"]
@@ -160,11 +162,15 @@ def test_approve_capa_with_esign(admin_client):
     data = r.get_json()
     assert data["status"] == "Approved"
 
-def test_run_batch_admin_only(admin_client, quality_client, user_client):
-    r_q = quality_client.post("/api/capa/run-batch", content_type="application/json")
-    assert r_q.status_code == 403
+def test_run_batch_permission_gating(admin_client, quality_client, user_client):
+    # improvement-v1 RBAC: SITE_LEAD blocked, QA_MANAGER + ADMIN allowed.
     r_u = user_client.post("/api/capa/run-batch", content_type="application/json")
     assert r_u.status_code == 403
+    assert "capa:batch" in (r_u.get_json() or {}).get("missingPermissions", [])
+
+    r_q = quality_client.post("/api/capa/run-batch", content_type="application/json")
+    assert r_q.status_code == 200
+
     r_a = admin_client.post("/api/capa/run-batch", content_type="application/json")
     assert r_a.status_code == 200
     data = r_a.get_json()

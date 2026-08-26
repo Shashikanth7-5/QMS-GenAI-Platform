@@ -491,28 +491,25 @@
   }
 
   /* -- Update CAPA status (admin only) -- */
-  function updateCapaStatus(capaId, newStatus){
+  async function updateCapaStatus(capaId, newStatus){
     let comment = '';
     let eSignature = null;
-    if(newStatus === 'Rejected'){
-      comment = window.prompt('Enter rejection reason to send back to the CAPA creator:') || '';
-      if(!comment.trim()){
-        setBanner('Rejection reason is required to route CAPA back for correction.','warning');
+    // 21 CFR Part 11 §11.200 — approve, reject, and close all require
+    // password re-authentication + reason. Route through the reusable
+    // modal in base.html (window.qmsESignaturePrompt).
+    if(newStatus === 'Approved' || newStatus === 'Rejected' || newStatus === 'Closed'){
+      const sig = await window.qmsESignaturePrompt({
+        action: newStatus,
+        capaId: capaId,
+        entityLabel: 'CAPA',
+        reasonRequired: newStatus === 'Rejected' || newStatus === 'Closed',
+      });
+      if(!sig){
+        setBanner('Electronic signature cancelled - status unchanged.','warning');
         return;
       }
-    }
-    if(newStatus === 'Approved' || newStatus === 'Rejected'){
-      const password = window.prompt(`Electronic signature required for ${newStatus}. Re-enter your password:`);
-      if(!password){
-        setBanner('Electronic signature is required for approval/rejection.','warning');
-        return;
-      }
-      eSignature = {
-        password,
-        meaning: newStatus === 'Approved'
-          ? 'I approve this CAPA workflow decision.'
-          : 'I reject this CAPA and route it back for correction.',
-      };
+      comment = sig.reasonText || '';
+      eSignature = sig;
     }
     fetch(`/api/capas/${capaId}/status`,{
       method:'PATCH',headers:{'Content-Type':'application/json'},
