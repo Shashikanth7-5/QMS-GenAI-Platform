@@ -5,13 +5,25 @@
 # Drop-in replacement: same field names as the old JSON dicts
 # ─────────────────────────────────────────────────────────
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column, String, Integer, Float, Boolean,
     DateTime, Text, JSON, ForeignKey, Index
 )
 from sqlalchemy.orm import relationship
 from database import Base
+
+
+def _utcnow() -> datetime:
+    """
+    Naive UTC now — datetime.utcnow() is deprecated in 3.12+ but the DB
+    columns in this project use naive DateTime (not DateTime(timezone=True)),
+    and lock_service compares them against wall-clock naive UTC everywhere.
+    So we produce a tz-aware datetime and strip the tzinfo, keeping storage
+    semantics identical while dropping the deprecation warning.
+    Version@3 backlog: migrate DateTime columns to timezone=True.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # ═════════════════════════════════════════════════════════
@@ -35,12 +47,12 @@ class QualityRecord(Base):
     detected_date   = Column(String(20))                      # YYYY-MM-DD
     product_family  = Column(String(100), default="")
     batch_lot       = Column(String(100), default="")
-    regulatory_refs = Column(JSON,        default=list)       # ["21 CFR 820", "ISO 13485"]
+    regulatory_refs = Column(JSON,        default=lambda: [])       # ["21 CFR 820", "ISO 13485"]
     source          = Column(String(20),  default="manual")   # manual|uploaded
 
     # Timestamps
-    created_at      = Column(DateTime,    default=datetime.utcnow)
-    updated_at      = Column(DateTime,    default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at      = Column(DateTime,    default=_utcnow)
+    updated_at      = Column(DateTime,    default=_utcnow, onupdate=_utcnow)
     age_days        = Column(Integer,     default=0)
 
     # Relationships
@@ -99,8 +111,8 @@ class CAPARecord(Base):
     effectiveness_check = Column(Text)
     estimated_closure_days = Column(Integer, default=90)
     risk_rating         = Column(String(20))                  # Critical|High|Medium|Low
-    regulatory_refs     = Column(JSON, default=list)
-    capa_metadata       = Column(JSON, default=dict)
+    regulatory_refs     = Column(JSON, default=lambda: [])
+    capa_metadata       = Column(JSON, default=lambda: {})
 
     # Workflow
     status              = Column(String(30),  default="Draft Generated")
@@ -113,8 +125,8 @@ class CAPARecord(Base):
 
     # Metadata
     created_by_username = Column(String(100))
-    created_at          = Column(DateTime,    default=datetime.utcnow)
-    updated_at          = Column(DateTime,    default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at          = Column(DateTime,    default=_utcnow)
+    updated_at          = Column(DateTime,    default=_utcnow, onupdate=_utcnow)
 
     # AI generation metadata
     ai_provider         = Column(String(30))                  # anthropic|openai|azure|mock
@@ -174,7 +186,7 @@ class UserModel(Base):
     full_name       = Column(String(150))
     status          = Column(String(20),  default="pending")  # pending|approved|rejected
     reject_comment  = Column(Text,        default="")
-    created_at      = Column(DateTime,    default=datetime.utcnow)
+    created_at      = Column(DateTime,    default=_utcnow)
     last_login      = Column(DateTime)
 
     def to_dict(self) -> dict:
@@ -208,7 +220,7 @@ class AuditLog(Base):
     __tablename__ = "qms_audit_log"
 
     id                = Column(Integer,     primary_key=True, autoincrement=True)
-    timestamp         = Column(DateTime,    default=datetime.utcnow, nullable=False)
+    timestamp         = Column(DateTime,    default=_utcnow, nullable=False)
     record_id         = Column(String(50),  nullable=True)
     capa_id           = Column(String(50),  nullable=True)
     entity_type       = Column(String(50),  nullable=True)   # record | capa | user | agent
@@ -222,7 +234,7 @@ class AuditLog(Base):
     user_agent        = Column(Text,        nullable=True)
     notes             = Column(Text,        nullable=True)
     # Agent + structured payloads live here so agents and CAPA share one table.
-    payload           = Column(JSON,        nullable=True, default=dict)
+    payload           = Column(JSON,        nullable=True, default=lambda: {})
     # Hash chain — never null after v2.
     prev_hash         = Column(String(64),  nullable=True)
     row_hash          = Column(String(64),  nullable=True)
@@ -261,7 +273,7 @@ class LLMCallLog(Base):
     __tablename__ = "llm_call_logs"
 
     id             = Column(Integer,     primary_key=True, autoincrement=True)
-    timestamp      = Column(DateTime,    default=datetime.utcnow)
+    timestamp      = Column(DateTime,    default=_utcnow)
     username       = Column(String(80))
     provider       = Column(String(30))                  # anthropic|openai|azure|bedrock
     model          = Column(String(80))

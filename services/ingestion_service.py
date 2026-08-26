@@ -169,10 +169,31 @@ def ai_extract_record(extracted, filename: str) -> dict:
         if not relevant:
             return {"_insufficient": True, "reason": reason}
 
+    # ── Pre-flight relevance check for image uploads ──────
+    # Without this, an unrelated image (cat photo, screenshot) triggers a
+    # multi-modal LLM call and gets stored as a QMS record with hallucinated
+    # fields. We only allow images whose filename hints at QMS content.
+    is_image = isinstance(extracted, dict) and extracted.get("type") == "image"
+    if is_image:
+        stem = os.path.splitext(filename)[0].lower().replace("_", " ").replace("-", " ")
+        _IMAGE_HINTS = (
+            "capa", "deviation", "complaint", "audit", "batch", "lot",
+            "quality", "nc", "non-conformance", "nonconformance",
+            "sop", "form", "report", "investigation", "change control",
+            "recall", "adverse", "root cause",
+        )
+        if not any(h in stem for h in _IMAGE_HINTS):
+            return {
+                "_insufficient": True,
+                "reason": (
+                    "Image filename does not indicate QMS content. Rename with a "
+                    "QMS keyword (CAPA, deviation, complaint, audit, batch, etc.) "
+                    "or upload the source document instead of a screenshot."
+                ),
+            }
+
     if MOCK_MODE or AI_PROVIDER == "mock":
         return _mock_extract(filename)
-
-    is_image = isinstance(extracted, dict) and extracted.get("type") == "image"
 
     try:
         import httpx

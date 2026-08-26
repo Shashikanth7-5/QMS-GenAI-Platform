@@ -82,7 +82,7 @@ def api_update_status(record_id):
     if not _can_access_record(rec):
         return jsonify({"error": "Not found"}), 404
 
-    body = request.get_json(force=True) or {}
+    body = request.get_json(silent=True) or {}
     new_status = (body.get("status") or "").strip()
     ALLOWED = {"Draft Generated", "Under Review", "Approved", "Rejected", "Closed", "Pending Correction"}
     if new_status not in ALLOWED:
