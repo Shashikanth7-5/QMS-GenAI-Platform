@@ -41,7 +41,7 @@ openpyxl==3.1.2
 python-docx==1.1.0
 # Pillow bumped to 12.x closes ~20 CVE advisories against 10.x.
 Pillow==12.3.0
-reportlab==4.2.2
+reportlab==5.0.1
 celery==5.4.0
 chromadb==1.5.9
 gunicorn==23.0.0
