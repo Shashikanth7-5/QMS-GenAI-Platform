@@ -3,7 +3,7 @@
 {% block title %}AI QMS - Manage Users{% endblock %}
 
 {% block extra_styles %}
-<style>
+<style nonce="{{ csp_nonce }}">
   .mu-wrap{padding:0;}
   .mu-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:28px;}
   .mu-header h1{font-size:1.35rem;font-weight:700;color:var(--navy);margin:0 0 4px;}
@@ -277,7 +277,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   function switchTab(name,el){
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     document.querySelectorAll('.mu-tab').forEach(t=>t.classList.remove('active'));

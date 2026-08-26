@@ -16,7 +16,7 @@ import os
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 from services.logging_config import get_logger
 from services.security import chain_next
