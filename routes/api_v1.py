@@ -263,7 +263,18 @@ def api_external_quality_event_capa():
             "status": result.get("status"),
             "capaTriggered": result.get("capaTriggered"),
             "turnsUsed": result.get("turnsUsed"),
-            "steps": result.get("steps", []),
+            # steps[] intentionally trimmed to `agent` + `event` + `status`
+            # so we do not leak internal prompts, LLM reasoning, or provider
+            # metadata to TrackWise / Salesforce integrations.
+            "steps": [
+                {
+                    "agent": step.get("agent"),
+                    "event": step.get("event") or step.get("action"),
+                    "status": step.get("status"),
+                }
+                for step in (result.get("steps") or [])
+                if isinstance(step, dict)
+            ],
             "error": result.get("error"),
         },
         "capa": {
@@ -295,8 +306,11 @@ def api_external_quality_event_capa():
 @api_v1_bp.route("/records", methods=["GET"])
 @require_api_key
 def list_records():
-    page     = max(1, int(request.args.get("page",     1)))
-    per_page = min(100, int(request.args.get("per_page", 25)))
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(1, min(100, int(request.args.get("per_page", 25))))
+    except (TypeError, ValueError):
+        return _err("page and per_page must be positive integers", 400, "invalid_pagination")
     rtype    = request.args.get("type")
     sector   = request.args.get("sector")
     priority = request.args.get("priority")
@@ -404,8 +418,11 @@ def api_save_capa():
 @api_v1_bp.route("/capas", methods=["GET"])
 @require_api_key
 def list_capas():
-    page     = max(1, int(request.args.get("page",     1)))
-    per_page = min(100, int(request.args.get("per_page", 25)))
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(1, min(100, int(request.args.get("per_page", 25))))
+    except (TypeError, ValueError):
+        return _err("page and per_page must be positive integers", 400, "invalid_pagination")
     status   = request.args.get("status")
     capas    = get_all_capas()
     if status:

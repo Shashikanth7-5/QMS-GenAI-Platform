@@ -45,7 +45,7 @@ def api_evaluate():
     Body: { source: 'complaint', answers: { gate_id: true/false } }
     Returns triggered gate, recommendation, regulatory refs.
     """
-    body    = request.get_json(force=True) or {}
+    body    = request.get_json(silent=True) or {}
     source  = body.get("source", "")
     answers = body.get("answers", {})
 

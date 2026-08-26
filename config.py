@@ -75,6 +75,9 @@ RATE_LIMIT_DEFAULT  = os.getenv("RATE_LIMIT_DEFAULT",  "200 per minute")
 RATE_LIMIT_LOGIN    = os.getenv("RATE_LIMIT_LOGIN",    "5 per minute; 20 per hour")
 RATE_LIMIT_API_V1   = os.getenv("RATE_LIMIT_API_V1",   "60 per minute")
 RATE_LIMIT_AGENTS   = os.getenv("RATE_LIMIT_AGENTS",   "10 per minute; 60 per hour")
+# Per-user cap on LLM-hitting endpoints (/api/capa/generate, /api/rca/*,
+# /api/rag/ask). Prevents a single account from exhausting the AI budget.
+RATE_LIMIT_LLM      = os.getenv("RATE_LIMIT_LLM",      "20 per minute; 200 per hour")
 
 # ── Login lockout ──────────────────────────────────────────
 LOGIN_LOCKOUT_ATTEMPTS = int(os.getenv("LOGIN_LOCKOUT_ATTEMPTS", "5"))
@@ -108,14 +111,25 @@ if IS_PRODUCTION and not API_V1_KEY and not API_V1_ALLOW_ANONYMOUS:
         "Set API_V1_KEY, or explicitly set API_V1_ALLOW_ANONYMOUS=true (not recommended)."
     )
 
+# CORS_ORIGINS — comma-separated whitelist of origins allowed to call the
+# REST API. Wildcards were permitted here previously ("https://*.salesforce.com")
+# but any Salesforce org could then invoke the API. TrackWise / TW-Digital
+# pilots must supply the exact tenant origin(s) via env, e.g.:
+#   CORS_ORIGINS=https://acme.my.salesforce.com,https://tw.acme.com
+# Dev defaults to the local Flask origin only.
+_default_cors = "" if IS_PRODUCTION else "http://localhost:5000,http://127.0.0.1:5000"
 CORS_ORIGINS = [
     o.strip()
-    for o in os.getenv(
-        "CORS_ORIGINS",
-        "https://*.salesforce.com,https://*.force.com,http://localhost:5000",
-    ).split(",")
+    for o in os.getenv("CORS_ORIGINS", _default_cors).split(",")
     if o.strip()
 ]
+if IS_PRODUCTION and not CORS_ORIGINS:
+    warnings.warn(
+        "CORS_ORIGINS is empty in production. Browser callers from external "
+        "domains (Salesforce, TrackWise) will be blocked until explicit "
+        "origins are configured.",
+        stacklevel=2,
+    )
 
 SF_WEBHOOK_SECRET = os.getenv("SF_WEBHOOK_SECRET", "").strip()
 if IS_PRODUCTION and not SF_WEBHOOK_SECRET:

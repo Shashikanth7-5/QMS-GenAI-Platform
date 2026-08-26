@@ -1,4 +1,5 @@
 # routes/capa.py
+import os
 from datetime import datetime
 from functools import wraps
 
@@ -7,6 +8,7 @@ from flask import (Blueprint, Response, jsonify, render_template, request,
 from flask_login import current_user, login_required
 
 from auth.users import get_user_by_username
+from config import RATE_LIMIT_LLM
 from data.records import (add_uploaded_record, get_all_capas, get_all_records,
                           get_capa_by_id, get_capa_by_record_id,
                           get_record_by_id, get_records_by_owner,
@@ -26,6 +28,24 @@ from services.storage import save_upload
 
 logger = get_logger(__name__)
 capa_bp = Blueprint("capa", __name__)
+
+# Upload cap so a single request cannot buffer a decompression bomb or
+# 500 MB PDF into worker memory. Configurable via env.
+_MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))  # 25 MiB
+
+
+@capa_bp.record_once
+def _attach_llm_rate_limit(setup_state):
+    limiter = setup_state.app.extensions.get("qms_limiter") if setup_state.app else None
+    if limiter:
+        try:
+            # Only /api/capa/generate, /api/capa/generate/stream, and
+            # /api/records/inquire hit the LLM. To keep the annotation
+            # simple we apply the cap to the whole blueprint; regular
+            # CRUD endpoints are cheap and unlikely to hit the ceiling.
+            limiter.limit(RATE_LIMIT_LLM)(capa_bp)
+        except Exception:
+            logger.exception("capa.rate_limit_attach_failed")
 
 _TYPE_LABEL = {
     "complaint": "Complaint", "deviation": "Deviation",
@@ -100,7 +120,7 @@ def page_capa_create():
 @capa_bp.route("/api/capa/generate", methods=["POST"])
 @login_required
 def api_generate():
-    body   = request.get_json(force=True) or {}
+    body   = request.get_json(silent=True) or {}
     record = body.get("record", {})
     if not record:
         return jsonify({"error": "Missing 'record'"}), 400
@@ -111,7 +131,7 @@ def api_generate():
 @capa_bp.route("/api/capa/stream", methods=["POST"])
 @login_required
 def api_stream():
-    body   = request.get_json(force=True) or {}
+    body   = request.get_json(silent=True) or {}
     record = body.get("record", {})
     if not record:
         return jsonify({"error": "Missing 'record'"}), 400
@@ -367,7 +387,7 @@ def api_export_capa(capa_id: str):
 @capa_bp.route("/api/capas/<capa_id>/status", methods=["PATCH"])
 @admin_required
 def api_update_capa_status(capa_id: str):
-    body       = request.get_json(force=True) or {}
+    body       = request.get_json(silent=True) or {}
     requested_status = body.get("status","")
     comment    = body.get("comment","").strip()
     allowed    = {"Under Review","Pending Correction","Approved","Rejected","Closed"}
@@ -502,8 +522,20 @@ def api_upload_record():
         return jsonify({"error": "Empty file"}), 400
     if not allowed_file(file.filename):
         return jsonify({"error": "Unsupported file type"}), 400
+    # Enforce the size cap BEFORE reading everything into memory. Werkzeug
+    # exposes content_length from the multipart header; if the client sent
+    # it, honor it. Otherwise we stream up to the cap + 1 byte and reject
+    # if we hit the ceiling.
+    if request.content_length and request.content_length > _MAX_UPLOAD_BYTES:
+        return jsonify({
+            "error": f"File exceeds {_MAX_UPLOAD_BYTES // (1024*1024)} MiB limit",
+        }), 413
     try:
-        file_bytes            = file.read()
+        file_bytes = file.read(_MAX_UPLOAD_BYTES + 1)
+        if len(file_bytes) > _MAX_UPLOAD_BYTES:
+            return jsonify({
+                "error": f"File exceeds {_MAX_UPLOAD_BYTES // (1024*1024)} MiB limit",
+            }), 413
         record                = process_upload(file_bytes, file.filename)
         record["createdBy"]   = current_user.username
         record["createdByName"] = current_user.full_name
@@ -530,7 +562,7 @@ def api_upload_record():
 @capa_bp.route("/api/records/inquire", methods=["POST"])
 @login_required
 def api_inquire():
-    body     = request.get_json(force=True) or {}
+    body     = request.get_json(silent=True) or {}
     record   = body.get("record", {})
     question = body.get("question", "")
     history  = body.get("history", [])
@@ -552,7 +584,7 @@ def api_rag_similar():
         Return the top-k most similar past CAPAs for a given record.
         Body: { "record": {...}, "top_k": 3 }
         """
-        body = request.get_json(force=True) or {}
+        body = request.get_json(silent=True) or {}
         record = body.get("record", {})
         top_k = int(body.get("top_k", 3))
         if not record:

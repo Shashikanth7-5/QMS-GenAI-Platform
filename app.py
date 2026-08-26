@@ -221,10 +221,18 @@ def create_app() -> Flask:
         smtp_host = os.getenv("SMTP_HOST", "").strip()
         smtp_ok = bool(smtp_host)
         if smtp_host:
+            # Resolve then connect with a short, capped timeout so a poisoned
+            # DNS response or hanging TCP handshake cannot block /readyz for
+            # more than a few seconds. Any resolution / connection error just
+            # marks smtp as unreachable — it does NOT fail the readiness probe.
             try:
-                with socket.create_connection((smtp_host, int(os.getenv("SMTP_PORT", "25"))), timeout=3):
+                port = int(os.getenv("SMTP_PORT", "25"))
+                if not (0 < port < 65536):
+                    raise ValueError("SMTP_PORT out of range")
+                socket.getaddrinfo(smtp_host, port, proto=socket.IPPROTO_TCP)
+                with socket.create_connection((smtp_host, port), timeout=2):
                     smtp_ok = True
-            except OSError:
+            except (OSError, ValueError):
                 smtp_ok = False
         storage = storage_status()
         hardening = {

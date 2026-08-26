@@ -113,10 +113,16 @@ def _extend_memory(record_id, username):
 
 
 def _expire_stale_locks_memory():
-    now = datetime.utcnow()
-    expired = [rid for rid, lock in _locks.items() if lock["expires_at"] < now]
-    for rid in expired:
-        del _locks[rid]
+    """
+    Sweep expired in-memory locks. Runs under _lock_mutex because Celery
+    workers can call acquire/release concurrently, and iterating _locks
+    while another thread mutates it raises RuntimeError.
+    """
+    with _lock_mutex:
+        now = datetime.utcnow()
+        expired = [rid for rid, lock in list(_locks.items()) if lock["expires_at"] < now]
+        for rid in expired:
+            _locks.pop(rid, None)
 
 
 # ── PostgreSQL implementation ──────────────────────────────
