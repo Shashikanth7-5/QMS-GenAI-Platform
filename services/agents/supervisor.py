@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from threading import Lock
 
 from config import (
     AGENT_AUTOSAVE_CAPA_DRAFT,
@@ -20,6 +19,7 @@ from config import (
     AGENT_MAX_RETRIES,
 )
 from data.records import get_all_capas, get_all_records
+from services.agents import deadletter_store
 from services.agents.audit import get_agent_events, log_agent_event
 from services.agents.notifications import send_agent_alert
 from services.agents.orchestrator import CapaAgentOrchestrator
@@ -27,8 +27,9 @@ from services.logging_config import get_logger
 
 log = get_logger(__name__)
 
-_DEAD_LETTER: list[dict] = []
-_DEAD_LOCK = Lock()
+# In-memory attempt counter (per-worker). Persisting this to DB is overkill —
+# supervisor runs every 20 min and a lost worker just resets the counter,
+# giving the record another chance.
 _ATTEMPT_COUNTS: dict[str, int] = {}
 
 
@@ -41,26 +42,15 @@ def _clear_attempts(record_id: str) -> None:
     _ATTEMPT_COUNTS.pop(record_id, None)
 
 
-def _park_dead_letter(entry: dict) -> None:
-    with _DEAD_LOCK:
-        _DEAD_LETTER.append(entry)
-        if len(_DEAD_LETTER) > AGENT_DEADLETTER_MAX:
-            del _DEAD_LETTER[: len(_DEAD_LETTER) - AGENT_DEADLETTER_MAX]
-
-
 def get_dead_letters() -> list[dict]:
-    with _DEAD_LOCK:
-        return list(_DEAD_LETTER)
+    return deadletter_store.list_active(limit=AGENT_DEADLETTER_MAX)
 
 
-def requeue_dead_letter(record_id: str) -> bool:
-    with _DEAD_LOCK:
-        for i, entry in enumerate(_DEAD_LETTER):
-            if entry.get("recordId") == record_id:
-                del _DEAD_LETTER[i]
-                _clear_attempts(record_id)
-                return True
-    return False
+def requeue_dead_letter(record_id: str, *, requeued_by: str = "system") -> bool:
+    ok = deadletter_store.requeue(record_id, requeued_by=requeued_by)
+    if ok:
+        _clear_attempts(record_id)
+    return ok
 
 
 class AgentSupervisor:
@@ -73,14 +63,13 @@ class AgentSupervisor:
     @staticmethod
     def eligible_records() -> list:
         existing = {c.get("sourceRecordId") for c in get_all_capas()}
-        # Dead-lettered records are skipped until an admin requeues them.
-        dead = {entry.get("recordId") for entry in get_dead_letters()}
-        return [
+        candidates = [
             record for record in get_all_records()
             if record.get("status") == "Draft Generated"
             and record.get("id") not in existing
-            and record.get("id") not in dead
         ]
+        # Filter out dead-lettered records via the persistent store.
+        return [r for r in candidates if not deadletter_store.is_dead_lettered(r.get("id"))]
 
     def run_once(self, *, triggered_by="system", limit=50, allow_weekend=False) -> dict:
         run_id = f"SUP-{uuid.uuid4().hex[:12].upper()}"
@@ -121,14 +110,12 @@ class AgentSupervisor:
                 )
                 if result.get("status") == "error":
                     if attempts >= AGENT_MAX_RETRIES:
-                        entry = {
-                            "recordId": record_id,
-                            "attempts": attempts,
-                            "lastError": result.get("error"),
-                            "parkedAt": datetime.utcnow().isoformat() + "Z",
-                            "runId": run_id,
-                        }
-                        _park_dead_letter(entry)
+                        entry = deadletter_store.park(
+                            record_id,
+                            attempts=attempts,
+                            last_error=result.get("error") or "",
+                            run_id=run_id,
+                        )
                         dead_letters.append(entry)
                         log_agent_event(
                             self.name, "record_dead_lettered", "error",
@@ -157,14 +144,12 @@ class AgentSupervisor:
                 log.exception("agent.supervisor.record_failed",
                               extra={"record_id": record_id, "attempts": attempts})
                 if attempts >= AGENT_MAX_RETRIES:
-                    entry = {
-                        "recordId": record_id,
-                        "attempts": attempts,
-                        "lastError": str(exc),
-                        "parkedAt": datetime.utcnow().isoformat() + "Z",
-                        "runId": run_id,
-                    }
-                    _park_dead_letter(entry)
+                    entry = deadletter_store.park(
+                        record_id,
+                        attempts=attempts,
+                        last_error=str(exc),
+                        run_id=run_id,
+                    )
                     dead_letters.append(entry)
                 else:
                     errors.append({"recordId": record_id, "error": str(exc),

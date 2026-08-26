@@ -3,7 +3,7 @@
 {% block title %}AI QMS - RCA Analysis{% endblock %}
 
 {% block extra_styles %}
-<style>
+<style nonce="{{ csp_nonce }}">
   .rca-layout {
     display: grid;
     grid-template-columns: 290px 1fr;
@@ -454,7 +454,7 @@
 
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 /* STATE */
 let allRecords      = [];
 let filteredRecords = [];
@@ -1153,7 +1153,7 @@ function setBanner(msg,type) {
   const b=document.getElementById('banner');
   const icons={info:'i',success:'OK',warning:'!',error:'X'};
   b.className=`banner banner--${type}`;
-  b.innerHTML=`<span>${icons[type]}</span> ${msg}`;
+  b.innerHTML=`<span>${escapeHtml(icons[type] || '')}</span> ${escapeHtml(msg)}`;
 }
 </script>
 {% endblock %}

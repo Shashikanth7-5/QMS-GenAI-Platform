@@ -115,7 +115,7 @@
 {% endblock %}
 
 {% block extra_styles %}
-<style>
+<style nonce="{{ csp_nonce }}">
   .grid--2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
   .json-box {
     background:#0f172a;
@@ -141,12 +141,12 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 function setAgentBanner(message, type='info') {
   const b = document.getElementById('agentBanner');
   const icons = {info:'i',success:'OK',warning:'!',error:'X'};
   b.className = `banner banner--${type}`;
-  b.innerHTML = `<span>${icons[type] || 'i'}</span> ${message}`;
+  b.innerHTML = `<span>${escapeHtml(icons[type] || 'i')}</span> ${escapeHtml(message)}`;
 }
 
 function fmt(value) {

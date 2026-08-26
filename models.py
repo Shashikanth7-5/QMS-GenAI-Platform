@@ -290,3 +290,138 @@ class LLMCallLog(Base):
         Index("ix_llm_timestamp", "timestamp"),
         Index("ix_llm_provider",  "provider"),
     )
+
+
+# ═════════════════════════════════════════════════════════
+# AGENT DEAD-LETTER QUEUE (persistent)
+# Replaces the in-memory list in services/agents/supervisor.py
+# so ops can inspect + requeue after worker restart.
+# ═════════════════════════════════════════════════════════
+class AgentDeadLetter(Base):
+    __tablename__ = "qms_agent_deadletter"
+
+    id          = Column(Integer,   primary_key=True, autoincrement=True)
+    record_id   = Column(String(50), nullable=False, index=True)
+    run_id      = Column(String(50))
+    attempts    = Column(Integer,   default=0)
+    last_error  = Column(Text)
+    parked_at   = Column(DateTime,  default=_utcnow, nullable=False, index=True)
+    requeued_at = Column(DateTime)
+    requeued_by = Column(String(80))
+    tenant_id   = Column(String(80), index=True)   # multi-tenant scoping
+
+    def to_dict(self) -> dict:
+        return {
+            "recordId":  self.record_id,
+            "attempts":  self.attempts or 0,
+            "lastError": self.last_error or "",
+            "parkedAt":  self.parked_at.isoformat() + "Z" if self.parked_at else "",
+            "runId":     self.run_id or "",
+            "tenantId":  self.tenant_id or "",
+        }
+
+
+# ═════════════════════════════════════════════════════════
+# RAG EXTRACTION STORE (persistent)
+# Replaces the in-memory _EXTRACTION_STORE list in routes/rag.py
+# so /api/rag/ask works across worker processes.
+# ═════════════════════════════════════════════════════════
+class RagExtraction(Base):
+    __tablename__ = "qms_rag_extractions"
+
+    id            = Column(String(60), primary_key=True)   # EXT-YYYYmmddHHMMSS-XXXX
+    filename      = Column(String(255), nullable=False)
+    file_type     = Column(String(20))
+    file_size     = Column(Integer,     default=0)
+    extracted_at  = Column(DateTime,    default=_utcnow, nullable=False, index=True)
+    extracted_by  = Column(String(80),  nullable=False, index=True)
+    is_image      = Column(Boolean,     default=False)
+    text_preview  = Column(Text)
+    record_json   = Column(JSON,        default=lambda: {})
+    tenant_id     = Column(String(80),  index=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id":          self.id,
+            "filename":    self.filename,
+            "fileType":    self.file_type or "",
+            "fileSize":    self.file_size or 0,
+            "extractedAt": self.extracted_at.isoformat() if self.extracted_at else "",
+            "extractedBy": self.extracted_by,
+            "isImage":     bool(self.is_image),
+            "textPreview": self.text_preview or "",
+            "record":      self.record_json or {},
+            "tenantId":    self.tenant_id or "",
+        }
+
+
+# ═════════════════════════════════════════════════════════
+# API TENANT — per-tenant API keys for TrackWise / Salesforce
+# integrations (replaces single global API_V1_KEY).
+# ═════════════════════════════════════════════════════════
+class ApiTenant(Base):
+    __tablename__ = "qms_api_tenants"
+
+    id             = Column(Integer,     primary_key=True, autoincrement=True)
+    tenant_id      = Column(String(80),  unique=True, nullable=False, index=True)
+    display_name   = Column(String(200))
+    # API-key HMAC digest (never store the raw key). See services/security.py.
+    api_key_hash   = Column(String(128), nullable=False)
+    webhook_secret = Column(String(128))   # per-tenant SF webhook signing secret
+    origin_allowlist = Column(JSON,      default=lambda: [])  # CORS origins for this tenant
+    status         = Column(String(20),  default="active")    # active|revoked
+    created_at     = Column(DateTime,    default=_utcnow)
+    revoked_at     = Column(DateTime)
+    last_used_at   = Column(DateTime)
+    rate_limit     = Column(String(80),  default="120 per minute; 2000 per hour")
+
+    def to_dict(self) -> dict:
+        return {
+            "tenantId":     self.tenant_id,
+            "displayName":  self.display_name or "",
+            "status":       self.status,
+            "createdAt":    self.created_at.isoformat() if self.created_at else "",
+            "lastUsedAt":   self.last_used_at.isoformat() if self.last_used_at else "",
+            "rateLimit":    self.rate_limit or "",
+            "originAllowlist": self.origin_allowlist or [],
+        }
+
+
+# ═════════════════════════════════════════════════════════
+# IDEMPOTENCY KEY — retries of the same POST return the same
+# response instead of duplicating CAPAs / records.
+# ═════════════════════════════════════════════════════════
+class IdempotencyKey(Base):
+    __tablename__ = "qms_idempotency_keys"
+
+    id         = Column(Integer,     primary_key=True, autoincrement=True)
+    tenant_id  = Column(String(80),  nullable=False, index=True)
+    key        = Column(String(120), nullable=False, index=True)
+    method     = Column(String(10))
+    path       = Column(String(200))
+    request_hash = Column(String(64))   # sha256 of body — mismatch = 409
+    status_code  = Column(Integer)
+    response_json = Column(JSON,     default=lambda: {})
+    created_at  = Column(DateTime,   default=_utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("ix_idempotency_tenant_key", "tenant_id", "key", unique=True),
+    )
+
+
+# ═════════════════════════════════════════════════════════
+# WEBHOOK NONCE — replay-protection for Salesforce webhook.
+# Signature + timestamp must be inside a 5-minute window, and
+# the (tenant, nonce) pair may only appear once.
+# ═════════════════════════════════════════════════════════
+class WebhookNonce(Base):
+    __tablename__ = "qms_webhook_nonces"
+
+    id         = Column(Integer,    primary_key=True, autoincrement=True)
+    tenant_id  = Column(String(80), nullable=False, index=True)
+    nonce      = Column(String(80), nullable=False)
+    seen_at    = Column(DateTime,   default=_utcnow, nullable=False, index=True)
+
+    __table_args__ = (
+        Index("ix_nonce_tenant_nonce", "tenant_id", "nonce", unique=True),
+    )

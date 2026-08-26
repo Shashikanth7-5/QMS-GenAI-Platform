@@ -4,7 +4,7 @@
 
      EXTRA STYLES
 {% block extra_styles %}
-<style>
+<style nonce="{{ csp_nonce }}">
  /* NEW - stacks vertically on smaller screens */
 .workspace {
   display: grid;
@@ -964,7 +964,7 @@
 
 
      RECORD INQUIRY CHAT PANEL
-<style>
+<style nonce="{{ csp_nonce }}">
   .inquiry-panel {
     display: none;
     margin-bottom: 24px;
@@ -1135,7 +1135,7 @@
 </div>
 
      UPLOAD DOCUMENT MODAL
-<style>
+<style nonce="{{ csp_nonce }}">
   .upload-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(15,23,42,.6); backdrop-filter: blur(3px);
@@ -1387,7 +1387,7 @@
 
      JAVASCRIPT
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   /* -- State ------------------------------------------------ */
   let currentRecord  = null;
   let currentCapa    = null;
@@ -1760,7 +1760,7 @@
       _showRCAButtons();
     })
     .catch(err => {
-      content.innerHTML = `<div class="banner banner--error">Error: ${err.message}</div>`;
+      content.innerHTML = `<div class="banner banner--error">Error: ${escapeHtml(err.message)}</div>`;
       statusEl.textContent = 'Error';
     });
   }
@@ -2287,7 +2287,7 @@ function printCAPA(capaId) {
     const row = document.getElementById('refTagsRow');
     const tag = document.createElement('span');
     tag.className = 'ref-tag';
-    tag.innerHTML = `${text}
+    tag.innerHTML = `${escapeHtml(text)}
       <button class="ref-tag__remove" type="button"
               onclick="this.parentElement.remove()">X</button>`;
     row.appendChild(tag);
@@ -2298,12 +2298,12 @@ function printCAPA(capaId) {
     const b = document.getElementById('banner');
     const icons = {info:'i',success:'OK',warning:'!',error:'X'};
     b.className = `banner banner--${type}`;
-    b.innerHTML = `<span>${icons[type]}</span> ${msg}`;
+    b.innerHTML = `<span>${escapeHtml(icons[type] || '')}</span> ${escapeHtml(msg)}`;
   }
 </script>
 
 
-<script>
+<script nonce="{{ csp_nonce }}">
   /* -- Upload Modal State -- */
   let _uploadFile   = null;
   let _extractedRec = null;
