@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "qms-genai.name" . }}-worker
+  labels: {{- include "qms-genai.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "qms-genai.selectorLabels" . | nindent 6 }}
+      qms.role: worker
+  template:
+    metadata:
+      labels:
+        {{- include "qms-genai.selectorLabels" . | nindent 8 }}
+        qms.role: worker
+    spec:
+      serviceAccountName: {{ include "qms-genai.name" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["celery", "-A", "services.celery_app:celery_app", "worker", "--loglevel=INFO"]
+          env:
+            {{- include "qms-genai.envList" . | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ include "qms-genai.name" . }}-secrets
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "qms-genai.name" . }}-beat
+  labels: {{- include "qms-genai.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.beat.replicaCount }}
+  strategy:
+    type: Recreate    # only one beat scheduler at a time
+  selector:
+    matchLabels:
+      {{- include "qms-genai.selectorLabels" . | nindent 6 }}
+      qms.role: beat
+  template:
+    metadata:
+      labels:
+        {{- include "qms-genai.selectorLabels" . | nindent 8 }}
+        qms.role: beat
+    spec:
+      serviceAccountName: {{ include "qms-genai.name" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: beat
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["celery", "-A", "services.celery_app:celery_app", "beat", "--loglevel=INFO"]
+          env:
+            {{- include "qms-genai.envList" . | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ include "qms-genai.name" . }}-secrets
+          resources:
+            {{- toYaml .Values.beat.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

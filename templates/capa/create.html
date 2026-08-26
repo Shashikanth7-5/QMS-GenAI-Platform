@@ -4,7 +4,7 @@
 
      EXTRA STYLES
 {% block extra_styles %}
-<style>
+<style nonce="{{ csp_nonce }}">
  /* NEW - stacks vertically on smaller screens */
 .workspace {
   display: grid;
@@ -964,7 +964,7 @@
 
 
      RECORD INQUIRY CHAT PANEL
-<style>
+<style nonce="{{ csp_nonce }}">
   .inquiry-panel {
     display: none;
     margin-bottom: 24px;
@@ -1135,7 +1135,7 @@
 </div>
 
      UPLOAD DOCUMENT MODAL
-<style>
+<style nonce="{{ csp_nonce }}">
   .upload-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(15,23,42,.6); backdrop-filter: blur(3px);
@@ -1387,7 +1387,7 @@
 
      JAVASCRIPT
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   /* -- State ------------------------------------------------ */
   let currentRecord  = null;
   let currentCapa    = null;
@@ -1760,7 +1760,7 @@
       _showRCAButtons();
     })
     .catch(err => {
-      content.innerHTML = `<div class="banner banner--error">Error: ${err.message}</div>`;
+      content.innerHTML = `<div class="banner banner--error">Error: ${escapeHtml(err.message)}</div>`;
       statusEl.textContent = 'Error';
     });
   }
@@ -1777,13 +1777,13 @@
         Specificity: ${score.specificity}%  -  Actionability: ${score.actionability}%  -  Completeness: ${score.completeness}%
       </div>` : '';
       return `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px dashed var(--border);">
-        <div style="width:26px;height:26px;border-radius:50%;background:${s.is_root ? 'var(--red)' : 'var(--blue)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;">${s.level}</div>
+        <div style="width:26px;height:26px;border-radius:50%;background:${s.is_root ? 'var(--red)' : 'var(--blue)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;">${escapeHtml(s.level)}</div>
         <div style="flex:1;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:3px;">${s.why}${badge}</div>
-          <div class="why-answer-display" style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:3px;">${s.because}</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:3px;">${escapeHtml(s.why)}${badge}</div>
+          <div class="why-answer-display" style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:3px;">${escapeHtml(s.because)}</div>
           <textarea class="why-answer-edit" data-idx="${i}" rows="2"
             style="display:none;width:100%;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
-            placeholder="Edit this step - add SOP ref, equipment ID, date...">${s.because}</textarea>
+            placeholder="Edit this step - add SOP ref, equipment ID, date...">${escapeHtml(s.because)}</textarea>
           ${s.is_root ? '<span style="background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;"> Root Cause</span>' : ''}
           ${bars}
         </div>
@@ -1811,20 +1811,20 @@
         return `<div class="cause-row" style="margin-bottom:8px;">
           <div style="display:flex;align-items:flex-start;gap:6px;">
             <input type="checkbox" style="margin-top:3px;accent-color:var(--blue);" ${c.primary ? 'checked' : ''}
-              onchange="toggleFBPrimary('${cat}',${i},this.checked)"/>
-            <span class="fishbone-cause ${c.primary ? 'fishbone-cause--primary' : ''}" style="flex:1;font-size:12px;">${c.primary ? 'Warning ' : '- '}${c.text}${badge}</span>
+              onchange="toggleFBPrimary('${escapeHtml(cat)}',${i},this.checked)"/>
+            <span class="fishbone-cause ${c.primary ? 'fishbone-cause--primary' : ''}" style="flex:1;font-size:12px;">${c.primary ? 'Warning ' : '- '}${escapeHtml(c.text)}${badge}</span>
           </div>
-          <textarea class="cause-edit-area" data-cat="${cat}" data-idx="${i}" rows="2"
+          <textarea class="cause-edit-area" data-cat="${escapeHtml(cat)}" data-idx="${i}" rows="2"
             style="display:none;width:100%;margin-top:5px;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
-            placeholder="Edit cause - add SOP ref, equipment ID, date...">${c.text}</textarea>
+            placeholder="Edit cause - add SOP ref, equipment ID, date...">${escapeHtml(c.text)}</textarea>
         </div>`;
       }).join('');
       return `<div class="fishbone-cat ${hasPrimary ? 'fishbone-cat--primary' : ''}">
-        <div class="fishbone-cat__title"><span class="fishbone-cat__icon">${CAT_ICONS[cat]||'-'}</span>${cat}</div>
+        <div class="fishbone-cat__title"><span class="fishbone-cat__icon">${escapeHtml(CAT_ICONS[cat]||'-')}</span>${escapeHtml(cat)}</div>
         ${causesHtml}
-        <button onclick="addFBCause('${cat}')"
+        <button onclick="addFBCause('${escapeHtml(cat)}')"
           style="display:none;width:100%;margin-top:4px;padding:4px;border:1px dashed var(--border);border-radius:var(--r);background:none;color:var(--text-muted);font-size:11px;font-family:var(--font);cursor:pointer;"
-          class="add-cause-btn">+ Add cause for ${cat}</button>
+          class="add-cause-btn">+ Add cause for ${escapeHtml(cat)}</button>
       </div>`;
     }).join('');
     document.getElementById('rcaContent').innerHTML =
@@ -2287,7 +2287,7 @@ function printCAPA(capaId) {
     const row = document.getElementById('refTagsRow');
     const tag = document.createElement('span');
     tag.className = 'ref-tag';
-    tag.innerHTML = `${text}
+    tag.innerHTML = `${escapeHtml(text)}
       <button class="ref-tag__remove" type="button"
               onclick="this.parentElement.remove()">X</button>`;
     row.appendChild(tag);
@@ -2298,12 +2298,12 @@ function printCAPA(capaId) {
     const b = document.getElementById('banner');
     const icons = {info:'i',success:'OK',warning:'!',error:'X'};
     b.className = `banner banner--${type}`;
-    b.innerHTML = `<span>${icons[type]}</span> ${msg}`;
+    b.innerHTML = `<span>${escapeHtml(icons[type] || '')}</span> ${escapeHtml(msg)}`;
   }
 </script>
 
 
-<script>
+<script nonce="{{ csp_nonce }}">
   /* -- Upload Modal State -- */
   let _uploadFile   = null;
   let _extractedRec = null;

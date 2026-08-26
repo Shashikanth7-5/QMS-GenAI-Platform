@@ -1,7 +1,8 @@
 # tests/test_rag.py
 import pytest
 import json
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from services.vector_store import (

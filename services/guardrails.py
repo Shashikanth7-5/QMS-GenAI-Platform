@@ -1,9 +1,62 @@
 # services/guardrails.py
 # Validates CAPA output before saving — no AI needed
 # Called by routes/capa.py api_save() before save_capa()
+# Also provides prompt-injection sanitization for user text going into LLMs.
 
 import re
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
+
+# Patterns and directives that attackers commonly embed in record fields
+# to hijack downstream LLM calls. We strip these before user data ever
+# reaches a prompt.
+_PROMPT_INJECTION_PATTERNS = [
+    re.compile(r"(?i)ignore (all )?(previous|prior|above) (instructions|prompts?|rules?)"),
+    re.compile(r"(?i)disregard (all )?(previous|prior|above) (instructions|prompts?|rules?)"),
+    re.compile(r"(?i)you are (now )?(a|an) [a-z ]+"),
+    re.compile(r"(?i)system\s*[:\-]\s*"),
+    re.compile(r"(?i)assistant\s*[:\-]\s*"),
+    re.compile(r"(?i)</?(system|user|assistant|instructions?)>"),
+    re.compile(r"```"),
+]
+
+_MAX_FIELD_LEN = 4000  # hard cap per field going into any prompt
+
+
+def sanitize_prompt_text(value: Any, max_len: int = _MAX_FIELD_LEN) -> str:
+    """
+    Sanitize free-form user text before it is embedded into an LLM prompt.
+
+    - Drops known prompt-injection directives.
+    - Neutralizes triple-backtick fences and role tags.
+    - Enforces a maximum length so a single record cannot balloon costs.
+    Return value is always a string (empty string for non-string inputs).
+    """
+    if value is None:
+        return ""
+    text = str(value)
+    for pat in _PROMPT_INJECTION_PATTERNS:
+        text = pat.sub("[redacted]", text)
+    # Strip control characters other than tab/newline.
+    text = "".join(ch for ch in text if ch >= " " or ch in "\t\n")
+    if len(text) > max_len:
+        text = text[:max_len] + " …[truncated]"
+    return text
+
+
+def sanitize_record_for_prompt(record: Dict, max_len: int = _MAX_FIELD_LEN) -> Dict:
+    """
+    Return a shallow copy of `record` with all string fields sanitized so it
+    is safe to embed in a prompt. Non-string values pass through unchanged.
+    """
+    if not isinstance(record, dict):
+        return {}
+    safe = {}
+    for k, v in record.items():
+        if isinstance(v, str):
+            safe[k] = sanitize_prompt_text(v, max_len=max_len)
+        else:
+            safe[k] = v
+    return safe
 
 VALID_REGULATORY_REFS = [
     "21 CFR", "ISO 13485", "EU MDR", "ICH", "GMP", "GDP",
