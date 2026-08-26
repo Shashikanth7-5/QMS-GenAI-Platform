@@ -69,10 +69,27 @@ jobs:
           pip --version
           pip freeze | sort
       - name: Run tests with coverage
-        # -v + --tb=long + -rA so a failure on shared CI prints the assertion,
-        # the traceback, and a per-test result summary — otherwise a `-q`
-        # failure just returns exit 1 with no context.
-        run: pytest -v --tb=long -rA --cov=. --cov-report=xml --cov-report=term --cov-fail-under=45
+        id: pytest
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pytest -v --tb=long -rA --cov=. --cov-report=xml --cov-report=term --cov-fail-under=45 2>&1 | tee pytest.log
+      - name: Emit pytest failures as annotations
+        if: steps.pytest.outcome == 'failure'
+        run: |
+          echo "::group::pytest.log tail"
+          tail -n 200 pytest.log
+          echo "::endgroup::"
+          grep -E "^(FAILED|ERROR|E   |>   )" pytest.log | head -40 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+          exit 1
+      - name: Upload pytest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-log
+          path: pytest.log
       - name: Upload coverage XML
         if: always()
         uses: actions/upload-artifact@v4
