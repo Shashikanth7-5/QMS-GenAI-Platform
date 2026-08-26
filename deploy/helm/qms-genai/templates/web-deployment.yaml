@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "qms-genai.name" . }}-web
+  labels: {{- include "qms-genai.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "qms-genai.selectorLabels" . | nindent 6 }}
+      qms.role: web
+  template:
+    metadata:
+      labels:
+        {{- include "qms-genai.selectorLabels" . | nindent 8 }}
+        qms.role: web
+    spec:
+      serviceAccountName: {{ include "qms-genai.name" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: web
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - >
+              for i in 1 2 3 4 5; do
+                alembic upgrade head && break || (echo "alembic retry $i"; sleep 3);
+              done &&
+              exec gunicorn --bind 0.0.0.0:5000
+                --workers ${WEB_CONCURRENCY:-3} --threads ${WEB_THREADS:-4}
+                --timeout ${WEB_TIMEOUT:-120} --graceful-timeout 30
+                --access-logfile - --error-logfile - app:app
+          ports:
+            - containerPort: 5000
+              name: http
+          env:
+            {{- include "qms-genai.envList" . | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ include "qms-genai.name" . }}-secrets
+          readinessProbe:
+            {{- toYaml .Values.web.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.web.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "qms-genai.name" . }}-web
+  labels: {{- include "qms-genai.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 5000
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "qms-genai.selectorLabels" . | nindent 4 }}
+    qms.role: web
+{{- if .Values.web.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "qms-genai.name" . }}-web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "qms-genai.name" . }}-web
+  minReplicas: {{ .Values.web.hpa.minReplicas }}
+  maxReplicas: {{ .Values.web.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.web.hpa.targetCPUUtilizationPercentage }}
+{{- end }}
