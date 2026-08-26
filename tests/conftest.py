@@ -1,9 +1,25 @@
 # tests/conftest.py
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 from app import create_app
+
+
+def _init_test_db():
+    """
+    Bootstrap the SQLite schema for tests. app._bootstrap_database() skips
+    init_db() in test mode "so tests control their own fixture" — this is
+    that fixture. Locally the DB file already exists from prior runs so
+    tests pass, but a fresh CI checkout has no tables → every test that
+    touches the DB fails with 'no such table: quality_records'.
+    """
+    from database import init_db
+    init_db()
+
+
+_init_test_db()
 
 
 def _test_app():

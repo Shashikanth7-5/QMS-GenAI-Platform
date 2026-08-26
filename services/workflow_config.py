@@ -79,7 +79,44 @@ def _merge(default: dict, override: dict) -> dict:
     return result
 
 
+_REQUIRED_KEYS = {
+    "eligible_input_statuses": list,
+    "capa_statuses": dict,
+    "external_record_type_map": dict,
+    "agent_pipeline": list,
+}
+
+
+def _validate_config(config: dict) -> list[str]:
+    """Return a list of validation errors (empty if config is valid)."""
+    errors: list[str] = []
+    for key, expected_type in _REQUIRED_KEYS.items():
+        value = config.get(key)
+        if value is None:
+            errors.append(f"missing key: {key}")
+            continue
+        if not isinstance(value, expected_type):
+            errors.append(f"{key} must be {expected_type.__name__}, got {type(value).__name__}")
+    type_map = config.get("external_record_type_map", {}) or {}
+    for canonical, aliases in type_map.items():
+        if not isinstance(canonical, str):
+            errors.append(f"external_record_type_map key must be str, got {canonical!r}")
+        if not isinstance(aliases, list):
+            errors.append(f"aliases for '{canonical}' must be a list")
+    return errors
+
+
 def load_workflow_config() -> dict:
+    """
+    Load and cache the workflow YAML. All disk I/O and cache mutation
+    happen under _LOCK so concurrent Celery workers cannot see a
+    half-populated cache during a hot reload. Malformed YAML or a
+    schema violation falls back to the last-known-good config and
+    logs — never silently applies bad rules.
+    """
+    from services.logging_config import get_logger
+    log = get_logger(__name__)
+
     path = _config_path()
     try:
         mtime = path.stat().st_mtime
@@ -92,9 +129,30 @@ def load_workflow_config() -> dict:
 
         loaded = {}
         if path.exists() and yaml is not None:
-            with path.open("r", encoding="utf-8") as handle:
-                loaded = yaml.safe_load(handle) or {}
+            try:
+                with path.open("r", encoding="utf-8") as handle:
+                    loaded = yaml.safe_load(handle) or {}
+                if not isinstance(loaded, dict):
+                    raise ValueError(f"top-level YAML must be a mapping, got {type(loaded).__name__}")
+            except (yaml.YAMLError, ValueError, OSError) as exc:
+                log.error("workflow_config.load_failed", extra={"path": str(path), "error": str(exc)})
+                if _CACHE["config"] is not None:
+                    # Serve last-known-good rather than reverting to defaults
+                    # silently.
+                    _CACHE["mtime"] = mtime
+                    return copy.deepcopy(_CACHE["config"])
+                loaded = {}
+
         config = _merge(_DEFAULT_CONFIG, loaded)
+        errors = _validate_config(config)
+        if errors:
+            log.error("workflow_config.invalid", extra={"errors": errors, "path": str(path)})
+            if _CACHE["config"] is not None:
+                _CACHE["mtime"] = mtime
+                return copy.deepcopy(_CACHE["config"])
+            # Bootstrap case: fall back to defaults so the app can still start.
+            config = copy.deepcopy(_DEFAULT_CONFIG)
+
         _CACHE.update({"path": str(path), "mtime": mtime, "config": config})
         return copy.deepcopy(config)
 
@@ -114,6 +172,10 @@ def workflow_snapshot() -> dict:
 
 
 def normalize_record_type(value: str) -> str:
+    """Match `value` against the configured type map. Unknown values fall
+    back to 'deviation' (previously we accepted anything after replacing
+    spaces with underscores, letting external systems mint arbitrary
+    record types that bypass workflow rules)."""
     raw = (value or "").strip().lower()
     if not raw:
         return "deviation"
@@ -122,7 +184,7 @@ def normalize_record_type(value: str) -> str:
         choices = {canonical.lower(), *[str(alias).lower() for alias in aliases or []]}
         if raw in choices:
             return canonical
-    return raw.replace(" ", "_")
+    return "deviation"
 
 
 def decision_source_for(record_type: str) -> str:
