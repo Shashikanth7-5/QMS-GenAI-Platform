@@ -169,15 +169,37 @@ def ai_extract_record(extracted, filename: str) -> dict:
         if not relevant:
             return {"_insufficient": True, "reason": reason}
 
+    # ── Pre-flight relevance check for image uploads ──────
+    # Without this, an unrelated image (cat photo, screenshot) triggers a
+    # multi-modal LLM call and gets stored as a QMS record with hallucinated
+    # fields. We only allow images whose filename hints at QMS content.
+    is_image = isinstance(extracted, dict) and extracted.get("type") == "image"
+    if is_image:
+        stem = os.path.splitext(filename)[0].lower().replace("_", " ").replace("-", " ")
+        _IMAGE_HINTS = (
+            "capa", "deviation", "complaint", "audit", "batch", "lot",
+            "quality", "nc", "non-conformance", "nonconformance",
+            "sop", "form", "report", "investigation", "change control",
+            "recall", "adverse", "root cause",
+        )
+        if not any(h in stem for h in _IMAGE_HINTS):
+            return {
+                "_insufficient": True,
+                "reason": (
+                    "Image filename does not indicate QMS content. Rename with a "
+                    "QMS keyword (CAPA, deviation, complaint, audit, batch, etc.) "
+                    "or upload the source document instead of a screenshot."
+                ),
+            }
+
     if MOCK_MODE or AI_PROVIDER == "mock":
         return _mock_extract(filename)
-
-    is_image = isinstance(extracted, dict) and extracted.get("type") == "image"
 
     try:
         import httpx
         from config import AI_API_KEY, AI_MODEL, AI_BASE_URL
 
+        from services.guardrails import sanitize_prompt_text
         if AI_PROVIDER == "anthropic":
             user_content = (
                 [
@@ -185,7 +207,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
                     {"type":"text","text":_PROMPT.replace("{content}","[see image above]")},
                 ]
                 if is_image
-                else _PROMPT.replace("{content}", str(extracted)[:6000])
+                else _PROMPT.replace("{content}", sanitize_prompt_text(extracted, max_len=6000))
             )
             resp = httpx.post(
                 "https://api.anthropic.com/v1/messages",
@@ -204,7 +226,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
                     {"type":"image_url","image_url":{"url":f"data:{extracted['mime']};base64,{extracted['b64']}"}},
                 ]
                 if is_image
-                else _PROMPT.replace("{content}", str(extracted)[:6000])
+                else _PROMPT.replace("{content}", sanitize_prompt_text(extracted, max_len=6000))
             )
             resp = httpx.post(f"{base}/chat/completions",
                 headers={"Authorization":f"Bearer {AI_API_KEY}"},
@@ -228,7 +250,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
         record.update({"status":"Draft Generated","age":0,"_source":"uploaded"})
         return record
 
-    except Exception as e:
+    except Exception:
         log.warning("ingestion.ai_extraction_failed", exc_info=True)
         return _mock_extract(filename)
 

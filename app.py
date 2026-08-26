@@ -89,16 +89,70 @@ def _install_extensions(app: Flask) -> None:
         app.extensions["qms_limiter"] = None
 
 
+def _bind_request_context():
+    """Attach a request-scoped run_id + tenant + user so every log line
+    (and downstream Celery task via ``services.run_context.snapshot()``)
+    carries correlation IDs."""
+    from flask import g
+    from services import run_context
+    incoming = (request.headers.get("X-Request-Id") or "").strip()
+    if incoming and 1 <= len(incoming) <= 80 and incoming.replace("-", "").replace("_", "").isalnum():
+        run_context.set_run_id(incoming)
+    else:
+        run_context.set_run_id(run_context.new_run_id("REQ"))
+    run_context.set_tenant_id(request.headers.get("X-Tenant-Id") or None)
+    try:
+        from flask_login import current_user
+        if getattr(current_user, "is_authenticated", False):
+            run_context.set_user(current_user.username)
+    except Exception:
+        pass
+    # Nonce for CSP — used by base.html for every inline <script>/<style>.
+    import secrets as _secrets
+    g.csp_nonce = _secrets.token_urlsafe(16)
+
+
 def _apply_security_headers(response):
+    from flask import g
+    from config import IS_PRODUCTION
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    # Baseline CSP — templates use inline styles today, so unsafe-inline stays for now.
+    response.headers.setdefault(
+        "Permissions-Policy",
+        "geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()",
+    )
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+    if IS_PRODUCTION:
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=15552000; includeSubDomains",
+        )
+    # Propagate correlation id to callers.
+    from services.run_context import get_run_id
+    run_id = get_run_id()
+    if run_id:
+        response.headers.setdefault("X-Request-Id", run_id)
+
+    # CSP with a per-request nonce. 'unsafe-inline' is retained as a
+    # transitional fallback for browsers that ignore nonces; modern
+    # browsers only honor the nonce (nonces take precedence).
+    nonce = getattr(g, "csp_nonce", "")
     response.headers.setdefault(
         "Content-Security-Policy",
-        "default-src 'self'; img-src 'self' data:; "
-        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
-        "connect-src 'self'; frame-ancestors 'none'",
+        (
+            "default-src 'self'; "
+            "img-src 'self' data: blob:; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://fonts.googleapis.com; "
+            f"script-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'; "
+            "base-uri 'self'; "
+            "object-src 'none'"
+        ),
     )
     return response
 
@@ -161,6 +215,10 @@ def create_app() -> Flask:
     app.register_blueprint(agents_bp)
     app.register_blueprint(api_v1_bp)
 
+    # Prometheus /metrics — auth-gated inside the blueprint.
+    from services.metrics import metrics_bp
+    app.register_blueprint(metrics_bp)
+
     # CSRF is only meaningful for cookie-authenticated form/JSON routes.
     # API v1 uses X-API-Key (bearer-style), so it's CSRF-exempt.
     csrf = app.extensions.get("qms_csrf")
@@ -200,10 +258,18 @@ def create_app() -> Flask:
         smtp_host = os.getenv("SMTP_HOST", "").strip()
         smtp_ok = bool(smtp_host)
         if smtp_host:
+            # Resolve then connect with a short, capped timeout so a poisoned
+            # DNS response or hanging TCP handshake cannot block /readyz for
+            # more than a few seconds. Any resolution / connection error just
+            # marks smtp as unreachable — it does NOT fail the readiness probe.
             try:
-                with socket.create_connection((smtp_host, int(os.getenv("SMTP_PORT", "25"))), timeout=3):
+                port = int(os.getenv("SMTP_PORT", "25"))
+                if not (0 < port < 65536):
+                    raise ValueError("SMTP_PORT out of range")
+                socket.getaddrinfo(smtp_host, port, proto=socket.IPPROTO_TCP)
+                with socket.create_connection((smtp_host, port), timeout=2):
                     smtp_ok = True
-            except OSError:
+            except (OSError, ValueError):
                 smtp_ok = False
         storage = storage_status()
         hardening = {
@@ -220,7 +286,16 @@ def create_app() -> Flask:
         }
         return jsonify(payload), 200 if db_ok and storage.get("writable") else 503
 
+    app.before_request(_bind_request_context)
     app.after_request(_apply_security_headers)
+
+    # Expose the nonce to templates via ctx processor so {{ csp_nonce }}
+    # works in every render.
+    @app.context_processor
+    def _inject_csp_nonce():
+        from flask import g
+        return {"csp_nonce": getattr(g, "csp_nonce", "")}
+
     return app
 
 

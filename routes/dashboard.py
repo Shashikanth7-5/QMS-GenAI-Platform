@@ -11,7 +11,7 @@ from flask import Blueprint, jsonify, render_template, request
 from flask_login import login_required, current_user
 from config import MOCK_MODE, AI_MODEL
 from data.records import (
-    get_all_records, get_records_by_owner,
+    get_all_records, get_records_by_owner, get_record_by_id,
     update_record_status, get_all_capas, get_capas_by_owner,
 )
 from services.analytics_service import (
@@ -52,13 +52,23 @@ def api_get_records():
     return jsonify({"records": recs[:limit], "total": len(recs)})
 
 
-# ── Single record — ID lookup for all roles ───────────────
+# ── Single record — ID lookup with ownership enforcement ──
+def _can_access_record(rec):
+    """A regular user can only read/modify records they own."""
+    if current_user.sees_all_records():
+        return True
+    return (rec.get("owner") or "") == current_user.username
+
+
 @dashboard_bp.route("/api/records/<record_id>", methods=["GET"])
 @login_required
 def api_get_record(record_id):
-    recs = get_all_records()
-    rec  = next((r for r in recs if r["id"] == record_id), None)
+    rec = get_record_by_id(record_id)
     if not rec:
+        return jsonify({"error": f"Record {record_id} not found"}), 404
+    if not _can_access_record(rec):
+        # Return 404 (not 403) so we do not confirm the record exists to
+        # unauthorized callers.
         return jsonify({"error": f"Record {record_id} not found"}), 404
     return jsonify(rec)
 
@@ -66,11 +76,22 @@ def api_get_record(record_id):
 @dashboard_bp.route("/api/records/<record_id>/status", methods=["PATCH"])
 @login_required
 def api_update_status(record_id):
-    body = request.get_json(force=True) or {}
-    rec  = update_record_status(record_id, body.get("status", ""))
+    rec = get_record_by_id(record_id)
     if not rec:
         return jsonify({"error": "Not found"}), 404
-    return jsonify({"id": record_id, "status": rec["status"]})
+    if not _can_access_record(rec):
+        return jsonify({"error": "Not found"}), 404
+
+    body = request.get_json(silent=True) or {}
+    new_status = (body.get("status") or "").strip()
+    ALLOWED = {"Draft Generated", "Under Review", "Approved", "Rejected", "Closed", "Pending Correction"}
+    if new_status not in ALLOWED:
+        return jsonify({"error": "Invalid status"}), 400
+
+    updated = update_record_status(record_id, new_status)
+    if not updated:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify({"id": record_id, "status": updated["status"]})
 
 
 # ── Metrics — role-scoped ─────────────────────────────────
