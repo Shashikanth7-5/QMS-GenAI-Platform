@@ -1,0 +1,72 @@
+version: 1
+
+# Edit this file when external workflow states, record labels, or category routing changes.
+# The app reloads it automatically when the file timestamp changes.
+
+eligible_input_statuses:
+  - Draft Generated
+  - New
+  - Open
+  - Investigation
+  - Investigation Complete
+  - RCA Complete
+  - Ready for CAPA
+
+capa_statuses:
+  draft_saved: Under Review
+  rejected_route_to_creator: Pending Correction
+  approved: Approved
+  closed: Closed
+
+external_record_type_map:
+  complaint:
+    - complaint
+    - customer complaint
+    - product complaint
+    - case
+  deviation:
+    - deviation
+    - observation
+    - quality event
+    - quality_event
+    - incident
+  cc:
+    - cc
+    - change control
+    - change_control
+    - change
+  nc:
+    - nc
+    - nonconformance
+    - non-conformance
+    - non conformance
+  audit:
+    - audit
+    - audit finding
+    - inspection observation
+
+decision_source_by_type:
+  complaint: complaint
+  deviation: deviation
+  observation: deviation
+  cc: cc
+  nc: deviation
+  audit: deviation
+
+agent_pipeline:
+  - record_intake_agent
+  - decision_eligibility_agent
+  - rca_scoring_agent
+  - capa_draft_agent
+
+esign:
+  required_for:
+    - Approved
+    - Rejected
+  basis:
+    - 21 CFR Part 11
+    - EU Annex 11
+
+notifications:
+  on_rejection: true
+  on_approval: true

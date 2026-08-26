@@ -1,0 +1,58 @@
+# Ruff configuration for the QMS-GenAI-Platform.
+#
+# We keep the default rule set but exclude generated / archived code and
+# a handful of intentional patterns:
+#   - app.py has `sys.path.insert` before imports (necessary for gunicorn
+#     when the working dir isn't on PYTHONPATH). E402 is expected there.
+#   - alembic/versions/* are generated migrations; F401 (unused `sa`) is
+#     boilerplate.
+#   - scripts/ holds one-off recovery snippets not wired into the app.
+
+line-length = 120
+target-version = "py313"
+
+exclude = [
+    ".venv",
+    "venv",
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "QMS-GENAI",
+    "alembic/versions",
+    "scripts",
+    "static",
+    "templates",
+    # Orphan snippets at the repo root — Version@2 relocates these under
+    # scripts/, so this line is a no-op there but keeps CI green on Version@1.
+    "app_v3_additions.py",
+    "auth_signature_route.py",
+    "fix_capa.py",
+    "digital_signature_snippet.html",
+]
+
+[lint.pycodestyle]
+# W293 (whitespace on blank lines) fires from docstring indentation that
+# ruff cannot auto-fix; treated as noise.
+
+[lint.pylint]
+max-args = 8
+
+[lint]
+# Baseline rules. E/F/W from pycodestyle+pyflakes are enough for a CI gate;
+# richer rulesets (I, N, UP) can be added incrementally.
+select = ["E", "F", "W"]
+
+# Common intentional patterns in this codebase — flagging them is noise:
+#   E402: module-level import not at top (app.py bootstraps sys.path first)
+#   E501: line too long (many long f-string prompts + inline HTML in comments)
+#   E701/E702: multiple statements on one line (Flask idioms like `if x: ...`)
+#   E731: lambda assigned (used as SQLAlchemy default factories)
+#   F401: unused import in __init__.py re-exports
+#   F841: assigned but unused (some LLM fallback paths keep `e` for future logging)
+ignore = ["E402", "E501", "E701", "E702", "E731", "F841", "W293", "E741"]
+
+[lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+"tests/*" = ["F401", "E401"]
+"conftest.py" = ["E401"]

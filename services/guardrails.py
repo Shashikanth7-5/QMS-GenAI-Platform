@@ -1,9 +1,62 @@
 # services/guardrails.py
 # Validates CAPA output before saving — no AI needed
 # Called by routes/capa.py api_save() before save_capa()
+# Also provides prompt-injection sanitization for user text going into LLMs.
 
 import re
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
+
+# Patterns and directives that attackers commonly embed in record fields
+# to hijack downstream LLM calls. We strip these before user data ever
+# reaches a prompt.
+_PROMPT_INJECTION_PATTERNS = [
+    re.compile(r"(?i)ignore (all )?(previous|prior|above) (instructions|prompts?|rules?)"),
+    re.compile(r"(?i)disregard (all )?(previous|prior|above) (instructions|prompts?|rules?)"),
+    re.compile(r"(?i)you are (now )?(a|an) [a-z ]+"),
+    re.compile(r"(?i)system\s*[:\-]\s*"),
+    re.compile(r"(?i)assistant\s*[:\-]\s*"),
+    re.compile(r"(?i)</?(system|user|assistant|instructions?)>"),
+    re.compile(r"```"),
+]
+
+_MAX_FIELD_LEN = 4000  # hard cap per field going into any prompt
+
+
+def sanitize_prompt_text(value: Any, max_len: int = _MAX_FIELD_LEN) -> str:
+    """
+    Sanitize free-form user text before it is embedded into an LLM prompt.
+
+    - Drops known prompt-injection directives.
+    - Neutralizes triple-backtick fences and role tags.
+    - Enforces a maximum length so a single record cannot balloon costs.
+    Return value is always a string (empty string for non-string inputs).
+    """
+    if value is None:
+        return ""
+    text = str(value)
+    for pat in _PROMPT_INJECTION_PATTERNS:
+        text = pat.sub("[redacted]", text)
+    # Strip control characters other than tab/newline.
+    text = "".join(ch for ch in text if ch >= " " or ch in "\t\n")
+    if len(text) > max_len:
+        text = text[:max_len] + " …[truncated]"
+    return text
+
+
+def sanitize_record_for_prompt(record: Dict, max_len: int = _MAX_FIELD_LEN) -> Dict:
+    """
+    Return a shallow copy of `record` with all string fields sanitized so it
+    is safe to embed in a prompt. Non-string values pass through unchanged.
+    """
+    if not isinstance(record, dict):
+        return {}
+    safe = {}
+    for k, v in record.items():
+        if isinstance(v, str):
+            safe[k] = sanitize_prompt_text(v, max_len=max_len)
+        else:
+            safe[k] = v
+    return safe
 
 VALID_REGULATORY_REFS = [
     "21 CFR", "ISO 13485", "EU MDR", "ICH", "GMP", "GDP",
@@ -16,6 +69,93 @@ VAGUE_ROOT_CAUSE_PHRASES = [
     "poor communication", "insufficient oversight",
     "inadequate process", "system failure",
 ]
+
+CAPA_REQUIRED_RULES = [
+    {
+        "field": "rootCause",
+        "label": "Root cause statement",
+        "basis": ["21 CFR 820.100(a)(2)", "ISO 13485:2016 8.5.2"],
+        "message": "A documented root cause is required before CAPA can enter review.",
+    },
+    {
+        "field": "immediateAction",
+        "label": "Immediate containment/action",
+        "basis": ["21 CFR 820.100(a)(3)", "EU MDR 2017/745 Article 10(9)"],
+        "message": "Containment or immediate correction must be captured for affected product/process control.",
+    },
+    {
+        "field": "correctiveAction",
+        "label": "Corrective action",
+        "basis": ["21 CFR 820.100(a)(3)", "ISO 13485:2016 8.5.2"],
+        "message": "Corrective action is required to address the confirmed cause and prevent recurrence.",
+    },
+    {
+        "field": "preventiveAction",
+        "label": "Preventive action",
+        "basis": ["21 CFR 820.100(a)", "ISO 13485:2016 8.5.3"],
+        "message": "Preventive action is required to control similar or potential issues.",
+    },
+    {
+        "field": "capaOwner",
+        "label": "CAPA owner",
+        "basis": ["21 CFR 820.20(b)(1)", "ISO 13485:2016 5.5.1"],
+        "message": "A responsible role/owner is required for accountability.",
+    },
+    {
+        "field": "effectivenessCheck",
+        "label": "Effectiveness check",
+        "basis": ["21 CFR 820.100(a)(4)", "ISO 13485:2016 8.5.2"],
+        "message": "Effectiveness verification is required to confirm actions worked.",
+    },
+    {
+        "field": "riskRating",
+        "label": "Risk rating",
+        "basis": ["ISO 14971", "EU MDR 2017/745 Annex I"],
+        "message": "Risk rating is required to justify priority and closure expectations.",
+    },
+]
+
+
+def regulatory_basis_for_record(capa: Dict) -> List[str]:
+    refs = list(capa.get("regulatoryRef") or [])
+    sector = (capa.get("sector") or "").lower()
+    record_type = (capa.get("sourceRecordType") or "").lower()
+    if not refs:
+        refs.extend(["21 CFR 820.100", "ISO 13485:2016 8.5.2"])
+    if "medical" in sector or "complaint" in record_type:
+        refs.extend(["21 CFR 820.198", "EU MDR 2017/745 Article 87"])
+    if "bio" in sector or "deviation" in record_type:
+        refs.extend(["21 CFR 211.192", "EU GMP Chapter 1"])
+    return list(dict.fromkeys(refs))
+
+
+def required_capa_errors(capa: Dict) -> List[Dict]:
+    errors = []
+    for rule in CAPA_REQUIRED_RULES:
+        value = capa.get(rule["field"])
+        if value is None or (isinstance(value, str) and not value.strip()):
+            errors.append(rule)
+    if not capa.get("regulatoryRef"):
+        errors.append({
+            "field": "regulatoryRef",
+            "label": "Regulatory references",
+            "basis": ["21 CFR 820.100", "ISO 13485:2016 8.5.2", "EU MDR 2017/745"],
+            "message": "At least one regulatory reference is required so the CAPA has a traceable basis.",
+        })
+    return errors
+
+
+def validate_capa_detailed(capa: Dict) -> Dict:
+    errors = required_capa_errors(capa)
+    _, warnings = validate_capa(capa)
+    return {
+        "valid": not errors and not warnings,
+        "can_save": not errors,
+        "errors": errors,
+        "warnings": warnings,
+        "basis": regulatory_basis_for_record(capa),
+    }
+
 
 def validate_capa(capa: Dict) -> Tuple[bool, List[str]]:
     """

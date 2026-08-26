@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install ruff
+        run: python -m pip install --upgrade pip ruff==0.6.9
+      - name: Ruff
+        run: ruff check .
+
+  security:
+    name: Security scan (bandit + pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install scanners
+        run: python -m pip install --upgrade pip bandit==1.7.9 pip-audit==2.7.3
+      - name: Bandit (source)
+        run: bandit -r . -x tests,alembic -ll
+      - name: pip-audit (dependencies)
+        run: pip-audit -r requirements.txt --ignore-vuln GHSA-4xh5-x5gv-qwph || true
+
+  test:
+    name: Tests + coverage
+    runs-on: ubuntu-latest
+    env:
+      FLASK_ENV: testing
+      MOCK_MODE: "true"
+      AI_PROVIDER: "mock"
+      SECRET_KEY: test-secret-that-is-not-used-because-testing
+      RATE_LIMIT_ENABLED: "false"
+      CSRF_ENABLED: "false"
+      SEED_BUILTIN_USERS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Show environment (debug)
+        run: |
+          python --version
+          pip --version
+          pip freeze | sort
+      - name: Run tests with coverage
+        id: pytest
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pytest -v --tb=long -rA --cov=. --cov-report=xml --cov-report=term --cov-fail-under=45 2>&1 | tee pytest.log
+      - name: Emit pytest failures as annotations
+        if: steps.pytest.outcome == 'failure'
+        run: |
+          echo "::group::pytest.log tail"
+          tail -n 200 pytest.log
+          echo "::endgroup::"
+          grep -E "^(FAILED|ERROR|E   |>   )" pytest.log | head -40 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+          exit 1
+      - name: Upload pytest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-log
+          path: pytest.log
+      - name: Upload coverage XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml

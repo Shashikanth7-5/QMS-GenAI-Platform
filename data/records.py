@@ -5,7 +5,10 @@ from datetime import date, datetime
 from typing import Dict, List, Optional
 
 from database import SessionLocal
-from models import QualityRecord, CAPARecord, AuditLog
+from models import AuditLog, CAPARecord, QualityRecord
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
 
 
 def _age(detected_date):
@@ -53,7 +56,7 @@ def _seed_if_empty():
                 source="system", age_days=_age(r.get("detectedDate")),
             ))
         db.commit()
-        print("[records] Seeded 18 records into DB")
+        log.info("records.seeded", extra={"count": len(_SEED)})
 
 
 def get_all_records() -> List[Dict]:
@@ -116,10 +119,73 @@ def add_uploaded_record(record: Dict) -> Dict:
         return rec.to_dict()
 
 
+def upsert_external_record(record: Dict) -> Dict:
+    """Create or update a quality record supplied by an external QMS."""
+    from services.workflow_config import normalize_record_type
+
+    record_id = (
+        record.get("id")
+        or record.get("recordId")
+        or record.get("externalId")
+        or record.get("caseId")
+    )
+    if not record_id:
+        raise ValueError("External record must include id, recordId, externalId, or caseId")
+
+    with SessionLocal() as db:
+        existing = db.query(QualityRecord).filter(QualityRecord.id == record_id).first()
+        if existing:
+            existing.type = normalize_record_type(record.get("type") or record.get("category") or existing.type)
+            existing.sector = record.get("sector", existing.sector or "Medical Device")
+            existing.title = record.get("title", existing.title or "")
+            existing.description = record.get("description", existing.description or "")
+            existing.priority = record.get("priority", existing.priority or "Medium")
+            existing.status = record.get("status", existing.status or "Draft Generated")
+            existing.site = record.get("site", existing.site or "")
+            existing.owner = record.get("owner") or record.get("createdBy") or existing.owner or ""
+            existing.detected_date = record.get("detectedDate", existing.detected_date or "")
+            existing.product_family = record.get("productFamily", existing.product_family or "")
+            existing.batch_lot = record.get("batchLot", existing.batch_lot or "")
+            existing.regulatory_refs = record.get("regulatoryRef", existing.regulatory_refs or [])
+            existing.source = record.get("_source", "external")
+            existing.age_days = _age(existing.detected_date)
+            existing.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
+            return existing.to_dict()
+
+        rec = QualityRecord(
+            id=record_id,
+            type=normalize_record_type(record.get("type") or record.get("category") or "deviation"),
+            sector=record.get("sector", "Medical Device"),
+            title=record.get("title", ""),
+            description=record.get("description", ""),
+            priority=record.get("priority", "Medium"),
+            status=record.get("status", "Draft Generated"),
+            site=record.get("site", ""),
+            owner=record.get("owner") or record.get("createdBy") or "",
+            detected_date=record.get("detectedDate", ""),
+            product_family=record.get("productFamily", ""),
+            batch_lot=record.get("batchLot", ""),
+            regulatory_refs=record.get("regulatoryRef", []),
+            source=record.get("_source", "external"),
+            age_days=_age(record.get("detectedDate")),
+        )
+        db.add(rec)
+        db.commit()
+        db.refresh(rec)
+        return rec.to_dict()
+
+
 def _c2d(c: CAPARecord) -> Dict:
+    record = getattr(c, "record", None)
     return {
         "capaId":               c.capa_id,
         "sourceRecordId":       c.record_id,
+        "sourceRecordType":     record.type if record else "",
+        "sourceRecordTitle":    record.title if record else "",
+        "sector":               record.sector if record else "",
+        "priority":             record.priority if record else "",
         "rootCause":            c.root_cause or "",
         "immediateAction":      c.immediate_action or "",
         "correctiveAction":     c.corrective_action or "",
@@ -129,9 +195,13 @@ def _c2d(c: CAPARecord) -> Dict:
         "estimatedClosureDays": c.estimated_closure_days,
         "riskRating":           c.risk_rating or "",
         "regulatoryRef":        c.regulatory_refs or [],
+        "capaMetadata":         c.capa_metadata or {},
         "status":               c.status,
         "approved":             c.approved,
         "approvedBy":           c.approved_by or "",
+        "rejectedBy":           c.rejected_by or "",
+        "rejectedAt":           c.rejected_at.isoformat() if c.rejected_at else "",
+        "rejectionComment":     c.rejection_comment or "",
         "createdByUsername":    c.created_by_username or "",
         "createdAt":            c.created_at.isoformat() if c.created_at else "",
         "updatedAt":            c.updated_at.isoformat() if c.updated_at else "",
@@ -153,6 +223,7 @@ def save_capa(capa: Dict) -> Dict:
             existing.estimated_closure_days = capa.get("estimatedClosureDays", existing.estimated_closure_days)
             existing.risk_rating            = capa.get("riskRating",           existing.risk_rating)
             existing.regulatory_refs        = capa.get("regulatoryRef",        existing.regulatory_refs)
+            existing.capa_metadata          = capa.get("capaMetadata",         existing.capa_metadata)
             existing.status                 = capa.get("status",               existing.status)
             existing.updated_at             = datetime.utcnow()
             db.commit()
@@ -171,6 +242,7 @@ def save_capa(capa: Dict) -> Dict:
                 estimated_closure_days=capa.get("estimatedClosureDays", 90),
                 risk_rating=capa.get("riskRating", "Medium"),
                 regulatory_refs=capa.get("regulatoryRef", []),
+                capa_metadata=capa.get("capaMetadata", {}),
                 status=capa.get("status", "Under Review"),
                 created_by_username=capa.get("createdByUsername", ""),
                 rca_quality_score=capa.get("rcaQualityScore"),
@@ -202,16 +274,40 @@ def get_capa_by_id(capa_id: str) -> Optional[Dict]:
         return _c2d(c) if c else None
 
 
-def update_capa_status(capa_id: str, new_status: str) -> Optional[Dict]:
+def get_capa_by_record_id(record_id: str) -> Optional[Dict]:
+    with SessionLocal() as db:
+        c = db.query(CAPARecord).filter(CAPARecord.record_id == record_id).first()
+        return _c2d(c) if c else None
+
+
+def update_capa_status(
+    capa_id: str,
+    new_status: str,
+    *,
+    rejected_by: str = "",
+    rejection_comment: str = "",
+    capa_metadata: Dict = None,
+) -> Optional[Dict]:
     with SessionLocal() as db:
         c = db.query(CAPARecord).filter(CAPARecord.capa_id == capa_id).first()
         if not c:
             return None
         c.status = new_status
         c.updated_at = datetime.utcnow()
+        if capa_metadata is not None:
+            c.capa_metadata = capa_metadata
         if new_status == "Approved":
             c.approved = True
             c.approved_at = datetime.utcnow()
+            c.approved_by = rejected_by or c.approved_by
+            c.rejected_by = ""
+            c.rejected_at = None
+            c.rejection_comment = ""
+        elif new_status == "Pending Correction":
+            c.approved = False
+            c.rejected_by = rejected_by
+            c.rejected_at = datetime.utcnow()
+            c.rejection_comment = rejection_comment
         db.commit()
         db.refresh(c)
         return _c2d(c)

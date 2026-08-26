@@ -1,64 +1,77 @@
 # routes/api_v1.py
 # ══════════════════════════════════════════════════════════════
 # QMS GenAI — REST API v1
-# Versioned, API-key authenticated, CORS-enabled
-# Used by: Salesforce LWC, external integrations, mobile apps
-#
-# Authentication: X-API-Key header
-# Set API_KEY in .env — share with Salesforce Named Credential
-#
-# Endpoints:
-#   GET  /api/v1/health
-#   GET  /api/v1/records            — paginated record list
-#   GET  /api/v1/records/<id>       — single record
-#   POST /api/v1/capa/generate      — generate CAPA draft
-#   POST /api/v1/capa/save          — save CAPA
-#   GET  /api/v1/capas              — list CAPAs
-#   GET  /api/v1/capas/<id>         — single CAPA
-#   PATCH /api/v1/capas/<id>/status — approve / reject
-#   POST /api/v1/rca/analyze        — run RCA
-#   GET  /api/v1/analytics          — chart data
-#   POST /api/v1/webhooks/salesforce — receive SF events
+# X-API-Key authenticated, host-exact CORS, CSRF-exempt (bearer auth).
 # ══════════════════════════════════════════════════════════════
 
-import os
-import hmac
 import hashlib
-import json
+import hmac
+import os
 from datetime import datetime
 from functools import wraps
-from flask import Blueprint, jsonify, request, g
+from urllib.parse import urlparse
 
-from data.records import (
-    get_all_records, get_record_by_id,
-    get_all_capas, get_capa_by_id,
-    save_capa, update_capa_status,
-)
-from services.ai_service   import generate_capa
-from services.rca_service  import build_five_why, build_fishbone
+from flask import Blueprint, current_app, jsonify, request
+
+from auth.users import get_user_by_username
+from config import (API_V1_ALLOW_ANONYMOUS, API_V1_KEY, CORS_ORIGINS,
+                    RATE_LIMIT_API_V1, SF_WEBHOOK_SECRET)
+from data.records import (get_all_capas, get_all_records, get_capa_by_id,
+                          get_record_by_id, save_capa, update_capa_status,
+                          upsert_external_record)
+from services.ai_service import generate_capa
+from services.agents.orchestrator import CapaAgentOrchestrator
+from services.logging_config import get_logger
+from services.rca_service import build_fishbone, build_five_why
+from services.security import capa_content_hash
+from services.workflow_config import (is_agent_eligible, normalize_record_type,
+                                      workflow_snapshot)
+
+log = get_logger(__name__)
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 
-# ── Config ────────────────────────────────────────────────────
-API_KEY      = os.getenv("API_V1_KEY", "")        # set in .env
-ALLOWED_ORIGINS = os.getenv(
-    "CORS_ORIGINS",
-    "https://*.salesforce.com,https://*.force.com,http://localhost:5000"
-).split(",")
+
+# ── CORS helper (host-exact + optional wildcard subdomain suffix) ─
+def _origin_allowed(origin: str) -> bool:
+    if not origin:
+        return False
+    try:
+        parsed = urlparse(origin)
+    except ValueError:
+        return False
+    if not parsed.scheme or not parsed.netloc:
+        return False
+    host = parsed.netloc.lower()
+    scheme = parsed.scheme.lower()
+    for pattern in CORS_ORIGINS:
+        pattern = pattern.strip()
+        if not pattern:
+            continue
+        try:
+            p = urlparse(pattern)
+        except ValueError:
+            continue
+        if p.scheme.lower() != scheme:
+            continue
+        p_host = p.netloc.lower()
+        if p_host.startswith("*."):
+            suffix = p_host[1:]  # ".salesforce.com"
+            if host == suffix.lstrip(".") or host.endswith(suffix):
+                return True
+        elif p_host == host:
+            return True
+    return False
 
 
-# ── CORS helper ───────────────────────────────────────────────
 def _add_cors(response):
     origin = request.headers.get("Origin", "")
-    for pattern in ALLOWED_ORIGINS:
-        p = pattern.strip().replace("*.", "")
-        if p in origin or origin == pattern.strip():
-            response.headers["Access-Control-Allow-Origin"]  = origin
-            response.headers["Access-Control-Allow-Headers"] = \
-                "Content-Type, X-API-Key, Authorization"
-            response.headers["Access-Control-Allow-Methods"] = \
-                "GET, POST, PATCH, OPTIONS"
-            break
+    if _origin_allowed(origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Key, Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, OPTIONS"
+        response.headers["Access-Control-Max-Age"] = "600"
     return response
 
 
@@ -69,34 +82,51 @@ def after_request(response):
 
 @api_v1_bp.route("/<path:path>", methods=["OPTIONS"])
 def options_handler(path):
-    resp = jsonify({"status": "ok"})
-    return _add_cors(resp)
+    return _add_cors(jsonify({"status": "ok"}))
 
 
 # ── Authentication decorator ──────────────────────────────────
 def require_api_key(fn):
-    """
-    Checks X-API-Key header or ?api_key= query param.
-    If API_V1_KEY is not set in .env, accepts all requests
-    (for local dev / demo mode).
-    """
+    """Fail-closed: production must have API_V1_KEY set unless API_V1_ALLOW_ANONYMOUS=true."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        if not API_KEY:
-            # Dev mode — no key required
-            return fn(*args, **kwargs)
+        if not API_V1_KEY:
+            if API_V1_ALLOW_ANONYMOUS:
+                return fn(*args, **kwargs)
+            log.error("api_v1.auth.missing_key")
+            return jsonify({
+                "error": "unauthorized",
+                "message": "API v1 is unavailable: server key not configured.",
+            }), 503
         provided = (
             request.headers.get("X-API-Key")
             or request.args.get("api_key")
             or ""
         )
-        if not hmac.compare_digest(provided, API_KEY):
+        if not provided or not hmac.compare_digest(provided, API_V1_KEY):
+            log.warning("api_v1.auth.rejected", extra={"path": request.path, "ip": request.remote_addr})
             return jsonify({
-                "error": "Unauthorized",
+                "error": "unauthorized",
                 "message": "Valid X-API-Key header required",
             }), 401
         return fn(*args, **kwargs)
     return wrapper
+
+
+def _apply_rate_limits():
+    limiter = current_app.extensions.get("qms_limiter") if current_app else None
+    if not limiter:
+        return
+    try:
+        limiter.limit(RATE_LIMIT_API_V1)(api_v1_bp)
+    except Exception:
+        log.exception("api_v1.rate_limit_attach_failed")
+
+
+@api_v1_bp.record_once
+def _on_registered(setup_state):
+    with setup_state.app.app_context():
+        _apply_rate_limits()
 
 
 # ── Standard response wrapper ─────────────────────────────────
@@ -116,6 +146,55 @@ def _err(message, status=400, code=None):
     }), status
 
 
+def _external_user(body: dict) -> dict:
+    user = body.get("user") or body.get("currentUser") or {}
+    username = (
+        user.get("username")
+        or user.get("userName")
+        or user.get("email")
+        or body.get("triggeredBy")
+        or "external-user"
+    )
+    return {
+        "username": username,
+        "fullName": user.get("fullName") or user.get("name") or username,
+        "email": user.get("email", ""),
+        "role": user.get("role") or user.get("profile") or "external",
+    }
+
+
+def _normalize_external_record(body: dict) -> dict:
+    source = body.get("externalSystem") or body.get("sourceSystem") or "external_qms"
+    record = dict(body.get("record") or body.get("qualityEvent") or {})
+    if not record:
+        raise ValueError("record or qualityEvent payload is required")
+    record_id = (
+        record.get("id")
+        or record.get("recordId")
+        or record.get("externalId")
+        or record.get("caseId")
+    )
+    if not record_id:
+        raise ValueError("External record requires id, recordId, externalId, or caseId")
+    user = _external_user(body)
+    record["id"] = record_id
+    record["type"] = normalize_record_type(record.get("type") or record.get("category") or record.get("eventType"))
+    record["status"] = record.get("status") or record.get("workflowState") or "Draft Generated"
+    record["title"] = record.get("title") or record.get("subject") or f"Quality Event {record_id}"
+    record["description"] = record.get("description") or record.get("details") or record.get("summary") or ""
+    record["priority"] = record.get("priority") or record.get("riskRating") or "Medium"
+    record["sector"] = record.get("sector") or record.get("businessUnit") or "Medical Device"
+    record["owner"] = record.get("owner") or user["username"]
+    record["createdBy"] = user["username"]
+    record["_source"] = source
+    record["external"] = {
+        "system": source,
+        "objectType": body.get("objectType") or record.get("objectType") or "QualityEvent",
+        "callbackUrl": body.get("callbackUrl", ""),
+    }
+    return record
+
+
 # ══════════════════════════════════════════════════════════════
 # HEALTH
 # ══════════════════════════════════════════════════════════════
@@ -131,16 +210,91 @@ def health():
     })
 
 
+@api_v1_bp.route("/workflow-config", methods=["GET"])
+@require_api_key
+def api_workflow_config():
+    return _ok(workflow_snapshot())
+
+
+@api_v1_bp.route("/integrations/quality-event/capa", methods=["POST"])
+@require_api_key
+def api_external_quality_event_capa():
+    """Entry point for TrackWise/Salesforce 'Create CAPA with AI' actions."""
+    body = request.get_json(silent=True) or {}
+    options = body.get("options") or {}
+    user = _external_user(body)
+    try:
+        normalized = _normalize_external_record(body)
+    except ValueError as exc:
+        return _err(str(exc), 400, "invalid_external_record")
+
+    eligible, reason = is_agent_eligible(normalized)
+    imported = upsert_external_record(normalized)
+    if not eligible and not options.get("force", False):
+        return _ok({
+            "integrationStatus": "skipped",
+            "reason": reason,
+            "record": imported,
+            "workflow": workflow_snapshot(),
+            "ui": {
+                "showMessage": reason,
+                "allowManualFallback": True,
+                "radioButtonAction": "disabled_by_workflow_state",
+            },
+        }, 202)
+
+    save_draft = options.get("saveDraft", True)
+    result = CapaAgentOrchestrator().run(
+        imported["id"],
+        triggered_by=user["username"],
+        save_draft=save_draft,
+        decision_answers=body.get("answers") or body.get("decisionAnswers"),
+    )
+    saved = result.get("savedCapa") or {}
+    capa_id = saved.get("capaId") or (result.get("draft") or {}).get("capaId")
+    review_state = saved.get("status") or ("Draft Generated" if result.get("draft") else "Not Triggered")
+    return _ok({
+        "integrationStatus": "completed" if result.get("status") == "ok" else "error",
+        "externalSystem": normalized.get("_source"),
+        "triggeredBy": user,
+        "record": imported,
+        "agentRun": {
+            "id": result.get("agentRunId"),
+            "status": result.get("status"),
+            "capaTriggered": result.get("capaTriggered"),
+            "turnsUsed": result.get("turnsUsed"),
+            "steps": result.get("steps", []),
+            "error": result.get("error"),
+        },
+        "capa": {
+            "id": capa_id,
+            "draft": result.get("draft"),
+            "saved": saved or None,
+            "reviewState": review_state,
+            "requiresHumanApproval": result.get("requiresHumanApproval", True),
+            "eSignatureRequiredFor": workflow_snapshot().get("esign", {}).get("required_for", ["Approved", "Rejected"]),
+        },
+        "ui": {
+            "radioButtonAction": "create_capa_with_ai",
+            "showSubmitForReview": bool(saved),
+            "showApproveReject": bool(saved),
+            "openDraftUrl": f"/capa/create?id={imported['id']}&capaId={capa_id}" if capa_id else "",
+            "manualFallbackAvailable": True,
+        },
+        "notifications": {
+            "creatorEmail": user.get("email", ""),
+            "approvalEmailAvailable": bool(user.get("email")),
+        },
+        "workflow": workflow_snapshot(),
+    }, 201 if saved else 200)
+
+
 # ══════════════════════════════════════════════════════════════
 # RECORDS
 # ══════════════════════════════════════════════════════════════
 @api_v1_bp.route("/records", methods=["GET"])
 @require_api_key
 def list_records():
-    """
-    Paginated record list.
-    Query params: page, per_page, type, sector, priority, status, q (search)
-    """
     page     = max(1, int(request.args.get("page",     1)))
     per_page = min(100, int(request.args.get("per_page", 25)))
     rtype    = request.args.get("type")
@@ -150,28 +304,25 @@ def list_records():
     q        = (request.args.get("q") or "").lower().strip()
 
     recs = get_all_records()
-
-    # Filter
     if rtype:    recs = [r for r in recs if r.get("type")     == rtype]
     if sector:   recs = [r for r in recs if r.get("sector")   == sector]
     if priority: recs = [r for r in recs if r.get("priority") == priority]
     if status:   recs = [r for r in recs if r.get("status")   == status]
-    if q:        recs = [r for r in recs if q in r.get("id","").lower()
-                         or q in r.get("title","").lower()
-                         or q in r.get("description","").lower()]
+    if q:
+        recs = [r for r in recs if q in r.get("id", "").lower()
+                or q in r.get("title", "").lower()
+                or q in r.get("description", "").lower()]
 
-    total   = len(recs)
-    start   = (page - 1) * per_page
-    page_recs = recs[start : start + per_page]
-
+    total = len(recs)
+    start = (page - 1) * per_page
     return _ok({
-        "records":    page_recs,
-        "total":      total,
-        "page":       page,
-        "per_page":   per_page,
-        "pages":      (total + per_page - 1) // per_page,
-        "has_next":   start + per_page < total,
-        "has_prev":   page > 1,
+        "records":  recs[start:start + per_page],
+        "total":    total,
+        "page":     page,
+        "per_page": per_page,
+        "pages":    (total + per_page - 1) // per_page,
+        "has_next": start + per_page < total,
+        "has_prev": page > 1,
     })
 
 
@@ -190,13 +341,7 @@ def get_record(record_id):
 @api_v1_bp.route("/capa/generate", methods=["POST"])
 @require_api_key
 def api_generate_capa():
-    """
-    Generate a CAPA draft for a record.
-    Body: { "record_id": "CMP-2024-0891" }
-       or { "record": { full record object } }
-    """
-    body = request.get_json(force=True) or {}
-
+    body = request.get_json(silent=True) or {}
     record = body.get("record")
     if not record:
         rid = body.get("record_id") or body.get("recordId")
@@ -205,31 +350,27 @@ def api_generate_capa():
         record = get_record_by_id(rid)
         if not record:
             return _err(f"Record {rid} not found", 404, "not_found")
-
     try:
         capa = generate_capa(record)
         return _ok({
-            "capa":           capa,
-            "source_record":  record.get("id"),
-            "generated_at":   datetime.utcnow().isoformat() + "Z",
+            "capa":          capa,
+            "source_record": record.get("id"),
+            "generated_at":  datetime.utcnow().isoformat() + "Z",
         }, 201)
-    except Exception as e:
-        return _err(f"CAPA generation failed: {str(e)}", 500, "generation_error")
+    except Exception as exc:
+        log.exception("api_v1.capa.generate_failed")
+        return _err(f"CAPA generation failed: {exc}", 500, "generation_error")
 
 
 @api_v1_bp.route("/capa/save", methods=["POST"])
 @require_api_key
 def api_save_capa():
-    """
-    Save a CAPA draft.
-    Body: full CAPA payload (sourceRecordId, rootCause, etc.)
-    """
-    body = request.get_json(force=True) or {}
+    import uuid
+    body = request.get_json(silent=True) or {}
     if not body.get("sourceRecordId"):
         return _err("sourceRecordId is required", 400)
 
-    import uuid
-    capa_id = f"CAPA-{datetime.now().year}-{str(uuid.uuid4())[:8].upper()}"
+    capa_id = f"CAPA-{datetime.now().year}-{uuid.uuid4().hex[:12].upper()}"
     capa_record = {
         "capaId":             capa_id,
         "sourceRecordId":     body.get("sourceRecordId"),
@@ -272,7 +413,7 @@ def list_capas():
     total    = len(capas)
     start    = (page - 1) * per_page
     return _ok({
-        "capas":    capas[start : start + per_page],
+        "capas":    capas[start:start + per_page],
         "total":    total,
         "page":     page,
         "per_page": per_page,
@@ -292,15 +433,94 @@ def get_capa(capa_id):
 @api_v1_bp.route("/capas/<capa_id>/status", methods=["PATCH"])
 @require_api_key
 def update_status(capa_id):
-    body   = request.get_json(force=True) or {}
+    body = request.get_json(silent=True) or {}
     status = body.get("status")
-    valid  = ["Under Review", "Approved", "Rejected", "Closed"]
+    valid = ["Under Review", "Pending Correction", "Approved", "Rejected", "Closed"]
     if status not in valid:
         return _err(f"status must be one of: {', '.join(valid)}", 400)
-    updated = update_capa_status(capa_id, status)
+
+    existing = get_capa_by_id(capa_id)
+    if not existing:
+        return _err(f"CAPA {capa_id} not found", 404, "not_found")
+
+    metadata = dict(existing.get("capaMetadata") or {})
+    reviewer_username = ""
+    comment = body.get("comment", "")
+    workflow_status = "Pending Correction" if status == "Rejected" else status
+
+    if status in ("Approved", "Rejected"):
+        esign = body.get("eSignature") or {}
+        reviewer_username = esign.get("signedBy") or esign.get("username") or ""
+        password = esign.get("password") or ""
+        meaning = esign.get("meaning") or ""
+
+        if not reviewer_username or not password or not meaning:
+            return _err(
+                "eSignature.signedBy, eSignature.password and eSignature.meaning are required "
+                "for approval/rejection (21 CFR §11.200).",
+                400,
+                "esign_required",
+            )
+
+        reviewer = get_user_by_username(reviewer_username)
+        if not reviewer or not reviewer.check_password(password):
+            log.warning(
+                "api_v1.esign.rejected",
+                extra={"capa_id": capa_id, "signer": reviewer_username, "ip": request.remote_addr},
+            )
+            return _err(
+                "Electronic signature password did not match the named reviewer.",
+                403,
+                "esign_invalid",
+            )
+
+        if status == "Approved" and reviewer.role != "admin":
+            return _err(
+                "Only an admin reviewer may approve a CAPA (21 CFR §820.20).",
+                403,
+                "esign_role_denied",
+            )
+
+        body_hash = capa_content_hash(existing)
+        signature = {
+            "signedBy": reviewer.username,
+            "signedByRole": reviewer.role,
+            "meaning": meaning,
+            "decision": status,
+            "signedAt": datetime.utcnow().isoformat() + "Z",
+            "capaHash": body_hash,
+            "basis": ["21 CFR Part 11 §11.200", "EU Annex 11"],
+            "source": "api_v1",
+        }
+        metadata.setdefault("electronicSignatures", []).append(signature)
+        metadata["lastReview"] = {
+            "decision": status,
+            "workflowStatus": workflow_status,
+            "comment": comment,
+            "reviewedBy": reviewer.username,
+            "reviewedAt": signature["signedAt"],
+            "eSignature": signature,
+        }
+        log.info(
+            "api_v1.capa.status_changed",
+            extra={
+                "capa_id": capa_id,
+                "status": workflow_status,
+                "requested": status,
+                "signer": reviewer.username,
+            },
+        )
+
+    updated = update_capa_status(
+        capa_id,
+        workflow_status,
+        rejected_by=reviewer_username,
+        rejection_comment=comment,
+        capa_metadata=metadata,
+    )
     if not updated:
         return _err(f"CAPA {capa_id} not found", 404, "not_found")
-    return _ok({"capaId": capa_id, "status": status})
+    return _ok({"capaId": capa_id, "status": workflow_status, "requestedStatus": status})
 
 
 # ══════════════════════════════════════════════════════════════
@@ -309,14 +529,9 @@ def update_status(capa_id):
 @api_v1_bp.route("/rca/analyze", methods=["POST"])
 @require_api_key
 def api_rca():
-    """
-    Run RCA on a record.
-    Body: { "record_id": "...", "method": "5why" | "fishbone" }
-    """
-    body   = request.get_json(force=True) or {}
+    body = request.get_json(silent=True) or {}
     method = body.get("method", "fishbone")
     record = body.get("record")
-
     if not record:
         rid = body.get("record_id") or body.get("recordId")
         if not rid:
@@ -324,12 +539,12 @@ def api_rca():
         record = get_record_by_id(rid)
         if not record:
             return _err(f"Record {rid} not found", 404, "not_found")
-
     try:
         rca = build_five_why(record) if method == "5why" else build_fishbone(record)
         return _ok({"rca": rca, "method": method})
-    except Exception as e:
-        return _err(str(e), 500, "rca_error")
+    except Exception as exc:
+        log.exception("api_v1.rca.failed")
+        return _err(str(exc), 500, "rca_error")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -338,61 +553,62 @@ def api_rca():
 @api_v1_bp.route("/analytics", methods=["GET"])
 @require_api_key
 def api_analytics():
-    from services.analytics_service import (
-        priority_distribution, status_pipeline, type_breakdown
-    )
     from collections import Counter
+    from services.analytics_service import (priority_distribution,
+                                            status_pipeline, type_breakdown)
     try:
-        capas  = get_all_capas()
+        capas = get_all_capas()
         counts = Counter(c.get("status", "Unknown") for c in capas)
         return _ok({
             "priority":    priority_distribution(),
             "status":      status_pipeline(),
             "type":        type_breakdown(),
             "capa_status": {
-                "labels": ["Under Review","Approved","Rejected","Closed"],
-                "values": [counts.get(s,0) for s in
-                           ["Under Review","Approved","Rejected","Closed"]],
+                "labels": ["Under Review", "Approved", "Rejected", "Closed"],
+                "values": [counts.get(s, 0) for s in
+                           ["Under Review", "Approved", "Rejected", "Closed"]],
                 "total":  len(capas),
             },
         })
-    except Exception as e:
-        return _err(str(e), 500)
+    except Exception as exc:
+        log.exception("api_v1.analytics.failed")
+        return _err(str(exc), 500)
 
 
 # ══════════════════════════════════════════════════════════════
-# SALESFORCE WEBHOOK — receives events from Salesforce Platform Events
+# SALESFORCE WEBHOOK
 # ══════════════════════════════════════════════════════════════
 @api_v1_bp.route("/webhooks/salesforce", methods=["POST"])
 def salesforce_webhook():
-    """
-    Receives Salesforce Platform Events or Outbound Messages.
-    Verifies signature if SF_WEBHOOK_SECRET is set.
-    Expected payload: { "event": "case_created"|"case_updated", "caseId": "...", "record": {...} }
-    """
-    secret = os.getenv("SF_WEBHOOK_SECRET", "")
-    if secret:
-        sig = request.headers.get("X-Salesforce-Signature", "")
-        expected = hmac.new(
-            secret.encode(), request.data, hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(sig, expected):
-            return _err("Invalid signature", 401, "unauthorized")
+    # Webhook signature is required in every environment. If the secret is
+    # unset the endpoint MUST NOT accept traffic — legacy behavior that
+    # skipped verification in dev is a security bypass because dev endpoints
+    # are still reachable from the public internet during TrackWise
+    # integration testing.
+    if not SF_WEBHOOK_SECRET:
+        log.error("api_v1.sf_webhook.disabled_no_secret")
+        return _err("Salesforce webhook is disabled: signing secret not configured.", 503, "webhook_disabled")
 
-    body  = request.get_json(force=True) or {}
+    sig = request.headers.get("X-Salesforce-Signature", "")
+    expected = hmac.new(SF_WEBHOOK_SECRET.encode(), request.data, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        log.warning("api_v1.sf_webhook.bad_signature", extra={"ip": request.remote_addr})
+        return _err("Invalid signature", 401, "unauthorized")
+
+    body = request.get_json(silent=True) or {}
     event = body.get("event", "unknown")
 
     if event == "case_created" and body.get("record"):
-        # Auto-generate CAPA on new Salesforce case
         try:
             record = body["record"]
-            capa   = generate_capa(record)
+            capa = generate_capa(record)
             return _ok({
                 "action":     "capa_generated",
                 "capa_draft": capa,
                 "case_id":    body.get("caseId"),
             })
-        except Exception as e:
-            return _err(str(e), 500)
+        except Exception as exc:
+            log.exception("api_v1.sf_webhook.capa_generation_failed")
+            return _err(str(exc), 500)
 
     return _ok({"action": "received", "event": event})

@@ -1,13 +1,11 @@
 {% extends "base.html" %}
 {% set active_tab = "capa" %}
-{% block title %}QMS GenAI · CAPA Creation{% endblock %}
+{% block title %}AI QMS - CAPA Creation{% endblock %}
 
-<!-- ═══════════════════════════════════════════════════════
      EXTRA STYLES
-════════════════════════════════════════════════════════ -->
 {% block extra_styles %}
 <style>
- /* NEW — stacks vertically on smaller screens */
+ /* NEW - stacks vertically on smaller screens */
 .workspace {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -18,7 +16,7 @@
   .workspace { grid-template-columns: 1fr; }
 }
 
-  /* ── Panel card ── */
+  /* -- Panel card -- */
   .panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -51,7 +49,7 @@
     align-items: center; flex-wrap: wrap;
   }
 
-  /* ── Record selector ── */
+  /* -- Record selector -- */
   .record-selector {
     display: flex; gap: 10px;
     align-items: center; margin-bottom: 18px;
@@ -72,7 +70,7 @@
     box-shadow: 0 0 0 3px rgba(23,86,184,0.1);
   }
 
-  /* ── Record info strip ── */
+  /* -- Record info strip -- */
   .record-info {
     background: var(--blue-pale);
     border: 1px solid #b3cef5;
@@ -98,7 +96,7 @@
     padding: 2px 10px;
   }
 
-  /* ── RCA method toggle ── */
+  /* -- RCA method toggle -- */
   .method-toggle {
     display: flex; gap: 8px;
     margin-bottom: 16px;
@@ -124,9 +122,9 @@
     background: var(--blue);
     color: #fff;
   }
-  .method-btn__icon { font-size: 18px; display: block; margin-bottom: 4px; }
+  .method-btn__icon { display: none; }
 
-  /* ── 5-Why chain ── */
+  /* -- 5-Why chain -- */
   .why-chain { display: flex; flex-direction: column; gap: 0; }
   .why-step {
     display: flex; gap: 12px;
@@ -173,7 +171,7 @@
     margin-top: 4px;
   }
 
-  /* ── Fishbone diagram ── */
+  /* -- Fishbone diagram -- */
   .fishbone-wrap {
     overflow-x: auto;
     margin-bottom: 12px;
@@ -214,7 +212,7 @@
     font-weight: 500;
   }
 
-  /* ── Root cause summary box ── */
+  /* -- Root cause summary box -- */
   .rca-summary {
     background: var(--red-pale);
     border: 1px solid #f5b8b3;
@@ -245,7 +243,7 @@
     text-decoration: underline; padding: 0;
   }
 
-  /* ── CAPA form fields ── */
+  /* -- CAPA form fields -- */
   .form-section {
     margin-bottom: 20px;
     padding-bottom: 20px;
@@ -330,7 +328,7 @@
     border-color: #e0e3ea;
   }
 
-  /* ── Regulatory ref tags ── */
+  /* -- Regulatory ref tags -- */
   .ref-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .ref-tag {
     display: inline-flex; align-items: center; gap: 5px;
@@ -347,7 +345,50 @@
   }
   .ref-tag__remove:hover { color: var(--red); }
 
-  /* ── Loading spinner ── */
+  .attachment-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .attachment-list {
+    margin-top: 10px;
+    display: grid;
+    gap: 8px;
+  }
+  .attachment-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #f8fbff;
+  }
+  .attachment-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-word;
+  }
+  .attachment-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .attachment-remove {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--red);
+    border-radius: var(--radius);
+    padding: 5px 9px;
+    font-size: 11px;
+    font-family: var(--font);
+    cursor: pointer;
+  }
+
+  /* -- Loading spinner -- */
   .spinner {
     width: 28px; height: 28px;
     border: 3px solid #e0e4ec;
@@ -358,7 +399,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── Success / status strip ── */
+  /* -- Success / status strip -- */
   .status-strip {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 14px;
@@ -378,7 +419,7 @@
   }
 
 
-  /* ── AI Improve Modal (inline CAPA page) ── */
+  /* -- AI Improve Modal (inline CAPA page) -- */
   .ai-improve-overlay {
     display: none; position: fixed; inset: 0; z-index: 400;
     background: rgba(15,23,42,.75); backdrop-filter: blur(4px);
@@ -440,21 +481,19 @@
     background:#f7f8fa;border-radius:0 0 16px 16px;
   }
   .ai-modal-footer span { font-size:11px;color:var(--text-muted);flex:1; }
-  /* ── Empty state ── */
+  /* -- Empty state -- */
   .empty-state {
     text-align: center;
     padding: 40px 20px;
     color: var(--text-muted);
   }
-  .empty-state__icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state__icon { display: none; }
   .empty-state__text { font-size: 13px; line-height: 1.6; }
 </style>
 {% endblock %}
 
 
-<!-- ═══════════════════════════════════════════════════════
      CONTENT
-════════════════════════════════════════════════════════ -->
 {% block content %}
 
 <!-- Page Header -->
@@ -462,18 +501,18 @@
   <div>
     <div class="page-title">CAPA Creation &amp; RCA Analysis</div>
     <div class="page-subtitle">
-      Select a quality record → run Root Cause Analysis →
+      Select a quality record -> run Root Cause Analysis ->
       AI generates and pre-fills your CAPA draft
     </div>
   </div>
   <div class="page-actions">
-    <a href="/" class="btn btn--secondary">← Back to Dashboard</a>
+    <a href="/" class="btn btn--secondary">Back to Dashboard</a>
   </div>
 </div>
 
 <!-- Banner -->
 <div class="banner banner--info" id="banner">
-  <span>ℹ</span>
+  <span>i</span>
   Select a quality record below to begin RCA and CAPA generation.
 </div>
 
@@ -481,14 +520,14 @@
 <div class="panel" style="margin-bottom:20px;">
   <div class="panel__header">
     <div>
-      <div class="panel__title">📂 Select Quality Record</div>
+      <div class="panel__title">Select Quality Record</div>
       <div class="panel__subtitle">Choose a record to pre-fill all fields</div>
     </div>
   </div>
   <div class="panel__body">
     <div class="record-selector">
       <select class="record-select" id="recordSelect">
-        <option value="">— Select a quality record —</option>
+        <option value="">Select a quality record</option>
       </select>
       <button class="btn btn--primary" id="btnLoad">
         Load Record
@@ -496,34 +535,33 @@
       <button class="btn btn--secondary" id="btnUpload"
               onclick="document.getElementById('mainUploadInput').click()"
               style="display:flex;align-items:center;gap:6px;">
-        📎 Upload Document
+        Upload Document
       </button>
-      <!-- Hidden file input — triggers file explorer directly from button -->
+      <!-- Hidden file input - triggers file explorer directly from button -->
       <input type="file" id="mainUploadInput" style="display:none"
              accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.bmp,.tiff,.docx,.txt"
              onchange="if(this.files[0]){ openUploadModal(); setUploadFile(this.files[0]); }">
     </div>
     <!-- Record info strip -->
     <div class="record-info" id="recordInfo">
-      <div class="record-info__title" id="infoTitle">—</div>
+      <div class="record-info__title" id="infoTitle">-</div>
       <div class="record-info__meta" id="infoMeta"></div>
     </div>
   </div>
 </div>
 
-<!-- ── Two-column workspace ───────────────────────────── -->
+<!-- -- Two-column workspace ----------------------------- -->
 <div class="workspace">
 
-  <!-- ══ LEFT · RCA PANEL ══════════════════════════════ -->
   <div>
     <div class="panel">
       <div class="panel__header">
         <div>
-          <div class="panel__title">🔍 Root Cause Analysis</div>
-          <div class="panel__subtitle">5-Why chain · Fishbone (Ishikawa)</div>
+          <div class="panel__title">Root Cause Analysis</div>
+          <div class="panel__subtitle">5-Why chain / Fishbone (Ishikawa)</div>
         </div>
         <span class="ai-tag" style="color:#a0e0b8;border-color:#a0e0b8;background:rgba(255,255,255,0.1);">
-          🤖 AI Assisted
+          AI Assisted
         </span>
       </div>
       <div class="panel__body">
@@ -533,13 +571,11 @@
           <button class="method-btn method-btn--active"
                   id="btnFiveWhy"
                   onclick="selectMethod('5why')">
-            <span class="method-btn__icon">❓</span>
             5-Why Analysis
           </button>
           <button class="method-btn"
                   id="btnFishbone"
                   onclick="selectMethod('fishbone')">
-            <span class="method-btn__icon">🐟</span>
             Fishbone (Ishikawa)
           </button>
         </div>
@@ -547,7 +583,7 @@
         <!-- RCA content area -->
         <div id="rcaContent">
           <div class="empty-state">
-            <div class="empty-state__icon">🔎</div>
+            <div class="empty-state__icon"></div>
             <div class="empty-state__text">
               Select a record and click<br/>
               <strong>Run RCA Analysis</strong> to begin
@@ -557,11 +593,11 @@
 
         <!-- Root cause summary -->
         <div class="rca-summary" id="rcaSummary">
-          <div class="rca-summary__label">✦ Identified Root Cause</div>
-          <div class="rca-summary__text" id="rcaSummaryText">—</div>
+          <div class="rca-summary__label">Identified Root Cause</div>
+          <div class="rca-summary__text" id="rcaSummaryText">-</div>
           <button class="rca-summary__use-btn"
                   onclick="useRootCause()">
-            → Use this as Root Cause in CAPA form
+            Use this as Root Cause in CAPA form
           </button>
         </div>
 
@@ -569,25 +605,25 @@
       <div class="panel__footer">
         <button class="btn btn--secondary" id="btnRunRca"
                 onclick="runRCA()" disabled>
-          🔍 Run RCA Analysis
+          Run RCA Analysis
         </button>
         <button class="btn btn--secondary btn--sm"
                 id="btnEditRCA"
                 onclick="toggleInlineEdit()" disabled
                 style="display:none;">
-          ✏️ Edit RCA
+          Edit RCA
         </button>
         <button class="btn btn--primary btn--sm"
                 id="btnReassessRCA"
                 onclick="reassessInline()" disabled
                 style="display:none;">
-          🔄 Reassess Score
+          Reassess Score
         </button>
         <button class="btn btn--secondary btn--sm"
                 id="btnAIImproveRCA"
                 onclick="openAIImproveInline()" disabled
                 style="display:none;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;">
-          🤖 AI Improve
+          AI Improve
         </button>
         <button class="btn btn--secondary btn--sm"
                 id="btnClearRca"
@@ -602,17 +638,16 @@
     </div>
   </div>
 
-  <!-- ══ RIGHT · CAPA FORM PANEL ═══════════════════════ -->
   <div>
     <div class="panel">
       <div class="panel__header">
         <div>
-          <div class="panel__title">📋 CAPA Creation Form</div>
-          <div class="panel__subtitle">AI pre-fills · you review &amp; edit</div>
+          <div class="panel__title">CAPA Creation Form</div>
+          <div class="panel__subtitle">AI pre-fills / you review and edit</div>
         </div>
         <span class="ai-tag"
               style="color:#a0e0b8;border-color:#a0e0b8;background:rgba(255,255,255,0.1);">
-          🤖 AI Generated
+          AI Generated
         </span>
       </div>
       <div class="panel__body">
@@ -627,29 +662,104 @@
             <div class="form-field">
               <label class="field-label">Record ID</label>
               <input class="field-input" id="fRecordId"
-                     readonly placeholder="—"/>
+                     readonly placeholder="-"/>
             </div>
             <div class="form-field">
               <label class="field-label">Type</label>
               <input class="field-input" id="fRecordType"
-                     readonly placeholder="—"/>
+                     readonly placeholder="-"/>
             </div>
             <div class="form-field">
               <label class="field-label">Priority</label>
               <input class="field-input" id="fPriority"
-                     readonly placeholder="—"/>
+                     readonly placeholder="-"/>
             </div>
             <div class="form-field">
               <label class="field-label">Site</label>
               <input class="field-input" id="fSite"
-                     readonly placeholder="—"/>
+                     readonly placeholder="-"/>
             </div>
             <div class="form-field form-field--full">
               <label class="field-label">Issue Title</label>
               <input class="field-input" id="fTitle"
-                     readonly placeholder="—"/>
+                     readonly placeholder="-"/>
             </div>
           </div>
+        </div>
+
+        <!-- Section 2: CAPA Eligibility -->
+        <div class="form-section">
+          <div class="form-section__title">
+            <span class="form-section__num">2</span>
+            CAPA Eligibility &amp; Impact Assessment
+          </div>
+          <div class="form-grid form-grid--2">
+            <div class="form-field">
+              <label class="field-label">Impact Scope <span class="field-req">*</span></label>
+              <select class="field-select" id="fImpactScope" onchange="evaluateCapaEligibility()">
+                <option value="">Select impact scope</option>
+                <option value="product">Product impact</option>
+                <option value="process">Process impact</option>
+                <option value="system">Quality system impact</option>
+                <option value="none">No confirmed impact</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Risk Level <span class="field-req">*</span></label>
+              <select class="field-select" id="fEligibilityRisk" onchange="evaluateCapaEligibility()">
+                <option value="">Select risk</option>
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Repeat Event</label>
+              <select class="field-select" id="fRepeatEvent" onchange="evaluateCapaEligibility()">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Supplier Related</label>
+              <select class="field-select" id="fSupplierRelated" onchange="toggleConditionalFields();evaluateCapaEligibility()">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Authority Notification Required</label>
+              <select class="field-select" id="fAuthorityNotification" onchange="toggleConditionalFields();evaluateCapaEligibility()">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Effectiveness Check Required</label>
+              <select class="field-select" id="fEffectivenessRequired" onchange="toggleConditionalFields();evaluateCapaEligibility()">
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="field-label">Affected Persons / Functions</label>
+              <input class="field-input" id="fAffectedPersons" placeholder="QA, manufacturing, supplier contact, patient/user if applicable"/>
+            </div>
+            <div class="form-field form-field--full">
+              <label class="field-label">Impact Assessment Detail</label>
+              <textarea class="field-textarea" id="fImpactDetail" rows="2" placeholder="Summarize product, process, or system impact and rationale."></textarea>
+            </div>
+            <div class="form-field conditional-field" id="supplierFields" style="display:none;">
+              <label class="field-label">Supplier Name / CAPA Ref <span class="field-req">*</span></label>
+              <input class="field-input" id="fSupplierDetails" placeholder="Supplier name and supplier CAPA reference"/>
+            </div>
+            <div class="form-field conditional-field" id="authorityFields" style="display:none;">
+              <label class="field-label">Authority Details <span class="field-req">*</span></label>
+              <input class="field-input" id="fAuthorityDetails" placeholder="Authority, notification date, reference number"/>
+            </div>
+          </div>
+          <div id="eligibilityStatus" class="status-strip status-strip--error" style="display:none;"></div>
         </div>
 
         <!-- Section 2: Root Cause (AI + editable) -->
@@ -657,7 +767,7 @@
           <div class="form-section__title">
             <span class="form-section__num">2</span>
             Root Cause Analysis
-            <span class="ai-tag">🤖 AI Generated</span>
+            <span class="ai-tag">AI Generated</span>
           </div>
           <div class="form-field">
             <label class="field-label">
@@ -666,7 +776,7 @@
             </label>
             <textarea class="field-textarea field-textarea--ai"
                       id="fRootCause" rows="3"
-                      placeholder="Run RCA or Generate CAPA to auto-fill…">
+                      placeholder="Run RCA or Generate CAPA to auto-fill...">
             </textarea>
             <div class="field-hint">
               Tip: Use 5-Why or Fishbone to derive this statement
@@ -679,7 +789,7 @@
           <div class="form-section__title">
             <span class="form-section__num">3</span>
             CAPA Actions
-            <span class="ai-tag">🤖 AI Generated</span>
+            <span class="ai-tag">AI Generated</span>
           </div>
           <div class="form-grid">
             <div class="form-field">
@@ -689,7 +799,7 @@
               </label>
               <textarea class="field-textarea field-textarea--ai"
                         id="fImmediateAction" rows="2"
-                        placeholder="Auto-filled after generation…">
+                        placeholder="Auto-filled after generation...">
               </textarea>
             </div>
             <div class="form-field">
@@ -699,7 +809,7 @@
               </label>
               <textarea class="field-textarea field-textarea--ai"
                         id="fCorrectiveAction" rows="3"
-                        placeholder="Auto-filled after generation…">
+                        placeholder="Auto-filled after generation...">
               </textarea>
             </div>
             <div class="form-field">
@@ -709,7 +819,7 @@
               </label>
               <textarea class="field-textarea field-textarea--ai"
                         id="fPreventiveAction" rows="3"
-                        placeholder="Auto-filled after generation…">
+                        placeholder="Auto-filled after generation...">
               </textarea>
             </div>
           </div>
@@ -729,7 +839,7 @@
               </label>
               <input class="field-input field-input--ai"
                      id="fCapaOwner" type="text"
-                     placeholder="Name or role…"/>
+                     placeholder="Name or role..."/>
             </div>
             <div class="form-field">
               <label class="field-label">
@@ -753,7 +863,7 @@
               <label class="field-label">Est. Closure (days)</label>
               <input class="field-input"
                      id="fClosureDays" readonly
-                     placeholder="Auto-calculated…"/>
+                     placeholder="Auto-calculated..."/>
             </div>
           </div>
         </div>
@@ -780,22 +890,44 @@
               </label>
               <textarea class="field-textarea field-textarea--ai"
                         id="fEffectiveness" rows="3"
-                        placeholder="Auto-filled after generation…">
+                        placeholder="Auto-filled after generation...">
               </textarea>
             </div>
           </div>
         </div>
 
-        <!-- Section 6: Notes -->
+        <!-- Section 6: Supporting Documents -->
         <div class="form-section">
           <div class="form-section__title">
             <span class="form-section__num">6</span>
+            Supporting Documents
+          </div>
+          <div class="form-field">
+            <label class="field-label">Attach Files</label>
+            <div class="attachment-actions">
+              <button class="btn btn--secondary" type="button"
+                      onclick="document.getElementById('fCapaAttachments').click()">
+                Attach Documents
+              </button>
+              <span class="field-hint">Multiple files can be selected and saved with the draft record.</span>
+            </div>
+            <input type="file" id="fCapaAttachments" multiple style="display:none"
+                   accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.bmp,.tiff,.docx,.doc,.txt"
+                   onchange="handleCapaAttachments(this.files)">
+            <div class="attachment-list" id="attachmentList"></div>
+          </div>
+        </div>
+
+        <!-- Section 7: Notes -->
+        <div class="form-section">
+          <div class="form-section__title">
+            <span class="form-section__num">7</span>
             Additional Notes
           </div>
           <div class="form-field">
             <textarea class="field-textarea"
                       id="fNotes" rows="3"
-                      placeholder="Any supporting context, observations, or reviewer instructions…">
+                      placeholder="Any supporting context, observations, or reviewer instructions...">
             </textarea>
           </div>
         </div>
@@ -809,12 +941,12 @@
         <button class="btn btn--primary"
                 id="btnGenerate"
                 onclick="generateCAPA()" disabled>
-          🤖 Generate CAPA
+          Generate CAPA
         </button>
         <button class="btn btn--success"
                 id="btnSave"
                 onclick="saveCAPA()" disabled>
-          ✓ Save Draft
+          Save Draft
         </button>
         <button class="btn btn--secondary btn--sm"
                 onclick="clearForm()">
@@ -831,9 +963,7 @@
 
 
 
-<!-- ══════════════════════════════════════════════════════
      RECORD INQUIRY CHAT PANEL
-══════════════════════════════════════════════════════ -->
 <style>
   .inquiry-panel {
     display: none;
@@ -964,7 +1094,7 @@
 <div class="inquiry-panel" id="inquiryPanel">
   <div class="inquiry-header">
     <div>
-      <div class="inquiry-header__title">💬 Ask About This Record</div>
+      <div class="inquiry-header__title"> Ask About This Record</div>
       <div class="inquiry-header__sub" id="inquiryRecordLabel">
         Ask questions about the loaded record
       </div>
@@ -975,7 +1105,7 @@
   <!-- Message thread -->
   <div class="inquiry-messages" id="inquiryMessages">
     <div class="inquiry-empty" id="inquiryEmpty">
-      <div class="inquiry-empty__icon">💬</div>
+      <div class="inquiry-empty__icon"></div>
       <div class="inquiry-empty__text">
         Ask anything about the loaded record.<br/>
         The AI has read all extracted fields and will answer based on them.
@@ -985,28 +1115,26 @@
 
   <!-- Quick suggestion chips -->
   <div class="inquiry-suggestions" id="inquirySuggestions">
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What is the priority?</button>
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Who is the owner?</button>
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Which regulations apply?</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What is the priority</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Who is the owner</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">Which regulations apply</button>
     <button class="inquiry-suggestion" onclick="askSuggestion(this)">Summarise this record</button>
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What batch is affected?</button>
-    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What immediate actions are needed?</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What batch is affected</button>
+    <button class="inquiry-suggestion" onclick="askSuggestion(this)">What immediate actions are needed</button>
   </div>
 
   <!-- Input row -->
   <div class="inquiry-input-row">
     <input class="inquiry-input" id="inquiryInput" type="text"
-           placeholder="Ask a question about this record…"
+           placeholder="Ask a question about this record..."
            onkeydown="if(event.key==='Enter') sendInquiry()"/>
     <button class="inquiry-send-btn" id="inquirySendBtn" onclick="sendInquiry()">
-      ↑ Ask
+      -> Ask
     </button>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════
      UPLOAD DOCUMENT MODAL
-══════════════════════════════════════════════════════ -->
 <style>
   .upload-overlay {
     display: none; position: fixed; inset: 0;
@@ -1124,8 +1252,8 @@
 <div class="upload-overlay" id="uploadOverlay" onclick="closeUploadOnBg(event)">
   <div class="upload-modal">
     <div class="upload-modal__hdr">
-      <div class="upload-modal__title">📎 Upload Quality Document</div>
-      <button class="upload-modal__close" onclick="closeUploadModal()">✕</button>
+      <div class="upload-modal__title"> Upload Quality Document</div>
+      <button class="upload-modal__close" onclick="closeUploadModal()">X</button>
     </div>
 
     <!-- Drop Zone -->
@@ -1134,7 +1262,7 @@
          ondragover="onDragOver(event)"
          ondragleave="onDragLeave(event)"
          ondrop="onDrop(event)">
-      <div class="drop-zone__icon">📄</div>
+      <div class="drop-zone__icon"></div>
       <div class="drop-zone__text">Drop your file here or click to browse</div>
       <div class="drop-zone__hint">AI will extract the quality record fields automatically</div>
       <div class="drop-zone__formats">
@@ -1152,10 +1280,10 @@
 
     <!-- File preview -->
     <div class="upload-preview" id="uploadPreview">
-      <div class="upload-preview__icon" id="previewIcon">📄</div>
-      <div class="upload-preview__name" id="previewName">—</div>
-      <div class="upload-preview__size" id="previewSize">—</div>
-      <button class="upload-preview__remove" onclick="clearUploadFile()" title="Remove">✕</button>
+      <div class="upload-preview__icon" id="previewIcon"></div>
+      <div class="upload-preview__name" id="previewName">-</div>
+      <div class="upload-preview__size" id="previewSize">-</div>
+      <button class="upload-preview__remove" onclick="clearUploadFile()" title="Remove">X</button>
     </div>
 
     <!-- Status messages -->
@@ -1163,7 +1291,7 @@
 
     <!-- Extracted record (editable before saving) -->
     <div class="upload-extracted" id="uploadExtracted">
-      <div class="upload-extracted__title">✅ Extracted Record — Review & Edit Before Saving</div>
+      <div class="upload-extracted__title">OK Extracted Record - Review & Edit Before Saving</div>
       <div class="upload-extracted__grid">
         <div class="upload-extracted__field">
           <label>Record ID</label>
@@ -1217,29 +1345,28 @@
       <button class="btn btn--secondary" onclick="closeUploadModal()">Cancel</button>
       <button class="btn btn--secondary" id="btnProcess" onclick="processUpload()"
               style="display:none;">
-        🤖 Extract with AI
+        Extract with AI
       </button>
       <button class="btn btn--primary" id="btnSaveRecord" onclick="saveExtractedRecord()"
               style="display:none;">
-        ✅ Save & Add to Records
+        Save & Add to Records
       </button>
     </div>
   </div>
 </div>
 
-<!-- ══ AI IMPROVE MODAL ════════════════════════════════════ -->
 <div class="ai-improve-overlay" id="aiImproveModal"
      onclick="if(event.target===this)closeAIImproveModal()">
   <div class="ai-improve-modal">
     <div class="ai-modal-hdr">
       <div>
-        <h3>🤖 AI Improvement Models</h3>
+        <h3> AI Improvement Models</h3>
         <p>
-          Model A = 70% target · Model B = 80% target · Model C = 90% target<br/>
-          After applying: click <strong>Reassess Score</strong> then <strong>→ Sync Now</strong>
+          Model A = 70% target  -  Model B = 80% target  -  Model C = 90% target<br/>
+          After applying: click <strong>Reassess Score</strong> then <strong>-> Sync Now</strong>
         </p>
       </div>
-      <button class="ai-modal-close" onclick="closeAIImproveModal()">✕</button>
+      <button class="ai-modal-close" onclick="closeAIImproveModal()">X</button>
     </div>
     <div class="ai-models-grid" id="aiModelsGrid">
       <div class="spinner" style="grid-column:1/-1;margin:20px auto;width:28px;height:28px;border-width:3px;"></div>
@@ -1249,7 +1376,7 @@
       <button class="btn btn--secondary" onclick="closeAIImproveModal()">Cancel</button>
       <button class="btn btn--primary" id="btnApplyAIModel"
               onclick="applyAIModelInline()" disabled>
-        ✅ Apply Selected Model
+        OK Apply Selected Model
       </button>
     </div>
   </div>
@@ -1258,26 +1385,26 @@
 {% endblock %}
 
 
-<!-- ═══════════════════════════════════════════════════════
      JAVASCRIPT
-════════════════════════════════════════════════════════ -->
 {% block extra_scripts %}
 <script>
-  /* ── State ──────────────────────────────────────────────── */
+  /* -- State ------------------------------------------------ */
   let currentRecord  = null;
   let currentCapa    = null;
   let rcaData        = null;   // stores latest RCA result for edit/reassess/sync
   let rcaAssessment  = null;   // stores latest assessment scores
   let rcaMethod      = '5why'; // '5why' or 'fishbone'
   let currentMethod  = '5why'; // alias kept in sync
+  let capaAttachments = [];
   const TYPE_LBL = {complaint:'Complaint',deviation:'Deviation',
                     cc:'Change Ctrl',nc:'NC',audit:'Audit'};
-  const CAT_ICONS = {Man:'👤',Machine:'⚙️',Method:'📋',
-                     Material:'🧪',Measurement:'📏',Environment:'🌡️'};
+  const CAT_ICONS = {Man:'Man',Machine:'Machine',Method:'Method',
+                     Material:'Material',Measurement:'Measurement',Environment:'Environment'};
 
-  /* ── Boot ───────────────────────────────────────────────── */
+  /* -- Boot ------------------------------------------------- */
   document.addEventListener('DOMContentLoaded', () => {
     bindRefInput();
+    renderCapaAttachments();
 
     /* Load records first, THEN auto-select from URL */
     loadRecordOptions().then(() => {
@@ -1286,14 +1413,14 @@
       if (urlId) {
         document.getElementById('recordSelect').value = urlId;
         loadRecord(urlId).then(() => {
-          /* ── RCA transferred from RCA Analysis tab ── */
+          /* -- RCA transferred from RCA Analysis tab -- */
           const rcaScore  = params.get('rca_score');
           const rcaRC     = params.get('root_cause');
           const rcaMethod = params.get('rca_method');
           if (rcaScore || rcaRC) {
             _applyTransferredRCA(rcaRC, rcaScore, rcaMethod);
           }
-          /* ── Also try sessionStorage (approve path) ── */
+          /* -- Also try sessionStorage (approve path) -- */
           try {
             const stored = sessionStorage.getItem('approved_rca');
             if (stored) {
@@ -1314,7 +1441,7 @@
     });
   });
 
-  /* ── Apply transferred RCA data ─────────────────────────── */
+  /* -- Apply transferred RCA data --------------------------- */
   function _applyTransferredRCA(rootCause, score, method, fullData) {
     if (rootCause) {
       const ta = document.getElementById('fRootCause');
@@ -1329,9 +1456,9 @@
       currentMethod = method || rcaData.method || '5why';
       rcaMethod     = currentMethod;
       document.getElementById('btnFiveWhy')
-        ?.classList.toggle('method-btn--active', currentMethod === '5why');
+        .classList.toggle('method-btn--active', currentMethod === '5why');
       document.getElementById('btnFishbone')
-        ?.classList.toggle('method-btn--active', currentMethod === 'fishbone');
+        .classList.toggle('method-btn--active', currentMethod === 'fishbone');
       if (currentMethod === '5why') render5Why(rcaData, false);
       else renderFishbone(rcaData, false);
       _showRCAButtons();
@@ -1340,12 +1467,12 @@
       _showRCAScoreBadge(score);
     }
     const msg = score
-      ? `✓ RCA (${score}%) transferred from RCA Analysis — root cause pre-filled. Generate CAPA to complete.`
-      : '✓ RCA root cause transferred — review and generate CAPA.';
+      ? `OK RCA (${score}%) transferred from RCA Analysis - root cause pre-filled. Generate CAPA to complete.`
+      : 'OK RCA root cause transferred - review and generate CAPA.';
     setBanner(msg, 'success');
   }
 
-  /* ── Load all records into dropdown ────────────────────── */
+  /* -- Load all records into dropdown ---------------------- */
   function loadRecordOptions() {
     return fetch('/api/records?limit=2000')
       .then(r => r.json())
@@ -1354,14 +1481,14 @@
         (data.records || []).forEach(r => {
           const opt = document.createElement('option');
           opt.value = r.id;
-          opt.textContent = `${r.id} · ${r.title.substring(0,55)}…`;
+          opt.textContent = `${r.id} - ${r.title.substring(0,55)}`;
           sel.appendChild(opt);
         });
       })
       .catch(e => console.error('[QMS] Failed to load records:', e));
   }
 
-  /* ── Load one record ────────────────────────────────────── */
+  /* -- Load one record -------------------------------------- */
   function loadRecord(id) {
     return fetch(`/api/records/${id}`)
       .then(r => r.json())
@@ -1371,26 +1498,52 @@
         populateSourceFields(rec);
         enableButtons();
         showInquiryPanel(rec);
-        setBanner(`✓ Record ${rec.id} loaded — run RCA then Generate CAPA`, 'success');
+        loadExistingCapaForRecord(rec.id);
+        setBanner(`Record ${rec.id} loaded - run RCA then Generate CAPA`, 'success');
       })
       .catch(() => setBanner('Error loading record', 'error'));
   }
 
-  /* ── Show record info strip ─────────────────────────────── */
+  /* -- Show record info strip ------------------------------- */
   function populateRecordInfo(rec) {
     document.getElementById('infoTitle').textContent = rec.title;
     const meta = document.getElementById('infoMeta');
     meta.innerHTML = [
-      `<span class="record-info__chip">🏷 ${TYPE_LBL[rec.type]||rec.type}</span>`,
-      `<span class="record-info__chip">⚠ ${rec.priority}</span>`,
-      `<span class="record-info__chip">🏭 ${rec.sector}</span>`,
-      `<span class="record-info__chip">📍 ${rec.site}</span>`,
-      `<span class="record-info__chip">👤 ${rec.owner}</span>`,
+      `<span class="record-info__chip">Type: ${TYPE_LBL[rec.type]||rec.type}</span>`,
+      `<span class="record-info__chip">Priority: ${rec.priority}</span>`,
+      `<span class="record-info__chip">Sector: ${rec.sector}</span>`,
+      `<span class="record-info__chip">Site: ${rec.site}</span>`,
+      `<span class="record-info__chip">Owner: ${rec.owner}</span>`,
     ].join('');
     document.getElementById('recordInfo').classList.add('visible');
   }
 
-  /* ── Fill source record fields (read-only) ──────────────── */
+  /* -- Fill source record fields (read-only) ---------------- */
+  function loadExistingCapaForRecord(recordId) {
+    fetch(`/api/capas/by-record/${encodeURIComponent(recordId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(capa => {
+        if (!capa) return;
+        currentCapa = capa;
+        populateCAPAFields({
+          rootCause: capa.rootCause,
+          immediateAction: capa.immediateAction,
+          correctiveAction: capa.correctiveAction,
+          preventiveAction: capa.preventiveAction,
+          proposedOwner: capa.capaOwner || capa.proposedOwner,
+          effectivenessCheck: capa.effectivenessCheck,
+          estimatedClosureDays: capa.estimatedClosureDays,
+          riskRating: capa.riskRating,
+          regulatoryRef: capa.regulatoryRef || [],
+        });
+        applyCapaMetadata(capa.capaMetadata || {});
+        document.getElementById('btnSave').disabled = false;
+        document.getElementById('capaStatus').textContent = `Draft loaded: ${capa.capaId} (${capa.status})`;
+        setBanner(`Existing CAPA ${capa.capaId} loaded for review/edit.`, 'success');
+      })
+      .catch(() => {});
+  }
+
   function populateSourceFields(rec) {
     const s = (id, v) => {
       const el = document.getElementById(id);
@@ -1401,9 +1554,162 @@
     s('fPriority',   rec.priority);
     s('fSite',       rec.site);
     s('fTitle',      rec.title);
+    s('fEligibilityRisk', rec.priority);
+    evaluateCapaEligibility();
   }
 
-  /* ── Enable buttons once record loaded ──────────────────── */
+  function toggleConditionalFields() {
+    const supplier = document.getElementById('fSupplierRelated').value === 'Yes';
+    const authority = document.getElementById('fAuthorityNotification').value === 'Yes';
+    const supplierFields = document.getElementById('supplierFields');
+    const authorityFields = document.getElementById('authorityFields');
+    if (supplierFields) supplierFields.style.display = supplier ? '' : 'none';
+    if (authorityFields) authorityFields.style.display = authority ? '' : 'none';
+  }
+
+  function collectCapaMetadata() {
+    const value = id => document.getElementById(id).value || '';
+    return {
+      impactScope: value('fImpactScope'),
+      eligibilityRisk: value('fEligibilityRisk'),
+      repeatEvent: value('fRepeatEvent'),
+      supplierRelated: value('fSupplierRelated'),
+      authorityNotificationRequired: value('fAuthorityNotification'),
+      effectivenessCheckRequired: value('fEffectivenessRequired'),
+      affectedPersons: value('fAffectedPersons'),
+      impactAssessmentDetail: value('fImpactDetail'),
+      supplierDetails: value('fSupplierDetails'),
+      authorityDetails: value('fAuthorityDetails'),
+      attachments: capaAttachments,
+    };
+  }
+
+  function applyCapaMetadata(meta) {
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) el.value = val;
+    };
+    set('fImpactScope', meta.impactScope);
+    set('fEligibilityRisk', meta.eligibilityRisk);
+    set('fRepeatEvent', meta.repeatEvent);
+    set('fSupplierRelated', meta.supplierRelated);
+    set('fAuthorityNotification', meta.authorityNotificationRequired);
+    set('fEffectivenessRequired', meta.effectivenessCheckRequired);
+    set('fAffectedPersons', meta.affectedPersons);
+    set('fImpactDetail', meta.impactAssessmentDetail);
+    set('fSupplierDetails', meta.supplierDetails);
+    set('fAuthorityDetails', meta.authorityDetails);
+    capaAttachments = Array.isArray(meta.attachments) ? meta.attachments : [];
+    renderCapaAttachments();
+    evaluateCapaEligibility();
+  }
+
+  async function handleCapaAttachments(files) {
+    const selected = Array.from(files || []);
+    const input = document.getElementById('fCapaAttachments');
+    if (input) input.value = '';
+    if (!selected.length) return;
+
+    const pending = selected.map(file => ({
+      name: file.name,
+      size: file.size,
+      type: file.type || 'Unknown',
+      uploadStatus: 'Uploading',
+    }));
+    capaAttachments = [...capaAttachments, ...pending];
+    renderCapaAttachments();
+
+    const fd = new FormData();
+    selected.forEach(file => fd.append('files', file));
+    try {
+      const res = await fetch('/api/capa/attachments/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Attachment upload failed');
+
+      const pendingKeys = new Set(pending.map(file => `${file.name}:${file.size}`));
+      capaAttachments = capaAttachments.filter(file =>
+        file.uploadStatus !== 'Uploading' || !pendingKeys.has(`${file.name}:${file.size}`)
+      );
+      data.attachments.forEach(file => capaAttachments.push({...file, uploadStatus: 'Uploaded'}));
+      setBanner(`${data.count} supporting document(s) attached.`, 'success');
+    } catch (err) {
+      capaAttachments = capaAttachments.map(file =>
+        file.uploadStatus === 'Uploading'
+          ? {...file, uploadStatus: 'Upload failed: ' + err.message}
+          : file
+      );
+      setBanner('Attachment upload failed: ' + err.message, 'error');
+    }
+    renderCapaAttachments();
+  }
+
+  function removeCapaAttachment(index) {
+    capaAttachments.splice(index, 1);
+    renderCapaAttachments();
+  }
+
+  function formatFileSize(bytes) {
+    if (!bytes) return '0 KB';
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function renderCapaAttachments() {
+    const list = document.getElementById('attachmentList');
+    if (!list) return;
+    if (!capaAttachments.length) {
+      list.innerHTML = '<div class="field-hint">No supporting documents attached.</div>';
+      return;
+    }
+    list.innerHTML = capaAttachments.map((file, index) => `
+      <div class="attachment-item">
+        <div>
+          <div class="attachment-name">${file.name}</div>
+          <div class="attachment-meta">${formatFileSize(file.size)} | ${file.type || 'Unknown type'} | ${file.uploadStatus || 'Attached'}</div>
+        </div>
+        <button class="attachment-remove" type="button" onclick="removeCapaAttachment(${index})">Remove</button>
+      </div>
+    `).join('');
+  }
+
+  function getEligibilityResult() {
+    const scope = document.getElementById('fImpactScope').value || '';
+    const risk = document.getElementById('fEligibilityRisk').value || '';
+    const repeat = document.getElementById('fRepeatEvent').value === 'Yes';
+    const supplier = document.getElementById('fSupplierRelated').value === 'Yes';
+    const authority = document.getElementById('fAuthorityNotification').value === 'Yes';
+    const missing = [];
+    if (!scope) missing.push('impact scope');
+    if (!risk) missing.push('risk level');
+    if (supplier && !document.getElementById('fSupplierDetails').value.trim()) missing.push('supplier details');
+    if (authority && !document.getElementById('fAuthorityDetails').value.trim()) missing.push('authority details');
+    const highRiskImpact = scope !== 'none' && ['Critical', 'High'].includes(risk);
+    const qualifies = highRiskImpact || repeat || supplier || authority;
+    return { qualifies: Boolean(qualifies && !missing.length), missing };
+  }
+
+  function evaluateCapaEligibility() {
+    toggleConditionalFields();
+    const status = document.getElementById('eligibilityStatus');
+    if (!status) return true;
+    const result = getEligibilityResult();
+    status.style.display = '';
+    if (result.missing.length) {
+      status.className = 'status-strip status-strip--error';
+      status.textContent = `Complete required eligibility fields: ${result.missing.join(', ')}.`;
+      return false;
+    }
+    if (!result.qualifies) {
+      status.className = 'status-strip status-strip--error';
+      status.textContent = 'This record is not eligible for CAPA based on the selected impact/risk values. Use manual review or monitor-only disposition.';
+      return false;
+    }
+    status.className = 'status-strip status-strip--success';
+    status.textContent = 'CAPA eligible: risk/impact conditions support draft creation and quality review.';
+    return true;
+  }
+
+  /* -- Enable buttons once record loaded -------------------- */
   function enableButtons() {
     ['btnRunRca','btnGenerate','btnSave'].forEach(id => {
       const el = document.getElementById(id);
@@ -1413,7 +1719,7 @@
     document.getElementById('capaStatus').textContent  = 'Ready to generate';
   }
 
-  /* ── RCA method toggle ──────────────────────────────────── */
+  /* -- RCA method toggle ------------------------------------ */
   function selectMethod(method) {
     rcaMethod     = method;
     currentMethod = method;
@@ -1424,7 +1730,7 @@
     clearRCA();
   }
 
-  /* ── Run RCA ────────────────────────────────────────────── */
+  /* -- Run RCA ---------------------------------------------- */
   function runRCA() {
     if (!currentRecord) return;
 
@@ -1433,7 +1739,7 @@
     const summaryEl = document.getElementById('rcaSummary');
 
     content.innerHTML   = '<div class="spinner"></div>';
-    statusEl.textContent = 'Running RCA…';
+    statusEl.textContent = 'Running RCA...';
     summaryEl.classList.remove('visible');
 
     const endpoint = rcaMethod === '5why'
@@ -1450,7 +1756,7 @@
       currentMethod = rcaMethod;
       if (rcaMethod === '5why') render5Why(data, false);
       else                       renderFishbone(data, false);
-      statusEl.textContent = `✓ ${rcaMethod === '5why' ? '5-Why' : 'Fishbone'} complete`;
+      statusEl.textContent = `OK ${rcaMethod === '5why' ? '5-Why' : 'Fishbone'} complete`;
       _showRCAButtons();
     })
     .catch(err => {
@@ -1459,66 +1765,66 @@
     });
   }
 
-  /* ── Render 5-Why chain (editable + score badges) ─────────── */
+  /* -- Render 5-Why chain (editable + score badges) ----------- */
   function render5Why(data, scored) {
-    const steps = (scored && rcaAssessment?.assessed_steps)
+    const steps = (scored && rcaAssessment.assessed_steps)
       ? rcaAssessment.assessed_steps : (data.chain || []);
     const html = steps.map((s,i) => {
       const score = s.score;
       const badge = score
-        ? `<span style="background:${score.color==='green'?'var(--green-pale)':score.color==='amber'?'var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green'?'var(--green)':score.color==='amber'?'var(--amber)':'var(--red)'};border:1px solid;border-radius:20px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;">${score.overall}%</span>` : '';
+        ? `<span style="background:${score.color==='green' ? 'var(--green-pale)' : score.color==='amber' ? 'var(--amber-pale)' : 'var(--red-pale)'};color:${score.color==='green' ? 'var(--green)' : score.color==='amber' ? 'var(--amber)' : 'var(--red)'};border:1px solid;border-radius:20px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;">${score.overall}%</span>` : '';
       const bars = score ? `<div style="margin-top:4px;font-size:10px;color:var(--text-muted);">
-        Specificity: ${score.specificity}% · Actionability: ${score.actionability}% · Completeness: ${score.completeness}%
+        Specificity: ${score.specificity}%  -  Actionability: ${score.actionability}%  -  Completeness: ${score.completeness}%
       </div>` : '';
       return `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px dashed var(--border);">
-        <div style="width:26px;height:26px;border-radius:50%;background:${s.is_root?'var(--red)':'var(--blue)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;">${s.level}</div>
+        <div style="width:26px;height:26px;border-radius:50%;background:${s.is_root ? 'var(--red)' : 'var(--blue)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;">${escapeHtml(s.level)}</div>
         <div style="flex:1;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:3px;">${s.why}${badge}</div>
-          <div class="why-answer-display" style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:3px;">${s.because}</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:3px;">${escapeHtml(s.why)}${badge}</div>
+          <div class="why-answer-display" style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:3px;">${escapeHtml(s.because)}</div>
           <textarea class="why-answer-edit" data-idx="${i}" rows="2"
             style="display:none;width:100%;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
-            placeholder="Edit this step — add SOP ref, equipment ID, date…">${s.because}</textarea>
-          ${s.is_root?'<span style="background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;">✦ Root Cause</span>':''}
+            placeholder="Edit this step - add SOP ref, equipment ID, date...">${escapeHtml(s.because)}</textarea>
+          ${s.is_root ? '<span style="background:var(--red-pale);color:var(--red);border:1px solid #f5b8b3;border-radius:3px;font-size:10px;font-weight:700;padding:1px 7px;"> Root Cause</span>' : ''}
           ${bars}
         </div>
       </div>`;
     }).join('');
     document.getElementById('rcaContent').innerHTML = `<div id="rcaOutput">${html}</div>`;
     if (data.root_cause || steps.some(s=>s.is_root)) {
-      const rc = data.root_cause || steps.find(s=>s.is_root)?.because || steps[steps.length-1]?.because || '';
+      const rc = data.root_cause || steps.find(s=>s.is_root).because || steps[steps.length-1].because || '';
       document.getElementById('rcaSummaryText').textContent = rc;
       document.getElementById('rcaSummary').classList.add('visible');
     }
     if (scored && rcaAssessment) _showRCAScoreBadge(rcaAssessment.overall_score);
   }
 
-  /* ── Render Fishbone (editable + score badges + add field) ─ */
+  /* -- Render Fishbone (editable + score badges + add field) - */
   function renderFishbone(data, scored) {
-    const cats = (scored && rcaAssessment?.assessed_categories)
+    const cats = (scored && rcaAssessment.assessed_categories)
       ? rcaAssessment.assessed_categories : (data.categories || {});
     const html = Object.entries(cats).map(([cat, causes]) => {
       const hasPrimary = causes.some(c=>c.primary);
       const causesHtml = causes.map((c,i) => {
         const score = c.score;
         const badge = score
-          ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;background:${score.color==='green'?'var(--green-pale)':score.color==='amber'?'var(--amber-pale)':'var(--red-pale)'};color:${score.color==='green'?'var(--green)':score.color==='amber'?'var(--amber)':'var(--red)'};">${score.overall}%</span>` : '';
+          ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;background:${score.color==='green' ? 'var(--green-pale)' : score.color==='amber' ? 'var(--amber-pale)' : 'var(--red-pale)'};color:${score.color==='green' ? 'var(--green)' : score.color==='amber' ? 'var(--amber)' : 'var(--red)'};">${score.overall}%</span>` : '';
         return `<div class="cause-row" style="margin-bottom:8px;">
           <div style="display:flex;align-items:flex-start;gap:6px;">
-            <input type="checkbox" style="margin-top:3px;accent-color:var(--blue);" ${c.primary?'checked':''}
-              onchange="toggleFBPrimary('${cat}',${i},this.checked)"/>
-            <span class="fishbone-cause ${c.primary?'fishbone-cause--primary':''}" style="flex:1;font-size:12px;">${c.primary?'⚡ ':'• '}${c.text}${badge}</span>
+            <input type="checkbox" style="margin-top:3px;accent-color:var(--blue);" ${c.primary ? 'checked' : ''}
+              onchange="toggleFBPrimary('${escapeHtml(cat)}',${i},this.checked)"/>
+            <span class="fishbone-cause ${c.primary ? 'fishbone-cause--primary' : ''}" style="flex:1;font-size:12px;">${c.primary ? 'Warning ' : '- '}${escapeHtml(c.text)}${badge}</span>
           </div>
-          <textarea class="cause-edit-area" data-cat="${cat}" data-idx="${i}" rows="2"
+          <textarea class="cause-edit-area" data-cat="${escapeHtml(cat)}" data-idx="${i}" rows="2"
             style="display:none;width:100%;margin-top:5px;font-size:11px;font-family:var(--font);border:1px solid var(--blue);border-radius:var(--r);padding:5px 8px;background:#fffff8;outline:none;resize:vertical;"
-            placeholder="Edit cause — add SOP ref, equipment ID, date…">${c.text}</textarea>
+            placeholder="Edit cause - add SOP ref, equipment ID, date...">${escapeHtml(c.text)}</textarea>
         </div>`;
       }).join('');
-      return `<div class="fishbone-cat ${hasPrimary?'fishbone-cat--primary':''}">
-        <div class="fishbone-cat__title"><span class="fishbone-cat__icon">${CAT_ICONS[cat]||'•'}</span>${cat}</div>
+      return `<div class="fishbone-cat ${hasPrimary ? 'fishbone-cat--primary' : ''}">
+        <div class="fishbone-cat__title"><span class="fishbone-cat__icon">${escapeHtml(CAT_ICONS[cat]||'-')}</span>${escapeHtml(cat)}</div>
         ${causesHtml}
-        <button onclick="addFBCause('${cat}')"
+        <button onclick="addFBCause('${escapeHtml(cat)}')"
           style="display:none;width:100%;margin-top:4px;padding:4px;border:1px dashed var(--border);border-radius:var(--r);background:none;color:var(--text-muted);font-size:11px;font-family:var(--font);cursor:pointer;"
-          class="add-cause-btn">+ Add cause for ${cat}</button>
+          class="add-cause-btn">+ Add cause for ${escapeHtml(cat)}</button>
       </div>`;
     }).join('');
     document.getElementById('rcaContent').innerHTML =
@@ -1534,20 +1840,20 @@
   }
 
   function addFBCause(cat) {
-    if (!rcaData?.categories?.[cat]) return;
+    if (!rcaData.categories[cat]) return;
     rcaData.categories[cat].push({text:'',primary:false});
     renderFishbone(rcaData,false);
-    document.getElementById('rcaOutput')?.classList.add('edit-mode');
+    document.getElementById('rcaOutput').classList.add('edit-mode');
     _inlineEditMode=true;
-    document.getElementById('btnEditRCA').textContent='👁 View Mode';
+    document.getElementById('btnEditRCA').textContent=' View Mode';
   }
 
   function toggleFBPrimary(cat,idx,checked) {
-    if(rcaData?.categories?.[cat]?.[idx]!==undefined)
+    if (rcaData.categories[cat]?.[idx] !== undefined)
       rcaData.categories[cat][idx].primary=checked;
   }
 
-  /* ── Use root cause in CAPA form ────────────────────────── */
+  /* -- Use root cause in CAPA form -------------------------- */
   function useRootCause() {
     const text = document.getElementById('rcaSummaryText').textContent;
     const ta   = document.getElementById('fRootCause');
@@ -1557,15 +1863,19 @@
     setTimeout(() => ta.style.borderColor = '', 2000);
   }
 
-  /* ── Generate CAPA from API ─────────────────────────────── */
+  /* -- Generate CAPA from API ------------------------------- */
   function generateCAPA() {
     if (!currentRecord) return;
+    if (!evaluateCapaEligibility()) {
+      setBanner('CAPA cannot be generated until eligibility conditions are complete and qualifying.', 'warning');
+      return;
+    }
 
     const btn = document.getElementById('btnGenerate');
     const statusEl = document.getElementById('capaStatus');
     btn.disabled   = true;
-    btn.textContent = '⏳ Generating…';
-    statusEl.textContent = 'Calling AI…';
+    btn.textContent = 'Working Generating...';
+    statusEl.textContent = 'Calling AI...';
 
     fetch('/api/capa/generate', {
       method: 'POST',
@@ -1577,20 +1887,20 @@
       currentCapa = capa;
       populateCAPAFields(capa);
       btn.disabled    = false;
-      btn.textContent = '🤖 Regenerate';
-      statusEl.textContent = '✓ CAPA generated';
+      btn.textContent = ' Regenerate';
+      statusEl.textContent = 'OK CAPA generated';
       document.getElementById('btnSave').disabled = false;
-      setBanner('✓ CAPA draft generated — review fields and save', 'success');
+      setBanner('OK CAPA draft generated - review fields and save', 'success');
     })
     .catch(err => {
       btn.disabled    = false;
-      btn.textContent = '🤖 Generate CAPA';
+      btn.textContent = ' Generate CAPA';
       statusEl.textContent = 'Error generating';
       setBanner('Error: ' + err.message, 'error');
     });
   }
 
-  /* ── Populate CAPA form fields ──────────────────────────── */
+  /* -- Populate CAPA form fields ---------------------------- */
   function populateCAPAFields(capa) {
     const s = (id, v) => {
       const el = document.getElementById(id);
@@ -1619,31 +1929,36 @@
     (capa.regulatoryRef || []).forEach(addRefTag);
   }
 
-  /* ── Save CAPA draft ────────────────────────────────────── */
+  /* -- Save CAPA draft -------------------------------------- */
  function saveCAPA() {
     if (!currentRecord || !currentCapa) return;
+    if (!evaluateCapaEligibility()) {
+        setBanner('CAPA cannot be saved because eligibility conditions are incomplete or not qualifying.', 'warning');
+        return;
+    }
 
     const btn = document.getElementById('btnSave');
-    btn.disabled    = true;
-    btn.textContent = '⏳ Saving…';
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
 
-    /* Collect regulatory ref tags */
     const refTags = Array.from(
         document.querySelectorAll('#refTagsRow .ref-tag')
-    ).map(tag => tag.textContent.replace('×','').trim());
+    ).map(tag => tag.textContent.replace('x','').trim());
 
     const payload = {
+        capaId:               currentCapa.capaId || '',
         sourceRecordId:       currentRecord.id,
-        rootCause:            document.getElementById('fRootCause')?.value       || '',
-        immediateAction:      document.getElementById('fImmediateAction')?.value  || '',
-        correctiveAction:     document.getElementById('fCorrectiveAction')?.value || '',
-        preventiveAction:     document.getElementById('fPreventiveAction')?.value || '',
-        capaOwner:            document.getElementById('fCapaOwner')?.value        || '',
-        effectivenessCheck:   document.getElementById('fEffectiveness')?.value    || '',
-        notes:                document.getElementById('fNotes')?.value            || '',
-        riskRating:           document.getElementById('fRiskRating')?.value       || currentRecord.priority,
-        estimatedClosureDays: parseInt(document.getElementById('fClosureDays')?.value) || 30,
+        rootCause:            document.getElementById('fRootCause').value       || '',
+        immediateAction:      document.getElementById('fImmediateAction').value  || '',
+        correctiveAction:     document.getElementById('fCorrectiveAction').value || '',
+        preventiveAction:     document.getElementById('fPreventiveAction').value || '',
+        capaOwner:            document.getElementById('fCapaOwner').value        || '',
+        effectivenessCheck:   document.getElementById('fEffectiveness').value    || '',
+        notes:                document.getElementById('fNotes').value            || '',
+        riskRating:           document.getElementById('fRiskRating').value       || currentRecord.priority,
+        estimatedClosureDays: parseInt(document.getElementById('fClosureDays').value) || 30,
         regulatoryRef:        refTags,
+        capaMetadata:         collectCapaMetadata(),
     };
 
     fetch('/api/capa/save', {
@@ -1651,48 +1966,66 @@
         headers: {'Content-Type': 'application/json'},
         body:    JSON.stringify(payload),
     })
-    .then(r => r.json())
+    .then(r => r.json().then(data => ({ok:r.ok, data})))
+    .then(({ok, data: result}) => {
+        if (!ok || result.error) {
+            const validation = result.validation || {};
+            const errors = validation.errors || [];
+            const details = errors.map(e =>
+                `${e.label}: ${e.message}\nBasis: ${(e.basis || []).join(', ')}`
+            ).join('\n\n');
+            window.alert(`${result.message || result.error}\n\n${details || result.error}`);
+            throw new Error(result.error || 'CAPA validation failed');
+        }
+        return result;
+    })
     .then(result => {
-        btn.disabled    = false;
-        btn.textContent = '✓ Save Draft';
+        btn.disabled = false;
+        btn.textContent = 'Save Draft';
         document.getElementById('saveStatus').innerHTML = `
             <div class="status-strip status-strip--success">
-                ✅ CAPA <strong>${result.capaId}</strong> saved!
-                Record status → Under Review
-                <a href="/?section=capas"
-                   style="margin-left:auto;font-size:11px;color:var(--green);font-weight:600;">
-                    → View in Dashboard CAPA Records
-                </a>
+                CAPA <strong>${result.capaId}</strong> saved. Record status - Under Review
+                <a href="/api/capa/${result.capaId}/export" target="_blank" class="btn btn--secondary btn--sm" style="margin-left:auto;">Export PDF</a>
+                <button onclick="printCAPA('${result.capaId}')" class="btn btn--secondary btn--sm">Print</button>
+                <a href="/?section=capas" style="font-size:11px;color:var(--green);font-weight:600;">View in Dashboard</a>
             </div>`;
-        setBanner(`✓ ${result.capaId} saved — view it in Dashboard → CAPA Records tab`, 'success');
+        setBanner(`${result.capaId} saved - view it in Dashboard CAPA Records tab`, 'success');
     })
     .catch(err => {
-        btn.disabled    = false;
-        btn.textContent = '✓ Save Draft';
+        btn.disabled = false;
+        btn.textContent = 'Save Draft';
         document.getElementById('saveStatus').innerHTML = `
             <div class="status-strip status-strip--error">
-                ✗ Error saving: ${err.message}
+                Error saving: ${err.message}
             </div>`;
     });
 }
+function printCAPA(capaId) {
+    const url = `/api/capa/${capaId}/export`;
+    // Open the PDF in a new tab; the browser's PDF viewer has a print button,
+    // and most browsers let the user Ctrl+P directly.
+    const w = window.open(url, '_blank');
+    if (w) {
+        // Give the PDF a moment to load, then invoke print
+        w.addEventListener('load', () => { try { w.print(); } catch (e) {} });
+    }
+}
 
-  /* ══════════════════════════════════════════════════════════
-     INQUIRY CHAT — grounded on the loaded record
-  ══════════════════════════════════════════════════════════ */
-  let _inquiryHistory = [];   // [{role, content}, …]
+/* INQUIRY CHAT - grounded on the loaded record */
+  let _inquiryHistory = [];   // [{role, content}, ...]
 
   function showInquiryPanel(rec) {
     const panel = document.getElementById('inquiryPanel');
     panel.classList.add('visible');
     document.getElementById('inquiryRecordLabel').textContent =
-      `${rec.id} · ${rec.title.substring(0,60)}${rec.title.length > 60 ? '…' : ''}`;
+      `${rec.id} - ${rec.title.substring(0, 60)}${rec.title.length > 60 ? '...' : ''}`;
   }
 
   function clearInquiry() {
     _inquiryHistory = [];
     document.getElementById('inquiryMessages').innerHTML = `
       <div class="inquiry-empty" id="inquiryEmpty">
-        <div class="inquiry-empty__icon">💬</div>
+        <div class="inquiry-empty__icon"></div>
         <div class="inquiry-empty__text">
           Ask anything about the loaded record.<br/>
           The AI has read all extracted fields and will answer based on them.
@@ -1713,12 +2046,12 @@
     div.className = `msg msg--${role}`;
     const html = text
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g,'<em>$1</em>')
-      .replace(/`(.+?)`/g,'<code>$1</code>')
+      .replace(/\*\*(.+)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*(.+)\*/g,'<em>$1</em>')
+      .replace(/`(.+)`/g,'<code>$1</code>')
       .replace(/\n/g,'<br>');
     div.innerHTML = `
-      <div class="msg__avatar">${role === 'user' ? '👤' : '🤖'}</div>
+      <div class="msg__avatar">${role === 'user' ? 'U' : 'AI'}</div>
       <div class="msg__bubble">${html}</div>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
@@ -1741,7 +2074,7 @@
     const typing = document.createElement('div');
     typing.id = '_typingMsg';
     typing.className = 'msg msg--assistant msg--typing';
-    typing.innerHTML = `<div class="msg__avatar">🤖</div><div class="msg__bubble">Analysing record…</div>`;
+    typing.innerHTML = `<div class="msg__avatar"></div><div class="msg__bubble">Analysing record...</div>`;
     box.appendChild(typing);
     box.scrollTop = box.scrollHeight;
 
@@ -1759,13 +2092,13 @@
       const t = document.getElementById('_typingMsg');
       if (t) t.remove();
 
-      const answer = data.error ? `⚠️ ${data.error}` : (data.answer || 'No response.');
+      const answer = data.error ? `Warning ${data.error}` : (data.answer || 'No response.');
       _appendMsg('assistant', answer);
       if (!data.error) _inquiryHistory.push({ role: 'assistant', content: answer });
     } catch (err) {
       const t = document.getElementById('_typingMsg');
       if (t) t.remove();
-      _appendMsg('assistant', `⚠️ Network error: ${err.message}`);
+      _appendMsg('assistant', `Warning Network error: ${err.message}`);
     } finally {
       btn.disabled = false;
       input.focus();
@@ -1773,7 +2106,7 @@
   }
 
 
-  /* ── Inline RCA edit & reassess ─────────────────────────── */
+  /* -- Inline RCA edit & reassess --------------------------- */
   let _inlineEditMode = false;
 
   function toggleInlineEdit() {
@@ -1791,24 +2124,24 @@
       // Pre-populate if empty
       output.querySelectorAll('.cause-edit-area').forEach(ta => {
         if (!ta.value.trim()) {
-          const disp = ta.closest('.cause-row')?.querySelector('.fishbone-cause');
-          if (disp) ta.value = disp.textContent.replace(/^[⚡•]\s*/,'').trim();
+          const disp = ta.closest('.cause-row').querySelector('.fishbone-cause');
+          if (disp) ta.value = disp.textContent.replace(/^[Warning-]\s*/,'').trim();
         }
       });
       output.querySelectorAll('.why-answer-edit').forEach(ta => {
         if (!ta.value.trim()) {
-          const disp = ta.closest('div')?.querySelector('.why-answer-display');
+          const disp = ta.closest('div').querySelector('.why-answer-display');
           if (disp) ta.value = disp.textContent.trim();
         }
       });
-      btn.textContent = '👁 View Mode';
-      setBanner('✏️ Edit mode — update any RCA field, add causes, then click Reassess Score', 'info');
+      btn.textContent = ' View Mode';
+      setBanner(' Edit mode - update any RCA field, add causes, then click Reassess Score', 'info');
     } else {
       output.querySelectorAll('.why-answer-edit, .cause-edit-area')
         .forEach(ta => { ta.style.display = 'none'; });
       output.querySelectorAll('.add-cause-btn')
         .forEach(b  => { b.style.display  = 'none'; });
-      btn.textContent = '✏️ Edit RCA';
+      btn.textContent = ' Edit RCA';
     }
   }
 
@@ -1838,7 +2171,7 @@
     else renderFishbone(rcaData, false);
 
     const btn = document.getElementById('btnReassessRCA');
-    btn.disabled = true; btn.textContent = '⏳ Scoring…';
+    btn.disabled = true; btn.textContent = 'Working Scoring...';
 
     fetch('/api/rca/assess', {
       method: 'POST',
@@ -1848,7 +2181,7 @@
     .then(r => r.json())
     .then(d => {
       rcaAssessment = d;
-      btn.disabled = false; btn.textContent = '🔄 Reassess Score';
+      btn.disabled = false; btn.textContent = ' Reassess Score';
       const score   = d.overall_score || 0;
       const verdict = score >= 75 ? 'Strong RCA' : score >= 55 ? 'Moderate RCA' : 'Needs Improvement';
       const color   = score >= 75 ? 'var(--green)' : score >= 55 ? 'var(--amber)' : 'var(--red)';
@@ -1859,7 +2192,7 @@
 
       _showRCAScoreBadge(score);
 
-      // Auto-show Sync Now if score ≥ 55
+      // Auto-show Sync Now if score >= 55
       if (score >= 55) {
         const rcaSummary = document.getElementById('rcaSummary');
         const existing   = document.getElementById('rcaSyncBanner');
@@ -1867,21 +2200,21 @@
           const sb = document.createElement('div');
           sb.id = 'rcaSyncBanner';
           sb.style.cssText = 'margin-top:8px;padding:8px 12px;background:var(--green-pale);border:1px solid #a3d4b5;border-radius:var(--r);display:flex;align-items:center;justify-content:space-between;';
-          sb.innerHTML = `<span style="font-size:11px;color:var(--green);font-weight:600;">✓ Score ${score}% — click to sync root cause to CAPA form</span>
-            <button onclick="useRootCause();document.getElementById('rcaSyncBanner')?.remove();"
-              style="background:var(--green);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font);">→ Sync Now</button>`;
+          sb.innerHTML = `<span style="font-size:11px;color:var(--green);font-weight:600;">OK Score ${score}% - click to sync root cause to CAPA form</span>
+            <button onclick="useRootCause();document.getElementById('rcaSyncBanner').remove();"
+              style="background:var(--green);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font);">-> Sync Now</button>`;
           rcaSummary.appendChild(sb);
         }
       }
-      setBanner(`✓ Reassessment: ${verdict} (${score}%)`, score>=75?'success':'warning');
+      setBanner(`OK Reassessment: ${verdict} (${score}%)`, score >= 75 ? 'success' : 'warning');
     })
     .catch(() => {
-      btn.disabled = false; btn.textContent = '🔄 Reassess Score';
-      setBanner('Reassessment error — check console', 'error');
+      btn.disabled = false; btn.textContent = ' Reassess Score';
+      setBanner('Reassessment error - check console', 'error');
     });
   }
 
-  /* ── Show RCA buttons after run ────────────────────────── */
+  /* -- Show RCA buttons after run -------------------------- */
   function _showRCAButtons() {
     ['btnEditRCA','btnReassessRCA','btnAIImproveRCA'].forEach(id => {
       const el = document.getElementById(id);
@@ -1889,7 +2222,7 @@
     });
   }
 
-  /* ── Show RCA score badge below RCA panel header ────────── */
+  /* -- Show RCA score badge below RCA panel header ---------- */
   function _showRCAScoreBadge(score) {
     const existing = document.getElementById('rcaScoreBadge');
     if (existing) existing.remove();
@@ -1909,11 +2242,11 @@
     if (content) content.insertBefore(badge, content.firstChild);
   }
 
-  /* ── Clear helpers ──────────────────────────────────────── */
+  /* -- Clear helpers ---------------------------------------- */
   function clearRCA() {
     document.getElementById('rcaContent').innerHTML = `
       <div class="empty-state">
-        <div class="empty-state__icon">🔎</div>
+        <div class="empty-state__icon"></div>
         <div class="empty-state__text">
           Click <strong>Run RCA Analysis</strong> to begin
         </div>
@@ -1932,10 +2265,12 @@
       });
     document.getElementById('refTagsRow').innerHTML = '';
     document.getElementById('saveStatus').innerHTML = '';
+    capaAttachments = [];
+    renderCapaAttachments();
     currentCapa = null;
   }
 
-  /* ── Regulatory ref tag input ───────────────────────────── */
+  /* -- Regulatory ref tag input ----------------------------- */
   function bindRefInput() {
     const input = document.getElementById('refInput');
     if (!input) return;
@@ -1954,14 +2289,14 @@
     tag.className = 'ref-tag';
     tag.innerHTML = `${text}
       <button class="ref-tag__remove" type="button"
-              onclick="this.parentElement.remove()">×</button>`;
+              onclick="this.parentElement.remove()">X</button>`;
     row.appendChild(tag);
   }
 
-  /* ── Banner helper ──────────────────────────────────────── */
+  /* -- Banner helper ---------------------------------------- */
   function setBanner(msg, type) {
     const b = document.getElementById('banner');
-    const icons = {info:'ℹ',success:'✓',warning:'⚠',error:'✗'};
+    const icons = {info:'i',success:'OK',warning:'!',error:'X'};
     b.className = `banner banner--${type}`;
     b.innerHTML = `<span>${icons[type]}</span> ${msg}`;
   }
@@ -1969,7 +2304,7 @@
 
 
 <script>
-  /* ── Upload Modal State ── */
+  /* -- Upload Modal State -- */
   let _uploadFile   = null;
   let _extractedRec = null;
 
@@ -1984,7 +2319,7 @@
     if (e.target === document.getElementById('uploadOverlay')) closeUploadModal();
   }
 
-  /* ── Drag & Drop ── */
+  /* -- Drag & Drop -- */
   function onDragOver(e) {
     e.preventDefault();
     document.getElementById('dropZone').classList.add('drag-over');
@@ -2002,13 +2337,10 @@
     if (input.files[0]) setUploadFile(input.files[0]);
   }
 
-  /* ── File icons by extension ── */
+  /* -- File icons by extension -- */
   function fileIcon(name) {
-    const ext = name.split('.').pop().toLowerCase();
-    const m = {pdf:'📄',xlsx:'📊',xls:'📊',csv:'📊',
-               png:'🖼',jpg:'🖼',jpeg:'🖼',bmp:'🖼',tiff:'🖼',
-               docx:'📝',doc:'📝',txt:'📃'};
-    return m[ext] || '📄';
+    const ext = (name.split('.').pop() || 'FILE').toUpperCase();
+    return ext.length <= 5 ? ext : 'FILE';
   }
 
   function setUploadFile(file) {
@@ -2045,13 +2377,13 @@
     el.textContent = msg;
   }
 
-  /* ── Process Upload → AI Extraction ── */
+  /* -- Process Upload -> AI Extraction -- */
   async function processUpload() {
     if (!_uploadFile) return;
     const btn = document.getElementById('btnProcess');
     btn.disabled = true;
-    btn.textContent = '⏳ Processing…';
-    setUploadStatus('🤖 Sending to AI for extraction…', 'processing');
+    btn.textContent = 'Processing...';
+    setUploadStatus('Sending to AI for extraction...', 'processing');
 
     try {
       const fd = new FormData();
@@ -2060,21 +2392,21 @@
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        setUploadStatus('❌ ' + (data.error || 'Upload failed'), 'error');
-        btn.disabled = false; btn.textContent = '🤖 Extract with AI';
+        setUploadStatus((data.error || 'Upload failed'), 'error');
+        btn.disabled = false; btn.textContent = 'Extract with AI';
         return;
       }
 
       _extractedRec = data.record;
       populateExtractedForm(_extractedRec);
-      setUploadStatus('✅ ' + data.message, 'success');
+      setUploadStatus(data.message, 'success');
       document.getElementById('uploadExtracted').classList.add('show');
       document.getElementById('btnSaveRecord').style.display = '';
       btn.style.display = 'none';
 
     } catch(err) {
-      setUploadStatus('❌ Network error: ' + err.message, 'error');
-      btn.disabled = false; btn.textContent = '🤖 Extract with AI';
+      setUploadStatus('Network error: ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = 'Extract with AI';
     }
   }
 
@@ -2093,7 +2425,7 @@
     setSelect('extSector',   r.sector);
   }
 
-  /* ── Save & add to dropdown ── */
+  /* -- Save & add to dropdown -- */
   function saveExtractedRecord() {
     if (!_extractedRec) return;
 
@@ -2110,7 +2442,7 @@
     const sel = document.getElementById('recordSelect');
     const opt = document.createElement('option');
     opt.value = _extractedRec.id;
-    opt.text  = `${_extractedRec.id} · ${_extractedRec.title.substring(0,50)}…`;
+    opt.text  = `${_extractedRec.id} - ${_extractedRec.title.substring(0,50)}`;
     sel.appendChild(opt);
     sel.value = _extractedRec.id;
 
@@ -2118,7 +2450,7 @@
     window._uploadedRecords = window._uploadedRecords || {};
     window._uploadedRecords[_extractedRec.id] = _extractedRec;
 
-    setUploadStatus('✅ Record added to the dropdown. Select it and click Load Record.', 'success');
+    setUploadStatus('Record added to the dropdown. Select it and click Load Record.', 'success');
     document.getElementById('btnSaveRecord').style.display = 'none';
 
     // Also immediately set as currentRecord and show inquiry panel
@@ -2134,9 +2466,7 @@
   }
 
 
-  /* ══════════════════════════════════════════════════════════
-     AI IMPROVE MODAL — inline CAPA page
-  ══════════════════════════════════════════════════════════ */
+/* AI IMPROVE MODAL - inline CAPA page */
   let _aiProposedModels = null;
   let _aiSelectedModelId = null;
 
@@ -2173,12 +2503,12 @@
     .then(data => {
       _aiProposedModels = data;
       const clsMap = { basic: 'model-card--a', standard: 'model-card--b', enhanced: 'model-card--c' };
-      const icons  = { basic: '🔵', standard: '🟡', enhanced: '🟢' };
+      const icons  = { basic: '', standard: '', enhanced: '' };
       grid.innerHTML = data.models.map(m => `
         <div class="ai-model-card ${clsMap[m.id] || ''}" id="aimc-${m.id}"
              onclick="selectAIModel('${m.id}')">
-          <div class="ai-model-card__check">✅</div>
-          <div class="ai-model-card__icon">${m.icon || icons[m.id] || '🤖'}</div>
+          <div class="ai-model-card__check">OK</div>
+          <div class="ai-model-card__icon">${m.icon || icons[m.id] || ''}</div>
           <div class="ai-model-card__name">${m.name}</div>
           <div class="ai-model-card__score">~${m.estimated_score}%</div>
           <div class="ai-model-card__badge">${m.badge}</div>
@@ -2193,7 +2523,7 @@
   function selectAIModel(id) {
     _aiSelectedModelId = id;
     document.querySelectorAll('.ai-model-card').forEach(c => c.classList.remove('ai-model-card--selected'));
-    document.getElementById('aimc-' + id)?.classList.add('ai-model-card--selected');
+    document.getElementById('aimc-' + id).classList.add('ai-model-card--selected');
     document.getElementById('btnApplyAIModel').disabled = false;
   }
 
@@ -2211,20 +2541,20 @@
       // 5-Why: use chain if available, else build from categories
       if (model.chain && model.chain.length > 0) {
         rcaData.chain      = model.chain;
-        rcaData.root_cause = model.chain[model.chain.length - 1]?.because || '';
+        rcaData.root_cause = model.chain[model.chain.length - 1].because || '';
       } else if (model.categories) {
         const primaries = Object.values(model.categories)
           .flat().filter(c => c.primary).slice(0, 5);
         const whys = [
-          'Why did the quality event occur?',
-          'Why did this cause arise?',
-          'Why was this not prevented?',
-          'Why was the control missing?',
-          'Why was the root issue not addressed earlier?',
+          'Why did the quality event occur',
+          'Why did this cause arise',
+          'Why was this not prevented',
+          'Why was the control missing',
+          'Why was the root issue not addressed earlier',
         ];
         if (primaries.length) {
           rcaData.chain = primaries.map((c, i) => ({
-            level: i + 1, why: whys[i] || `Why ${i+1}?`,
+            level: i + 1, why: whys[i] || `Why ${i+1}`,
             because: c.text, is_root: i === primaries.length - 1,
           }));
           rcaData.root_cause = primaries[primaries.length - 1].text;
@@ -2238,9 +2568,9 @@
 
     // Show reassess prompt
     const status = document.getElementById('rcaStatus');
-    if (status) status.textContent = `${model.name} applied — click Reassess Score`;
+    if (status) status.textContent = `${model.name} applied - click Reassess Score`;
     setBanner(
-      `✓ ${model.name} (~${model.estimated_score}%) applied — click Reassess Score to update accuracy, then Sync to CAPA form`,
+      `OK ${model.name} (~${model.estimated_score}%) applied - click Reassess Score to update accuracy, then Sync to CAPA form`,
       'success'
     );
   }
@@ -2250,3 +2580,4 @@
   });
 </script>
 {% endblock %}
+

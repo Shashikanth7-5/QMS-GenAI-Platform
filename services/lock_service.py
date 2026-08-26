@@ -8,6 +8,10 @@ import threading
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
+
 LOCK_TTL_SECONDS = int(os.getenv("LOCK_TTL_SECONDS", "300"))
 
 # ── In-memory lock store (JSON mode fallback) ──────────────
@@ -149,8 +153,9 @@ def _acquire_db(record_id, username, session_id):
             ))
             session.commit()
             return True, None
-    except Exception as e:
-        print(f"[lock] DB acquire failed — using memory: {e}")
+    except Exception:
+        log.warning("lock.db_acquire_failed_memory_fallback", exc_info=True,
+                    extra={"record_id": record_id})
         return _acquire_memory(record_id, username, session_id)
 
 
@@ -165,8 +170,8 @@ def _release_db(record_id, username):
             ).delete()
             session.commit()
             return deleted > 0
-    except Exception as e:
-        print(f"[lock] DB release failed: {e}")
+    except Exception:
+        log.warning("lock.db_release_failed", exc_info=True, extra={"record_id": record_id})
         return _release_memory(record_id, username)
 
 
@@ -186,8 +191,8 @@ def _status_db(record_id):
                 "expires_at":        lock.expires_at.isoformat(),
                 "minutes_remaining": max(0, int((lock.expires_at - datetime.utcnow()).total_seconds() / 60)),
             }
-    except Exception as e:
-        print(f"[lock] DB status failed: {e}")
+    except Exception:
+        log.warning("lock.db_status_failed", exc_info=True, extra={"record_id": record_id})
         return _status_memory(record_id)
 
 
@@ -205,6 +210,6 @@ def _extend_db(record_id, username):
                 session.commit()
                 return True
             return False
-    except Exception as e:
-        print(f"[lock] DB extend failed: {e}")
+    except Exception:
+        log.warning("lock.db_extend_failed", exc_info=True, extra={"record_id": record_id})
         return _extend_memory(record_id, username)

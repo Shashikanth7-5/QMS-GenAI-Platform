@@ -704,8 +704,8 @@ function switchRCA(method){
   currentRCAMethod=method;
   document.getElementById('tab5why').classList.toggle('active',method==='5why');
   document.getElementById('tabFish').classList.toggle('active',method==='fishbone');
-  document.getElementById('rca5why').style.display      = method==='5why'?'':'none';
-  document.getElementById('rcaFishbone').style.display  = method==='fishbone'?'':'none';
+  document.getElementById('rca5why').style.display      = method==='5why''':'none';
+  document.getElementById('rcaFishbone').style.display  = method==='fishbone''':'none';
 }
 
 function render5Why(){
@@ -787,7 +787,7 @@ function editInQMS(){
 }
 
 function openRCAInQMS(){
-  const url=`${QMS_BASE}/rca/analyze?id=${RECORD_ID}`;
+  const url=`${QMS_BASE}/rca/analyzeid=${RECORD_ID}`;
   window.open(url,'_blank');
   showToast('Opening RCA page in QMS GenAI…');
 }

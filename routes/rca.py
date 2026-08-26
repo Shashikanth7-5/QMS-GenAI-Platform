@@ -33,7 +33,7 @@ def api_fishbone():
         return jsonify({"error": "Missing 'record'"}), 400
     try:
         return jsonify(generate_rca(record, method="fishbone"))
-    except Exception as e:
+    except Exception:
         # Never return 502 — always give the user something to work with
         from services.rca_service import build_fishbone
         result = build_fishbone(record)
@@ -50,7 +50,7 @@ def api_five_why():
         return jsonify({"error": "Missing 'record'"}), 400
     try:
         return jsonify(generate_rca(record, method="5why"))
-    except Exception as e:
+    except Exception:
         from services.rca_service import build_five_why
         result = build_five_why(record)
         result["_fallback"] = True

@@ -3,8 +3,18 @@
 # Unrelated files return {"_insufficient": True, "reason": "..."}
 # instead of creating garbage records.
 
-import base64, csv, io, json, os, re
+import base64
+import csv
+import io
+import json
+import os
+import re
 from datetime import datetime
+
+from services.logging_config import get_logger
+
+log = get_logger(__name__)
+
 _SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
 try:
@@ -168,6 +178,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
         import httpx
         from config import AI_API_KEY, AI_MODEL, AI_BASE_URL
 
+        from services.guardrails import sanitize_prompt_text
         if AI_PROVIDER == "anthropic":
             user_content = (
                 [
@@ -175,7 +186,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
                     {"type":"text","text":_PROMPT.replace("{content}","[see image above]")},
                 ]
                 if is_image
-                else _PROMPT.replace("{content}", str(extracted)[:6000])
+                else _PROMPT.replace("{content}", sanitize_prompt_text(extracted, max_len=6000))
             )
             resp = httpx.post(
                 "https://api.anthropic.com/v1/messages",
@@ -194,7 +205,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
                     {"type":"image_url","image_url":{"url":f"data:{extracted['mime']};base64,{extracted['b64']}"}},
                 ]
                 if is_image
-                else _PROMPT.replace("{content}", str(extracted)[:6000])
+                else _PROMPT.replace("{content}", sanitize_prompt_text(extracted, max_len=6000))
             )
             resp = httpx.post(f"{base}/chat/completions",
                 headers={"Authorization":f"Bearer {AI_API_KEY}"},
@@ -218,8 +229,8 @@ def ai_extract_record(extracted, filename: str) -> dict:
         record.update({"status":"Draft Generated","age":0,"_source":"uploaded"})
         return record
 
-    except Exception as e:
-        print(f"[ingestion] AI extraction failed: {e} — using mock")
+    except Exception:
+        log.warning("ingestion.ai_extraction_failed", exc_info=True)
         return _mock_extract(filename)
 
 

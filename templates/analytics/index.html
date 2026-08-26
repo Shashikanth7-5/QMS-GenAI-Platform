@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% set active_tab = "analytics" %}
-{% block title %}QMS GenAI · Analytics{% endblock %}
+{% block title %}AI QMS - Analytics{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -9,11 +9,11 @@
     <div class="page-subtitle">System-wide quality record and CAPA insights</div>
   </div>
   <div class="page-actions">
-    <button class="btn btn--secondary" onclick="loadCharts()">🔄 Refresh</button>
+    <button class="btn btn--secondary" onclick="loadCharts()"> Refresh</button>
   </div>
 </div>
 
-<div class="banner banner--info" id="banner"><span>ℹ</span> Loading analytics data…</div>
+<div class="banner banner--info" id="banner"><span>Info</span> Loading analytics data...</div>
 
 <!-- Summary metric strip -->
 <div class="metrics" id="summaryMetrics" style="margin-bottom:24px;"></div>
@@ -24,7 +24,7 @@
   <!-- Priority distribution -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">⚠ Priority Distribution</div>
+      <div class="panel__title">Warning Priority Distribution</div>
       <div class="panel__subtitle">All quality records by risk level</div>
     </div>
     <div class="panel__body" style="display:flex;justify-content:center;align-items:center;min-height:260px;">
@@ -35,7 +35,7 @@
   <!-- CAPA status -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">✅ CAPA Status Pipeline</div>
+      <div class="panel__title">OK CAPA Status Pipeline</div>
       <div class="panel__subtitle">CAPA records by workflow stage</div>
     </div>
     <div class="panel__body" style="display:flex;justify-content:center;align-items:center;min-height:260px;">
@@ -50,7 +50,7 @@
   <!-- Record type breakdown -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">📋 Record Type Breakdown</div>
+      <div class="panel__title"> Record Type Breakdown</div>
       <div class="panel__subtitle">Complaints vs Deviations vs Change Controls</div>
     </div>
     <div class="panel__body" style="min-height:260px;">
@@ -61,7 +61,7 @@
   <!-- Status pipeline -->
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">🔄 Workflow Status Pipeline</div>
+      <div class="panel__title"> Workflow Status Pipeline</div>
       <div class="panel__subtitle">Records at each processing stage</div>
     </div>
     <div class="panel__body" style="min-height:260px;">
@@ -85,6 +85,35 @@
   .panel__title  {font-size:13px;font-weight:600;color:#fff;}
   .panel__subtitle{font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;}
   .panel__body   {padding:18px;}
+  .fallback-chart {
+    width:100%;
+    display:grid;
+    gap:10px;
+  }
+  .fallback-row {
+    display:grid;
+    grid-template-columns: 130px 1fr 42px;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+  }
+  .fallback-label { color:var(--text-mid); font-weight:600; }
+  .fallback-track {
+    height:12px;
+    border-radius:999px;
+    background:rgba(47,128,237,0.10);
+    overflow:hidden;
+  }
+  .fallback-fill {
+    height:100%;
+    border-radius:999px;
+    min-width:4px;
+  }
+  .fallback-value {
+    color:var(--text);
+    font-weight:800;
+    text-align:right;
+  }
 </style>
 {% endblock %}
 
@@ -100,6 +129,10 @@
 
 function makeDonut(id, labels, values, colors){
     destroyChart(id);
+    if (typeof Chart === 'undefined') {
+      renderFallbackChart(id, labels, values, colors);
+      return;
+    }
     const ctx = document.getElementById(id).getContext('2d');
     const total = values.reduce((a,b)=>a+b,0);
     charts[id] = new Chart(ctx,{
@@ -112,7 +145,7 @@ function makeDonut(id, labels, values, colors){
           legend:{position:'bottom',labels:{font:{size:11},padding:12}},
           tooltip:{
             callbacks:{
-              label: c => ` ${c.label}: ${c.raw} (${total?Math.round(c.raw/total*100):0}%)`
+              label: c => ` ${c.label}: ${c.raw} (${total ? Math.round(c.raw / total * 100) : 0}%)`
             }
           },
           datalabels:{
@@ -121,18 +154,22 @@ function makeDonut(id, labels, values, colors){
             font:{size:10, weight:'bold'},
             textAlign:'center',
             formatter:(value) => {
-              const pct = total ? Math.round(value/total*100) : 0;
+              const pct = total ? Math.round(value / total * 100) : 0;
               return `${value}\n${pct}%`;
             }
           }
         }
       },
-      plugins:[ChartDataLabels]
+      plugins: typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : []
     });
   }
 
   function makeBar(id, labels, values, colors){
     destroyChart(id);
+    if (typeof Chart === 'undefined') {
+      renderFallbackChart(id, labels, values, colors);
+      return;
+    }
     const ctx = document.getElementById(id).getContext('2d');
     charts[id] = new Chart(ctx,{
       type:'bar',
@@ -158,15 +195,36 @@ function makeDonut(id, labels, values, colors){
           x:{grid:{display:false}},
         }
       },
-      plugins:[ChartDataLabels]
+      plugins: typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : []
     });
+  }
+
+  function renderFallbackChart(id, labels, values, colors) {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    const max = Math.max(...values, 1);
+    parent.innerHTML = `
+      <div class="fallback-chart" id="${escapeHtml(id)}">
+        ${labels.map((label, i) => `
+          <div class="fallback-row">
+            <div class="fallback-label">${escapeHtml(label)}</div>
+            <div class="fallback-track">
+              <div class="fallback-fill" style="width:${Math.max((values[i] || 0) / max * 100, values[i] ? 4 : 0)}%;background:${escapeHtml(colors[i] || '#2f80ed')}"></div>
+            </div>
+            <div class="fallback-value">${Number(values[i]) || 0}</div>
+          </div>
+        `).join('')}
+      </div>`;
   }
   function loadCharts(){
     fetch('/api/analytics')
       .then(r=>{if(!r.ok) throw new Error('Not authorised');return r.json();})
       .then(d=>{
-        document.getElementById('banner').className='banner banner--success';
-        document.getElementById('banner').innerHTML='<span>✓</span> Analytics loaded';
+        document.getElementById('banner').className = typeof Chart === 'undefined' ? 'banner banner--warning' : 'banner banner--success';
+        document.getElementById('banner').innerHTML = typeof Chart === 'undefined'
+          ? '<span>Info</span> Analytics loaded in fallback chart mode.'
+          : '<span>OK</span> Analytics loaded';
 
         /* Summary strip */
         const p=d.priority, s=d.status, t=d.type, c=d.capa_status;
@@ -197,7 +255,7 @@ function makeDonut(id, labels, values, colors){
       })
       .catch(e=>{
         document.getElementById('banner').className='banner banner--error';
-        document.getElementById('banner').innerHTML=`<span>✗</span> ${e.message}`;
+        document.getElementById('banner').innerHTML=`<span>Error</span> ${e.message}`;
       });
   }
 

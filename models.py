@@ -100,6 +100,7 @@ class CAPARecord(Base):
     estimated_closure_days = Column(Integer, default=90)
     risk_rating         = Column(String(20))                  # Critical|High|Medium|Low
     regulatory_refs     = Column(JSON, default=list)
+    capa_metadata       = Column(JSON, default=dict)
 
     # Workflow
     status              = Column(String(30),  default="Draft Generated")
@@ -142,9 +143,13 @@ class CAPARecord(Base):
             "estimatedClosureDays": self.estimated_closure_days,
             "riskRating":           self.risk_rating or "",
             "regulatoryRef":        self.regulatory_refs or [],
+            "capaMetadata":         self.capa_metadata or {},
             "status":               self.status,
             "approved":             self.approved,
             "approvedBy":           self.approved_by or "",
+            "rejectedBy":           self.rejected_by or "",
+            "rejectedAt":           self.rejected_at.isoformat() if self.rejected_at else "",
+            "rejectionComment":     self.rejection_comment or "",
             "createdByUsername":    self.created_by_username or "",
             "createdAt":            self.created_at.isoformat() if self.created_at else "",
             "aiProvider":           self.ai_provider or "",
@@ -163,6 +168,7 @@ class UserModel(Base):
 
     id              = Column(Integer,     primary_key=True, autoincrement=True)
     username        = Column(String(80),  unique=True, nullable=False)
+    email           = Column(String(150), default="")
     password_hash   = Column(String(256), nullable=False)
     role            = Column(String(30),  default="user")
     full_name       = Column(String(150))
@@ -175,6 +181,7 @@ class UserModel(Base):
         return {
             "id":            self.id,
             "username":      self.username,
+            "email":         self.email or "",
             "role":          self.role,
             "full_name":     self.full_name or "",
             "status":        self.status,
@@ -188,22 +195,45 @@ class UserModel(Base):
 # Logs every significant action for regulatory compliance
 # ═════════════════════════════════════════════════════════
 class AuditLog(Base):
+    """21 CFR Part 11 audit trail — append-only, hash-chained.
+
+    Every row commits to the previous row's SHA-256 digest via ``prev_hash``
+    and stores its own digest in ``row_hash``. A single altered entry
+    invalidates every subsequent row, giving tamper-evidence without
+    relying on filesystem or DB access controls alone.
+
+    ``entity_type`` covers regulated entities (record, capa, user) AND the
+    operational agent trail (agent) so we have one auditable stream.
+    """
     __tablename__ = "qms_audit_log"
 
-    id               = Column(Integer,     primary_key=True, autoincrement=True)
-    timestamp        = Column(DateTime,    default=datetime.utcnow, nullable=False)
-    record_id        = Column(String(50),  nullable=True)
-    capa_id          = Column(String(50),  nullable=True)
-    entity_type      = Column(String(50),  nullable=True)
-    action           = Column(String(100), nullable=False)
-    old_value        = Column(Text,        nullable=True)
-    new_value        = Column(Text,        nullable=True)
-    field_name       = Column(String(100), nullable=True)
-    performed_by     = Column(String(100), nullable=False)
-    performed_by_role= Column(String(50),  nullable=True)
-    ip_address       = Column(String(45),  nullable=True)
-    user_agent       = Column(Text,        nullable=True)
-    notes            = Column(Text,        nullable=True)
+    id                = Column(Integer,     primary_key=True, autoincrement=True)
+    timestamp         = Column(DateTime,    default=datetime.utcnow, nullable=False)
+    record_id         = Column(String(50),  nullable=True)
+    capa_id           = Column(String(50),  nullable=True)
+    entity_type       = Column(String(50),  nullable=True)   # record | capa | user | agent
+    action            = Column(String(100), nullable=False)
+    old_value         = Column(Text,        nullable=True)
+    new_value         = Column(Text,        nullable=True)
+    field_name        = Column(String(100), nullable=True)
+    performed_by      = Column(String(100), nullable=False)
+    performed_by_role = Column(String(50),  nullable=True)
+    ip_address        = Column(String(45),  nullable=True)
+    user_agent        = Column(Text,        nullable=True)
+    notes             = Column(Text,        nullable=True)
+    # Agent + structured payloads live here so agents and CAPA share one table.
+    payload           = Column(JSON,        nullable=True, default=dict)
+    # Hash chain — never null after v2.
+    prev_hash         = Column(String(64),  nullable=True)
+    row_hash          = Column(String(64),  nullable=True)
+
+    __table_args__ = (
+        Index("ix_audit_timestamp",    "timestamp"),
+        Index("ix_audit_entity",       "entity_type", "timestamp"),
+        Index("ix_audit_record",       "record_id"),
+        Index("ix_audit_capa",         "capa_id"),
+        Index("ix_audit_performed_by", "performed_by", "timestamp"),
+    )
 
     def to_dict(self):
         return {
@@ -220,6 +250,9 @@ class AuditLog(Base):
             "performedByRole":self.performed_by_role or "",
             "ipAddress":      self.ip_address or "",
             "notes":          self.notes or "",
+            "payload":        self.payload or {},
+            "prevHash":       self.prev_hash or "",
+            "rowHash":        self.row_hash or "",
         }
 # ═════════════════════════════════════════════════════════
 # LLM COST LOG  (new — shows interviewers you control costs)
