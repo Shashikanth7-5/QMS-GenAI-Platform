@@ -2,12 +2,12 @@
 # Run once: python import_records.py
 # Imports all 1000 records from QMS_GenAI_1000_Records.xlsx
 
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import openpyxl
 from data.records import add_uploaded_record
-from datetime import datetime
 
 EXCEL_PATH = "QMS_GenAI_1000_Records.xlsx"  # place in project root
 
@@ -53,7 +53,7 @@ def run():
             imported += 1
             if imported % 100 == 0:
                 print(f"  Imported {imported} records...")
-        except Exception as e:
+        except Exception:
             skipped += 1
 
     print(f"\nDone — {imported} imported, {skipped} skipped")

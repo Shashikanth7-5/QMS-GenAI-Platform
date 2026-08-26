@@ -1,4 +1,5 @@
 # routes/capa.py
+import os
 from datetime import datetime
 from functools import wraps
 
@@ -7,18 +8,18 @@ from flask import (Blueprint, Response, jsonify, render_template, request,
 from flask_login import current_user, login_required
 
 from auth.users import get_user_by_username
+from auth.permissions import Permission, requires_permission
+from config import RATE_LIMIT_LLM
 from data.records import (add_uploaded_record, get_all_capas, get_all_records,
                           get_capa_by_id, get_capa_by_record_id,
-                          get_record_by_id, get_records_by_owner,
-                          get_capas_by_owner, save_capa, update_capa_status,
+                          get_record_by_id, get_capas_by_owner, save_capa, update_capa_status,
                           update_record_status)
 from services.agents.notifications import send_email_notification
 from services.agents.orchestrator import new_capa_id
 from services.ai_service import generate_capa, stream_capa
-from services.audit_service import (ACTION_CAPA_BATCH_RUN,
-                                    ACTION_CAPA_GENERATED, ACTION_CAPA_SAVED,
+from services.audit_service import (ACTION_CAPA_SAVED,
                                     ACTION_CAPA_STATUS_CHANGE,
-                                    ACTION_RECORD_UPLOADED, log)
+                                    log)
 from services.ingestion_service import allowed_file, process_upload
 from services.logging_config import get_logger
 from services.security import capa_content_hash
@@ -27,21 +28,42 @@ from services.storage import save_upload
 logger = get_logger(__name__)
 capa_bp = Blueprint("capa", __name__)
 
+# Upload cap so a single request cannot buffer a decompression bomb or
+# 500 MB PDF into worker memory. Configurable via env.
+_MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))  # 25 MiB
+
+
+@capa_bp.record_once
+def _attach_llm_rate_limit(setup_state):
+    limiter = setup_state.app.extensions.get("qms_limiter") if setup_state.app else None
+    if limiter:
+        try:
+            # Only /api/capa/generate, /api/capa/generate/stream, and
+            # /api/records/inquire hit the LLM. To keep the annotation
+            # simple we apply the cap to the whole blueprint; regular
+            # CRUD endpoints are cheap and unlikely to hit the ceiling.
+            limiter.limit(RATE_LIMIT_LLM)(capa_bp)
+        except Exception:
+            logger.exception("capa.rate_limit_attach_failed")
+
 _TYPE_LABEL = {
     "complaint": "Complaint", "deviation": "Deviation",
     "cc": "Change Control",   "nc": "Non-Conformance", "audit": "Audit",
 }
 
 
-def _validate_esign(payload: dict, capa_body: dict | None = None):
+def _validate_esign(payload: dict, capa_body: dict | None = None,
+                    *, expected_action: str = "workflow"):
     esign = payload.get("eSignature") or {}
     password = esign.get("password", "")
     meaning = esign.get("meaning", "")
+    reason_code = esign.get("reasonCode", "")
+    reason_text = (esign.get("reasonText") or payload.get("comment") or "").strip()
     if not password:
         return None, (jsonify({
             "error": "Electronic signature required.",
             "basis": ["21 CFR Part 11 §11.200", "EU Annex 11"],
-            "message": "Approval/rejection requires password re-entry as reviewer e-signature.",
+            "message": "This action requires password re-entry as reviewer e-signature.",
         }), 400)
     if not current_user.check_password(password):
         logger.warning("capa.esign.rejected",
@@ -55,7 +77,10 @@ def _validate_esign(payload: dict, capa_body: dict | None = None):
         "signedBy": current_user.username,
         "signedByName": current_user.full_name,
         "signedByRole": current_user.role,
-        "meaning": meaning or "CAPA workflow decision",
+        "meaning": meaning or f"CAPA {expected_action} decision",
+        "reasonCode": reason_code,
+        "reasonText": reason_text,
+        "action": expected_action,
         "signedAt": datetime.utcnow().isoformat() + "Z",
         "basis": ["21 CFR Part 11 §11.200", "EU Annex 11"],
     }
@@ -100,7 +125,7 @@ def page_capa_create():
 @capa_bp.route("/api/capa/generate", methods=["POST"])
 @login_required
 def api_generate():
-    body   = request.get_json(force=True) or {}
+    body   = request.get_json(silent=True) or {}
     record = body.get("record", {})
     if not record:
         return jsonify({"error": "Missing 'record'"}), 400
@@ -111,7 +136,7 @@ def api_generate():
 @capa_bp.route("/api/capa/stream", methods=["POST"])
 @login_required
 def api_stream():
-    body   = request.get_json(force=True) or {}
+    body   = request.get_json(silent=True) or {}
     record = body.get("record", {})
     if not record:
         return jsonify({"error": "Missing 'record'"}), 400
@@ -129,7 +154,7 @@ def api_stream():
 
 
 @capa_bp.route("/api/capa/run-batch", methods=["POST"])
-@admin_required
+@requires_permission(Permission.CAPA_BATCH_RUN)
 def api_run_batch():
     all_recs = get_all_records()
     all_capas = get_all_capas()
@@ -305,6 +330,27 @@ def api_get_capa_by_record(record_id: str):
     return jsonify(capa)
 
 
+@capa_bp.route("/api/capas/<capa_id>/signatures", methods=["GET"])
+@login_required
+def api_capa_signatures(capa_id: str):
+    """Return every 21 CFR Part 11 e-signature bound to this CAPA."""
+    from services.esignature_service import signatures_for_entity
+    return jsonify({
+        "capaId": capa_id,
+        "signatures": signatures_for_entity("capa", capa_id),
+        "basis": ["21 CFR Part 11 §11.200", "EU Annex 11"],
+    })
+
+
+@capa_bp.route("/api/esignatures/verify", methods=["GET"])
+@requires_permission(Permission.METRICS_VIEW)
+def api_verify_esignature_chain():
+    """Recompute the SHA-256 chain over qms_esignatures. Regulator-facing."""
+    from services.esignature_service import verify_chain
+    limit = int(request.args.get("limit", 1000))
+    return jsonify(verify_chain(limit=limit))
+
+
 @capa_bp.route("/api/capa/attachments/upload", methods=["POST"])
 @login_required
 def api_upload_capa_attachments():
@@ -365,9 +411,9 @@ def api_export_capa(capa_id: str):
     )
 
 @capa_bp.route("/api/capas/<capa_id>/status", methods=["PATCH"])
-@admin_required
+@requires_permission(Permission.CAPA_REVIEW)
 def api_update_capa_status(capa_id: str):
-    body       = request.get_json(force=True) or {}
+    body       = request.get_json(silent=True) or {}
     requested_status = body.get("status","")
     comment    = body.get("comment","").strip()
     allowed    = {"Under Review","Pending Correction","Approved","Rejected","Closed"}
@@ -377,12 +423,30 @@ def api_update_capa_status(capa_id: str):
     old_status = existing.get("status","Unknown") if existing else "Unknown"
     if not existing:
         return jsonify({"error": f"CAPA {capa_id} not found"}), 404
-    if requested_status in {"Approved", "Rejected"}:
-        esign, esign_error = _validate_esign(body, capa_body=existing)
+
+    # 21 CFR Part 11 §11.200 — every meaningful state transition (approve,
+    # reject, close) requires password re-authentication + reason.
+    if requested_status == "Closed":
+        # Close is a QA_MANAGER/ADMIN action, tighter than review.
+        from auth.permissions import has_permission
+        if not has_permission(current_user, Permission.CAPA_CLOSE):
+            return jsonify({
+                "error": "Not authorised",
+                "missingPermissions": [Permission.CAPA_CLOSE.value],
+            }), 403
+
+    esign_gated = requested_status in {"Approved", "Rejected", "Closed"}
+    esign = None
+    if esign_gated:
+        action_label = {
+            "Approved": "approve",
+            "Rejected": "reject",
+            "Closed":   "close",
+        }[requested_status]
+        esign, esign_error = _validate_esign(body, capa_body=existing,
+                                             expected_action=action_label)
         if esign_error:
             return esign_error
-    else:
-        esign = None
 
     new_status = "Pending Correction" if requested_status == "Rejected" else requested_status
     creator_username = existing.get("createdByUsername", "")
@@ -392,8 +456,8 @@ def api_update_capa_status(capa_id: str):
     metadata = dict(existing.get("capaMetadata") or {})
     notification = {"emailSent": False, "recipient": creator_email}
 
-    if requested_status in {"Rejected", "Approved"}:
-        decision = "Rejected" if requested_status == "Rejected" else "Approved"
+    if esign_gated and esign:
+        decision = requested_status
         metadata["lastReview"] = {
             "decision": decision,
             "workflowStatus": new_status,
@@ -409,6 +473,29 @@ def api_update_capa_status(capa_id: str):
             "decision": decision,
             "capaId": capa_id,
         })
+        # Persist to the queryable qms_esignatures table (hash-chained
+        # across the whole signing history, not just per-CAPA).
+        try:
+            from services.esignature_service import record_signature
+            action_map = {"Approved": "capa_approve", "Rejected": "capa_reject",
+                          "Closed": "capa_close"}
+            record_signature(
+                entity_type="capa",
+                entity_id=capa_id,
+                action=action_map.get(requested_status, "capa_workflow"),
+                meaning=esign.get("meaning", ""),
+                signer_username=current_user.username,
+                signer_role=current_user.role,
+                signer_full_name=current_user.full_name or "",
+                signer_ip=request.remote_addr,
+                signer_user_agent=request.headers.get("User-Agent"),
+                reason_code=esign.get("reasonCode") or None,
+                reason_text=esign.get("reasonText") or comment or None,
+                content_hash=esign.get("capaHash"),
+            )
+        except Exception:
+            logger.warning("capa.esignature_persist_failed", exc_info=True,
+                           extra={"capa_id": capa_id, "status": requested_status})
 
     capa = update_capa_status(
         capa_id,
@@ -502,8 +589,20 @@ def api_upload_record():
         return jsonify({"error": "Empty file"}), 400
     if not allowed_file(file.filename):
         return jsonify({"error": "Unsupported file type"}), 400
+    # Enforce the size cap BEFORE reading everything into memory. Werkzeug
+    # exposes content_length from the multipart header; if the client sent
+    # it, honor it. Otherwise we stream up to the cap + 1 byte and reject
+    # if we hit the ceiling.
+    if request.content_length and request.content_length > _MAX_UPLOAD_BYTES:
+        return jsonify({
+            "error": f"File exceeds {_MAX_UPLOAD_BYTES // (1024*1024)} MiB limit",
+        }), 413
     try:
-        file_bytes            = file.read()
+        file_bytes = file.read(_MAX_UPLOAD_BYTES + 1)
+        if len(file_bytes) > _MAX_UPLOAD_BYTES:
+            return jsonify({
+                "error": f"File exceeds {_MAX_UPLOAD_BYTES // (1024*1024)} MiB limit",
+            }), 413
         record                = process_upload(file_bytes, file.filename)
         record["createdBy"]   = current_user.username
         record["createdByName"] = current_user.full_name
@@ -530,7 +629,7 @@ def api_upload_record():
 @capa_bp.route("/api/records/inquire", methods=["POST"])
 @login_required
 def api_inquire():
-    body     = request.get_json(force=True) or {}
+    body     = request.get_json(silent=True) or {}
     record   = body.get("record", {})
     question = body.get("question", "")
     history  = body.get("history", [])
@@ -552,7 +651,7 @@ def api_rag_similar():
         Return the top-k most similar past CAPAs for a given record.
         Body: { "record": {...}, "top_k": 3 }
         """
-        body = request.get_json(force=True) or {}
+        body = request.get_json(silent=True) or {}
         record = body.get("record", {})
         top_k = int(body.get("top_k", 3))
         if not record:

@@ -5,13 +5,25 @@
 # Drop-in replacement: same field names as the old JSON dicts
 # ─────────────────────────────────────────────────────────
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column, String, Integer, Float, Boolean,
     DateTime, Text, JSON, ForeignKey, Index
 )
 from sqlalchemy.orm import relationship
 from database import Base
+
+
+def _utcnow() -> datetime:
+    """
+    Naive UTC now — datetime.utcnow() is deprecated in 3.12+ but the DB
+    columns in this project use naive DateTime (not DateTime(timezone=True)),
+    and lock_service compares them against wall-clock naive UTC everywhere.
+    So we produce a tz-aware datetime and strip the tzinfo, keeping storage
+    semantics identical while dropping the deprecation warning.
+    Version@3 backlog: migrate DateTime columns to timezone=True.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # ═════════════════════════════════════════════════════════
@@ -35,12 +47,12 @@ class QualityRecord(Base):
     detected_date   = Column(String(20))                      # YYYY-MM-DD
     product_family  = Column(String(100), default="")
     batch_lot       = Column(String(100), default="")
-    regulatory_refs = Column(JSON,        default=list)       # ["21 CFR 820", "ISO 13485"]
+    regulatory_refs = Column(JSON,        default=lambda: [])       # ["21 CFR 820", "ISO 13485"]
     source          = Column(String(20),  default="manual")   # manual|uploaded
 
     # Timestamps
-    created_at      = Column(DateTime,    default=datetime.utcnow)
-    updated_at      = Column(DateTime,    default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at      = Column(DateTime,    default=_utcnow)
+    updated_at      = Column(DateTime,    default=_utcnow, onupdate=_utcnow)
     age_days        = Column(Integer,     default=0)
 
     # Relationships
@@ -99,8 +111,8 @@ class CAPARecord(Base):
     effectiveness_check = Column(Text)
     estimated_closure_days = Column(Integer, default=90)
     risk_rating         = Column(String(20))                  # Critical|High|Medium|Low
-    regulatory_refs     = Column(JSON, default=list)
-    capa_metadata       = Column(JSON, default=dict)
+    regulatory_refs     = Column(JSON, default=lambda: [])
+    capa_metadata       = Column(JSON, default=lambda: {})
 
     # Workflow
     status              = Column(String(30),  default="Draft Generated")
@@ -113,8 +125,8 @@ class CAPARecord(Base):
 
     # Metadata
     created_by_username = Column(String(100))
-    created_at          = Column(DateTime,    default=datetime.utcnow)
-    updated_at          = Column(DateTime,    default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at          = Column(DateTime,    default=_utcnow)
+    updated_at          = Column(DateTime,    default=_utcnow, onupdate=_utcnow)
 
     # AI generation metadata
     ai_provider         = Column(String(30))                  # anthropic|openai|azure|mock
@@ -174,7 +186,7 @@ class UserModel(Base):
     full_name       = Column(String(150))
     status          = Column(String(20),  default="pending")  # pending|approved|rejected
     reject_comment  = Column(Text,        default="")
-    created_at      = Column(DateTime,    default=datetime.utcnow)
+    created_at      = Column(DateTime,    default=_utcnow)
     last_login      = Column(DateTime)
 
     def to_dict(self) -> dict:
@@ -208,7 +220,7 @@ class AuditLog(Base):
     __tablename__ = "qms_audit_log"
 
     id                = Column(Integer,     primary_key=True, autoincrement=True)
-    timestamp         = Column(DateTime,    default=datetime.utcnow, nullable=False)
+    timestamp         = Column(DateTime,    default=_utcnow, nullable=False)
     record_id         = Column(String(50),  nullable=True)
     capa_id           = Column(String(50),  nullable=True)
     entity_type       = Column(String(50),  nullable=True)   # record | capa | user | agent
@@ -222,7 +234,7 @@ class AuditLog(Base):
     user_agent        = Column(Text,        nullable=True)
     notes             = Column(Text,        nullable=True)
     # Agent + structured payloads live here so agents and CAPA share one table.
-    payload           = Column(JSON,        nullable=True, default=dict)
+    payload           = Column(JSON,        nullable=True, default=lambda: {})
     # Hash chain — never null after v2.
     prev_hash         = Column(String(64),  nullable=True)
     row_hash          = Column(String(64),  nullable=True)
@@ -261,7 +273,7 @@ class LLMCallLog(Base):
     __tablename__ = "llm_call_logs"
 
     id             = Column(Integer,     primary_key=True, autoincrement=True)
-    timestamp      = Column(DateTime,    default=datetime.utcnow)
+    timestamp      = Column(DateTime,    default=_utcnow)
     username       = Column(String(80))
     provider       = Column(String(30))                  # anthropic|openai|azure|bedrock
     model          = Column(String(80))
@@ -277,4 +289,193 @@ class LLMCallLog(Base):
     __table_args__ = (
         Index("ix_llm_timestamp", "timestamp"),
         Index("ix_llm_provider",  "provider"),
+    )
+
+
+# ═════════════════════════════════════════════════════════
+# AGENT DEAD-LETTER QUEUE (persistent)
+# Replaces the in-memory list in services/agents/supervisor.py
+# so ops can inspect + requeue after worker restart.
+# ═════════════════════════════════════════════════════════
+class AgentDeadLetter(Base):
+    __tablename__ = "qms_agent_deadletter"
+
+    id          = Column(Integer,   primary_key=True, autoincrement=True)
+    record_id   = Column(String(50), nullable=False, index=True)
+    run_id      = Column(String(50))
+    attempts    = Column(Integer,   default=0)
+    last_error  = Column(Text)
+    parked_at   = Column(DateTime,  default=_utcnow, nullable=False, index=True)
+    requeued_at = Column(DateTime)
+    requeued_by = Column(String(80))
+    tenant_id   = Column(String(80), index=True)   # multi-tenant scoping
+
+    def to_dict(self) -> dict:
+        return {
+            "recordId":  self.record_id,
+            "attempts":  self.attempts or 0,
+            "lastError": self.last_error or "",
+            "parkedAt":  self.parked_at.isoformat() + "Z" if self.parked_at else "",
+            "runId":     self.run_id or "",
+            "tenantId":  self.tenant_id or "",
+        }
+
+
+# ═════════════════════════════════════════════════════════
+# RAG EXTRACTION STORE (persistent)
+# Replaces the in-memory _EXTRACTION_STORE list in routes/rag.py
+# so /api/rag/ask works across worker processes.
+# ═════════════════════════════════════════════════════════
+class RagExtraction(Base):
+    __tablename__ = "qms_rag_extractions"
+
+    id            = Column(String(60), primary_key=True)   # EXT-YYYYmmddHHMMSS-XXXX
+    filename      = Column(String(255), nullable=False)
+    file_type     = Column(String(20))
+    file_size     = Column(Integer,     default=0)
+    extracted_at  = Column(DateTime,    default=_utcnow, nullable=False, index=True)
+    extracted_by  = Column(String(80),  nullable=False, index=True)
+    is_image      = Column(Boolean,     default=False)
+    text_preview  = Column(Text)
+    record_json   = Column(JSON,        default=lambda: {})
+    tenant_id     = Column(String(80),  index=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id":          self.id,
+            "filename":    self.filename,
+            "fileType":    self.file_type or "",
+            "fileSize":    self.file_size or 0,
+            "extractedAt": self.extracted_at.isoformat() if self.extracted_at else "",
+            "extractedBy": self.extracted_by,
+            "isImage":     bool(self.is_image),
+            "textPreview": self.text_preview or "",
+            "record":      self.record_json or {},
+            "tenantId":    self.tenant_id or "",
+        }
+
+
+# ═════════════════════════════════════════════════════════
+# API TENANT — per-tenant API keys for TrackWise / Salesforce
+# integrations (replaces single global API_V1_KEY).
+# ═════════════════════════════════════════════════════════
+class ApiTenant(Base):
+    __tablename__ = "qms_api_tenants"
+
+    id             = Column(Integer,     primary_key=True, autoincrement=True)
+    tenant_id      = Column(String(80),  unique=True, nullable=False, index=True)
+    display_name   = Column(String(200))
+    # API-key HMAC digest (never store the raw key). See services/security.py.
+    api_key_hash   = Column(String(128), nullable=False)
+    webhook_secret = Column(String(128))   # per-tenant SF webhook signing secret
+    origin_allowlist = Column(JSON,      default=lambda: [])  # CORS origins for this tenant
+    status         = Column(String(20),  default="active")    # active|revoked
+    created_at     = Column(DateTime,    default=_utcnow)
+    revoked_at     = Column(DateTime)
+    last_used_at   = Column(DateTime)
+    rate_limit     = Column(String(80),  default="120 per minute; 2000 per hour")
+
+    def to_dict(self) -> dict:
+        return {
+            "tenantId":     self.tenant_id,
+            "displayName":  self.display_name or "",
+            "status":       self.status,
+            "createdAt":    self.created_at.isoformat() if self.created_at else "",
+            "lastUsedAt":   self.last_used_at.isoformat() if self.last_used_at else "",
+            "rateLimit":    self.rate_limit or "",
+            "originAllowlist": self.origin_allowlist or [],
+        }
+
+
+# ═════════════════════════════════════════════════════════
+# IDEMPOTENCY KEY — retries of the same POST return the same
+# response instead of duplicating CAPAs / records.
+# ═════════════════════════════════════════════════════════
+class IdempotencyKey(Base):
+    __tablename__ = "qms_idempotency_keys"
+
+    id         = Column(Integer,     primary_key=True, autoincrement=True)
+    tenant_id  = Column(String(80),  nullable=False, index=True)
+    key        = Column(String(120), nullable=False, index=True)
+    method     = Column(String(10))
+    path       = Column(String(200))
+    request_hash = Column(String(64))   # sha256 of body — mismatch = 409
+    status_code  = Column(Integer)
+    response_json = Column(JSON,     default=lambda: {})
+    created_at  = Column(DateTime,   default=_utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("ix_idempotency_tenant_key", "tenant_id", "key", unique=True),
+    )
+
+
+# ═════════════════════════════════════════════════════════
+# ELECTRONIC SIGNATURE (21 CFR Part 11 §11.200)
+# Every regulated state transition (CAPA approve/reject/close, record
+# release) persists a row here with a hash chained to the previous
+# signature. Combined with AuditLog this gives one queryable table for
+# regulators without JSON parsing.
+# ═════════════════════════════════════════════════════════
+class ESignature(Base):
+    __tablename__ = "qms_esignatures"
+
+    id             = Column(Integer,     primary_key=True, autoincrement=True)
+    tenant_id      = Column(String(80),  index=True)
+    entity_type    = Column(String(30),  nullable=False)   # capa | record | agent
+    entity_id      = Column(String(80),  nullable=False, index=True)  # e.g. CAPA-2024-0001
+    action         = Column(String(50),  nullable=False)   # approve | reject | close | release
+    meaning        = Column(Text,        nullable=False)   # 11.200 signing statement
+    signer_username = Column(String(80), nullable=False, index=True)
+    signer_role    = Column(String(30))
+    signer_full_name = Column(String(150))
+    signer_ip      = Column(String(45))
+    signer_user_agent = Column(Text)
+    reason_code    = Column(String(50))   # controlled vocab (see Part 11 §11.50(b))
+    reason_text    = Column(Text)
+    content_hash   = Column(String(64))   # SHA-256 of the entity content signed
+    prev_hash      = Column(String(64))   # chain to prior signature
+    row_hash       = Column(String(64))
+    signed_at      = Column(DateTime,    default=_utcnow, nullable=False, index=True)
+
+    __table_args__ = (
+        Index("ix_esig_entity", "entity_type", "entity_id"),
+        Index("ix_esig_signer_time", "signer_username", "signed_at"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id":              self.id,
+            "tenantId":        self.tenant_id or "",
+            "entityType":      self.entity_type,
+            "entityId":        self.entity_id,
+            "action":          self.action,
+            "meaning":         self.meaning,
+            "signerUsername":  self.signer_username,
+            "signerRole":      self.signer_role or "",
+            "signerFullName":  self.signer_full_name or "",
+            "reasonCode":      self.reason_code or "",
+            "reasonText":      self.reason_text or "",
+            "contentHash":     self.content_hash or "",
+            "prevHash":        self.prev_hash or "",
+            "rowHash":         self.row_hash or "",
+            "signedAt":        self.signed_at.isoformat() + "Z" if self.signed_at else "",
+            "basis":           ["21 CFR Part 11 §11.200", "EU Annex 11"],
+        }
+
+
+# ═════════════════════════════════════════════════════════
+# WEBHOOK NONCE — replay-protection for Salesforce webhook.
+# Signature + timestamp must be inside a 5-minute window, and
+# the (tenant, nonce) pair may only appear once.
+# ═════════════════════════════════════════════════════════
+class WebhookNonce(Base):
+    __tablename__ = "qms_webhook_nonces"
+
+    id         = Column(Integer,    primary_key=True, autoincrement=True)
+    tenant_id  = Column(String(80), nullable=False, index=True)
+    nonce      = Column(String(80), nullable=False)
+    seen_at    = Column(DateTime,   default=_utcnow, nullable=False, index=True)
+
+    __table_args__ = (
+        Index("ix_nonce_tenant_nonce", "tenant_id", "nonce", unique=True),
     )
