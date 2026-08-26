@@ -252,7 +252,7 @@ def evaluate_accuracy(test_cases_file: str = None) -> dict:
                 "regulatoryRef": [],
             }, method="5why")
             generated_cat = rca.get("rootCauseCategory", "").lower()
-        except Exception as e:
+        except Exception:
             generated_cat = ""
 
         match = expected_cat and expected_cat in generated_cat

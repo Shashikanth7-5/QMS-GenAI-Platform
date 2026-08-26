@@ -250,7 +250,7 @@ def ai_extract_record(extracted, filename: str) -> dict:
         record.update({"status":"Draft Generated","age":0,"_source":"uploaded"})
         return record
 
-    except Exception as e:
+    except Exception:
         log.warning("ingestion.ai_extraction_failed", exc_info=True)
         return _mock_extract(filename)
 

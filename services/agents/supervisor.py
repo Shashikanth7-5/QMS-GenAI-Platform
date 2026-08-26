@@ -12,7 +12,6 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from threading import Lock
-from typing import Optional
 
 from config import (
     AGENT_AUTOSAVE_CAPA_DRAFT,
