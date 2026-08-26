@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential libpq5 \
+    && apt-get install -y --no-install-recommends build-essential libpq5 curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -17,7 +17,20 @@ RUN python -m pip install --upgrade pip \
 
 COPY . .
 
+# Non-root runtime user — running as root inside the container gives
+# code-execution incidents an easier blast radius. UID/GID chosen high
+# enough not to collide with typical distro users.
+RUN groupadd --system --gid 10001 qms \
+    && useradd --system --uid 10001 --gid qms --home /app --shell /sbin/nologin qms \
+    && chown -R qms:qms /app
+USER qms
+
 EXPOSE 5000
 
-# alembic upgrade migrates the schema; then gunicorn boots the app.
-CMD ["sh", "-c", "alembic upgrade head && exec gunicorn --bind 0.0.0.0:5000 --workers 2 --threads 4 --timeout 120 --access-logfile - --error-logfile - app:app"]
+# Startup: retry `alembic upgrade head` a few times so Postgres has a chance
+# to become healthy on cold start (docker-compose depends_on has the same
+# guard, but K8s / ECS may not). Then exec gunicorn.
+CMD ["sh", "-c", "for i in 1 2 3 4 5; do alembic upgrade head && break || (echo \"alembic retry $i\"; sleep 3); done && exec gunicorn --bind 0.0.0.0:5000 --workers ${WEB_CONCURRENCY:-2} --threads ${WEB_THREADS:-4} --timeout ${WEB_TIMEOUT:-120} --graceful-timeout 30 --access-logfile - --error-logfile - app:app"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl --fail --silent --show-error http://127.0.0.1:5000/healthz || exit 1

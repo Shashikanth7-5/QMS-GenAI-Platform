@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Salesforce Health Cloud — QMS GenAI Integration</title>
-<style>
+<style nonce="{{ csp_nonce }}">
 :root{
   --sf-navy:#032D60;--sf-blue:#0176D3;--sf-blue2:#014486;
   --sf-green:#2E844A;--sf-amber:#A86403;--sf-red:#BA0517;
@@ -551,7 +551,7 @@ body{font-family:'Salesforce Sans','Arial',sans-serif;font-size:13px;
 
 <!-- Print template (hidden) -->
 <div id="printTemplate" style="display:none;">
-  <style>
+  <style nonce="{{ csp_nonce }}">
     @media print {
       body > *:not(#printTemplate){ display:none !important; }
       #printTemplate{ display:block !important; }
@@ -603,7 +603,7 @@ body{font-family:'Salesforce Sans','Arial',sans-serif;font-size:13px;
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 // ── QMS API base URL — points to your local QMS app ──────────
 const QMS_BASE = 'http://localhost:5000';
 const RECORD_ID = 'CMP-2024-0891';

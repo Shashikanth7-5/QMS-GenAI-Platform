@@ -48,7 +48,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   const ACTION_COLORS = {
     capa_saved:           '#10b981',
     capa_status_change:   '#f59e0b',
@@ -99,7 +99,7 @@
       }).join('');
     }).catch(e=>{
       document.getElementById('banner').className='banner banner--error';
-      document.getElementById('banner').innerHTML=`<span>Error</span> ${e.message}`;
+      document.getElementById('banner').innerHTML=`<span>Error</span> ${escapeHtml(e.message)}`;
       document.getElementById('banner').style.display='';
     });
   }

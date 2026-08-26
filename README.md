@@ -36,6 +36,28 @@ python app.py
 
 Open `http://localhost:5000` - login with `admin/admin`
 
+## Local development with docker-compose
+
+Bring up the full stack (Flask web + worker + Redis + Postgres) locally:
+
+```bash
+cp .env.example .env               # edit AI_API_KEY etc.
+docker-compose up --build
+# wait until the web container reports ready
+curl -sf http://localhost:5000/readyz
+python -m scripts.seed_demo_data   # load ~10 demo records + 3 CAPAs
+```
+
+Open http://localhost:5000. Default seeded logins (all password `admin`):
+
+| Username | Role            |
+|----------|-----------------|
+| admin    | admin           |
+| quality  | quality analyst |
+| shashi   | admin           |
+
+The seed script is idempotent - safe to re-run against an existing DB.
+
 ## AI Configuration (.env)
 AI_PROVIDER=openai           # openai | anthropic | azure | bedrock
 AI_BASE_URL=https://api.groq.com/openai/v1
