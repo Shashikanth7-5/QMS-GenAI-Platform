@@ -63,8 +63,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
+      - name: Show environment (debug)
+        run: |
+          python --version
+          pip --version
+          pip freeze | sort
       - name: Run tests with coverage
-        run: pytest -q --cov=. --cov-report=xml --cov-report=term --cov-fail-under=45
+        # -v + --tb=long + -rA so a failure on shared CI prints the assertion,
+        # the traceback, and a per-test result summary — otherwise a `-q`
+        # failure just returns exit 1 with no context.
+        run: pytest -v --tb=long -rA --cov=. --cov-report=xml --cov-report=term --cov-fail-under=45
       - name: Upload coverage XML
         if: always()
         uses: actions/upload-artifact@v4
