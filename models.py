@@ -410,6 +410,60 @@ class IdempotencyKey(Base):
 
 
 # ═════════════════════════════════════════════════════════
+# ELECTRONIC SIGNATURE (21 CFR Part 11 §11.200)
+# Every regulated state transition (CAPA approve/reject/close, record
+# release) persists a row here with a hash chained to the previous
+# signature. Combined with AuditLog this gives one queryable table for
+# regulators without JSON parsing.
+# ═════════════════════════════════════════════════════════
+class ESignature(Base):
+    __tablename__ = "qms_esignatures"
+
+    id             = Column(Integer,     primary_key=True, autoincrement=True)
+    tenant_id      = Column(String(80),  index=True)
+    entity_type    = Column(String(30),  nullable=False)   # capa | record | agent
+    entity_id      = Column(String(80),  nullable=False, index=True)  # e.g. CAPA-2024-0001
+    action         = Column(String(50),  nullable=False)   # approve | reject | close | release
+    meaning        = Column(Text,        nullable=False)   # 11.200 signing statement
+    signer_username = Column(String(80), nullable=False, index=True)
+    signer_role    = Column(String(30))
+    signer_full_name = Column(String(150))
+    signer_ip      = Column(String(45))
+    signer_user_agent = Column(Text)
+    reason_code    = Column(String(50))   # controlled vocab (see Part 11 §11.50(b))
+    reason_text    = Column(Text)
+    content_hash   = Column(String(64))   # SHA-256 of the entity content signed
+    prev_hash      = Column(String(64))   # chain to prior signature
+    row_hash       = Column(String(64))
+    signed_at      = Column(DateTime,    default=_utcnow, nullable=False, index=True)
+
+    __table_args__ = (
+        Index("ix_esig_entity", "entity_type", "entity_id"),
+        Index("ix_esig_signer_time", "signer_username", "signed_at"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id":              self.id,
+            "tenantId":        self.tenant_id or "",
+            "entityType":      self.entity_type,
+            "entityId":        self.entity_id,
+            "action":          self.action,
+            "meaning":         self.meaning,
+            "signerUsername":  self.signer_username,
+            "signerRole":      self.signer_role or "",
+            "signerFullName":  self.signer_full_name or "",
+            "reasonCode":      self.reason_code or "",
+            "reasonText":      self.reason_text or "",
+            "contentHash":     self.content_hash or "",
+            "prevHash":        self.prev_hash or "",
+            "rowHash":         self.row_hash or "",
+            "signedAt":        self.signed_at.isoformat() + "Z" if self.signed_at else "",
+            "basis":           ["21 CFR Part 11 §11.200", "EU Annex 11"],
+        }
+
+
+# ═════════════════════════════════════════════════════════
 # WEBHOOK NONCE — replay-protection for Salesforce webhook.
 # Signature + timestamp must be inside a 5-minute window, and
 # the (tenant, nonce) pair may only appear once.
