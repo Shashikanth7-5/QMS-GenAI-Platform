@@ -1,0 +1,62 @@
+# Prometheus alerting rules for QMS GenAI Platform.
+# Load into Prometheus via `rule_files` in prometheus.yml.
+groups:
+  - name: qms.compliance
+    interval: 60s
+    rules:
+      - alert: QmsAuditChainBroken
+        expr: qms_audit_chain_ok == 0
+        for: 2m
+        labels:
+          severity: critical
+          compliance: "21 CFR Part 11"
+        annotations:
+          summary: "Audit hash chain is broken"
+          description: "verify_audit_chain returned ok=false. Investigate qms_audit_log for tampering or DB restore incidents. Regulator-visible."
+          runbook: "docs/runbooks/incident-response.md#audit-chain-broken"
+
+      - alert: QmsESignatureChainBroken
+        expr: qms_esignature_chain_ok == 0
+        for: 2m
+        labels:
+          severity: critical
+          compliance: "21 CFR Part 11"
+        annotations:
+          summary: "Electronic-signature hash chain is broken"
+          description: "verify_chain on qms_esignatures returned ok=false. Every Part 11 signature is potentially in question."
+          runbook: "docs/runbooks/incident-response.md#esig-chain-broken"
+
+  - name: qms.reliability
+    interval: 30s
+    rules:
+      - alert: QmsDeadLetterGrowing
+        expr: qms_dlq_depth > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent DLQ has {{ $value }} unresolved rows"
+          description: "Agent pipeline failures are accumulating faster than they're being handled. Consider requeue or investigate root cause."
+          runbook: "docs/runbooks/incident-response.md#dlq-growing"
+
+      - alert: QmsLlmSuccessDropping
+        expr: sum(rate(qms_llm_calls_total{success="true"}[5m])) / sum(rate(qms_llm_calls_total[5m])) < 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM call success rate below 90%"
+          description: "Circuit breaker may be tripping or provider is degraded. Check provider status pages."
+
+  - name: qms.cost
+    interval: 60s
+    rules:
+      - alert: QmsLlmCostSpike
+        expr: qms_llm_cost_usd_total > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM cost exceeded $100 in trailing 24h"
+          description: "Cost is {{ $value | printf \"%.2f\" }} USD. Consider AGENT_KILL_SWITCH if runaway."
+          runbook: "docs/runbooks/incident-response.md#llm-cost-spike"

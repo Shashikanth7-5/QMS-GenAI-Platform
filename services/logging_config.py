@@ -41,6 +41,15 @@ class _JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+        # Correlation IDs from services/run_context — top-level so log
+        # aggregators can filter across HTTP → Celery → LLM by run_id.
+        try:
+            from services.run_context import snapshot
+            for k, v in snapshot().items():
+                if v is not None:
+                    payload[k] = v
+        except Exception:
+            pass
         # Any custom fields passed via `extra=` land as record attributes.
         for key, value in record.__dict__.items():
             if key in self._RESERVED or key.startswith("_"):

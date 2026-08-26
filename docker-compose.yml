@@ -5,8 +5,8 @@ services:
       - "5000:5000"
     environment:
       FLASK_ENV: ${FLASK_ENV:-production}
-      SECRET_KEY: ${SECRET_KEY:SECRET_KEY must be set (run: python -c \"import secrets; print(secrets.token_urlsafe(64))\")}
-      API_V1_KEY: ${API_V1_KEY:API_V1_KEY must be set for the REST API}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set (run: python -c \"import secrets; print(secrets.token_urlsafe(64))\")}
+      API_V1_KEY: ${API_V1_KEY:?API_V1_KEY must be set for the REST API}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-Lax}
       SEED_BUILTIN_USERS: ${SEED_BUILTIN_USERS:-false}
@@ -16,7 +16,7 @@ services:
       AI_MODEL: ${AI_MODEL:-mock-mode}
       AI_BASE_URL: ${AI_BASE_URL:-}
       SF_WEBHOOK_SECRET: ${SF_WEBHOOK_SECRET:-}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://qms:${POSTGRES_PASSWORD:POSTGRES_PASSWORD must be set}@postgres:5432/qms}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://qms:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/qms}
       CELERY_BROKER_URL: redis://redis:6379/0
       RATE_LIMIT_STORAGE_URI: redis://redis:6379/1
       UPLOAD_STORAGE_BACKEND: local
@@ -47,15 +47,15 @@ services:
     command: celery -A services.celery_app:celery_app worker --loglevel=INFO
     environment:
       FLASK_ENV: ${FLASK_ENV:-production}
-      SECRET_KEY: ${SECRET_KEY:SECRET_KEY must be set}
-      API_V1_KEY: ${API_V1_KEY:API_V1_KEY must be set}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
+      API_V1_KEY: ${API_V1_KEY:?API_V1_KEY must be set}
       SEED_BUILTIN_USERS: ${SEED_BUILTIN_USERS:-false}
       MOCK_MODE: ${MOCK_MODE:-true}
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-mock-mode}
       AI_BASE_URL: ${AI_BASE_URL:-}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://qms:${POSTGRES_PASSWORD:POSTGRES_PASSWORD must be set}@postgres:5432/qms}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://qms:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/qms}
       CELERY_BROKER_URL: redis://redis:6379/0
       UPLOAD_STORAGE_BACKEND: local
       UPLOAD_STORAGE_DIR: /app/uploads
@@ -80,15 +80,15 @@ services:
     command: celery -A services.celery_app:celery_app beat --loglevel=INFO
     environment:
       FLASK_ENV: ${FLASK_ENV:-production}
-      SECRET_KEY: ${SECRET_KEY:SECRET_KEY must be set}
-      API_V1_KEY: ${API_V1_KEY:API_V1_KEY must be set}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
+      API_V1_KEY: ${API_V1_KEY:?API_V1_KEY must be set}
       SEED_BUILTIN_USERS: ${SEED_BUILTIN_USERS:-false}
       MOCK_MODE: ${MOCK_MODE:-true}
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-mock-mode}
       AI_BASE_URL: ${AI_BASE_URL:-}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://qms:${POSTGRES_PASSWORD:POSTGRES_PASSWORD must be set}@postgres:5432/qms}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://qms:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/qms}
       CELERY_BROKER_URL: redis://redis:6379/0
       AGENT_SUPERVISOR_INTERVAL_SECONDS: ${AGENT_SUPERVISOR_INTERVAL_SECONDS:-1200}
       AGENT_SUPERVISOR_LIMIT: ${AGENT_SUPERVISOR_LIMIT:-50}
@@ -112,7 +112,7 @@ services:
     environment:
       POSTGRES_DB: qms
       POSTGRES_USER: qms
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:POSTGRES_PASSWORD must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
       - qms_pgdata:/var/lib/postgresql/data
     ports:

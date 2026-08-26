@@ -102,7 +102,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   const SEES_ALL   = {{ 'true' if current_user.sees_all_records() else 'false' }};
   const CAN_CAPA   = {{ 'true' if current_user.can_create_capa() else 'false' }};
   const MY_USER    = "{{ current_user.username }}";
@@ -196,7 +196,7 @@
       .catch(err=>{
         document.getElementById('banner').style.display='';
         document.getElementById('banner').className='banner banner--error';
-        document.getElementById('banner').innerHTML=`<span>Error</span> Search error: ${err.message}`;
+        document.getElementById('banner').innerHTML=`<span>Error</span> Search error: ${escapeHtml(err.message)}`;
       });
   }
 

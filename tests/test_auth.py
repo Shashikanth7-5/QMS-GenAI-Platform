@@ -1,5 +1,4 @@
 # tests/test_auth.py
-import pytest
 
 
 def test_login_page_loads(client):

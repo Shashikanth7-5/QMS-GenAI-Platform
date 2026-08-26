@@ -1,0 +1,8 @@
+apiVersion: v2
+name: qms-genai
+description: QMS GenAI Platform — CAPA/RCA agents with TrackWise & Salesforce integration
+type: application
+version: 0.1.0
+appVersion: "3.0.0"
+maintainers:
+  - name: Cognizant QMS

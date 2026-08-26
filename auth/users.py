@@ -11,7 +11,6 @@
 import json
 import os
 import re
-import time
 from datetime import datetime
 from threading import Lock
 from typing import Optional
@@ -289,45 +288,37 @@ def update_user_role(user_id: str, new_role: str):
     return user
 
 
-# ── Login lockout tracking ─────────────────────────────────
-_lockout_state: dict[str, dict] = {}
-_lockout_lock = Lock()
+# ── Login lockout tracking (Redis-backed with in-memory fallback) ──
+from services.lockout_store import (
+    clear as _lockout_clear,
+    is_locked as _lockout_is_locked,
+    record_failure as _lockout_record_failure,
+)
 
 
 def _lockout_key(username: str, ip: str) -> str:
+    # IP suffix kept for compatibility but the shared Redis key is
+    # username-only so an attacker can't rotate IPs to bypass.
     return f"{(username or '').lower()}|{ip or 'unknown'}"
 
 
 def is_locked_out(username: str, ip: str) -> tuple[bool, int]:
     """Return (locked, seconds_remaining)."""
-    key = _lockout_key(username, ip)
-    with _lockout_lock:
-        state = _lockout_state.get(key)
-        if not state:
-            return False, 0
-        if state.get("locked_until", 0) > time.time():
-            return True, int(state["locked_until"] - time.time())
-        return False, 0
+    return _lockout_is_locked((username or "").lower())
 
 
 def record_login_failure(username: str, ip: str) -> None:
-    key = _lockout_key(username, ip)
-    now = time.time()
-    with _lockout_lock:
-        state = _lockout_state.get(key, {"failures": [], "locked_until": 0})
-        cutoff = now - LOGIN_LOCKOUT_WINDOW_SECONDS
-        state["failures"] = [t for t in state.get("failures", []) if t > cutoff]
-        state["failures"].append(now)
-        if len(state["failures"]) >= LOGIN_LOCKOUT_ATTEMPTS:
-            state["locked_until"] = now + LOGIN_LOCKOUT_COOLDOWN_SECONDS
-        _lockout_state[key] = state
+    state = _lockout_record_failure(
+        (username or "").lower(),
+        window_seconds=LOGIN_LOCKOUT_WINDOW_SECONDS,
+        threshold=LOGIN_LOCKOUT_ATTEMPTS,
+        cooldown_seconds=LOGIN_LOCKOUT_COOLDOWN_SECONDS,
+    )
     log.warning(
         "auth.login.failure",
-        extra={"username": username, "ip": ip, "failures": len(state["failures"])},
+        extra={"username": username, "ip": ip, "failures": len(state.get("failures", []))},
     )
 
 
 def record_login_success(username: str, ip: str) -> None:
-    key = _lockout_key(username, ip)
-    with _lockout_lock:
-        _lockout_state.pop(key, None)
+    _lockout_clear((username or "").lower())
