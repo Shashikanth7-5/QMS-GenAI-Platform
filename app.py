@@ -135,18 +135,20 @@ def _apply_security_headers(response):
     if run_id:
         response.headers.setdefault("X-Request-Id", run_id)
 
-    # CSP with a per-request nonce. 'unsafe-inline' is retained as a
-    # transitional fallback for browsers that ignore nonces; modern
-    # browsers only honor the nonce (nonces take precedence).
-    nonce = getattr(g, "csp_nonce", "")
+    # CSP with 'unsafe-inline'. The Version@3 nonce-based CSP was disabled
+    # because a nonce, once present in the CSP, causes modern browsers to
+    # IGNORE 'unsafe-inline' — that broke every inline <script> tag in
+    # templates that hadn't yet been annotated with nonce="{{ csp_nonce }}".
+    # We revert to unsafe-inline until every template's inline script/style
+    # carries a nonce, then this can be tightened back up.
     response.headers.setdefault(
         "Content-Security-Policy",
         (
             "default-src 'self'; "
             "img-src 'self' data: blob:; "
             "font-src 'self' https://fonts.gstatic.com; "
-            f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://fonts.googleapis.com; "
-            f"script-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
             "connect-src 'self'; "
             "frame-ancestors 'none'; "
             "form-action 'self'; "
