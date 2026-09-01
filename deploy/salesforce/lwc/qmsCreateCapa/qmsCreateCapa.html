@@ -1,0 +1,57 @@
+<template>
+  <lightning-card title="QMS GenAI - Create CAPA" icon-name="standard:case">
+    <div class="slds-p-around_medium">
+      <template if:true={loading}>
+        <div class="slds-align_absolute-center slds-p-vertical_medium">
+          <lightning-spinner alternative-text="Generating CAPA..." size="medium"></lightning-spinner>
+          <p class="slds-p-left_small">Running agent pipeline...</p>
+        </div>
+      </template>
+
+      <template if:false={loading}>
+        <template if:true={hasResult}>
+          <dl class="slds-dl_horizontal">
+            <dt class="slds-dl_horizontal__label">Root Cause</dt>
+            <dd class="slds-dl_horizontal__detail">{rootCause}</dd>
+
+            <dt class="slds-dl_horizontal__label">Corrective Action</dt>
+            <dd class="slds-dl_horizontal__detail">{correctiveAction}</dd>
+
+            <dt class="slds-dl_horizontal__label">Preventive Action</dt>
+            <dd class="slds-dl_horizontal__detail">{preventiveAction}</dd>
+
+            <dt class="slds-dl_horizontal__label">Risk Rating</dt>
+            <dd class="slds-dl_horizontal__detail">{riskRating}</dd>
+          </dl>
+          <div class="slds-m-top_medium">
+            <a href={openInQmsUrl} target="_blank" rel="noopener">Open in QMS</a>
+          </div>
+        </template>
+
+        <template if:true={error}>
+          <div class="slds-text-color_error slds-p-vertical_small">
+            {error}
+          </div>
+        </template>
+
+        <template if:false={hasResult}>
+          <template if:false={error}>
+            <p class="slds-p-bottom_small">
+              Click below to generate a CAPA draft from this Case using the QMS GenAI agent pipeline.
+            </p>
+          </template>
+        </template>
+
+        <div class="slds-m-top_medium">
+          <lightning-button
+            variant="brand"
+            label="Generate CAPA"
+            title="Generate CAPA"
+            onclick={handleGenerate}
+            disabled={loading}>
+          </lightning-button>
+        </div>
+      </template>
+    </div>
+  </lightning-card>
+</template>
