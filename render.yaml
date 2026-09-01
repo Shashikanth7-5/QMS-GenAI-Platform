@@ -1,0 +1,86 @@
+# Render.com Blueprint — one-click deploy for QMS GenAI Platform.
+#
+# Use: on Render dashboard → New → Blueprint → connect this repo →
+# Render reads render.yaml and provisions everything below in one shot.
+#
+# Free-tier fit:
+#   web        : Free plan, sleeps after 15 min idle (wakes on request ~30s)
+#   postgres   : Free plan, 90-day expiry, 1 GB storage, upgrade before then
+#   redis      : Free plan via Upstash add-on (external), or Render Redis Starter $10/mo
+#
+# For a live pilot / paid pilot promote:
+#   web        : Starter $7/mo (always-on, 512 MB)
+#   postgres   : Starter $7/mo (persistent, 256 MB)
+#   redis      : Starter $10/mo
+# → Total ~$24/mo for a durable pilot.
+#
+# All secrets are declared with `sync: false` so Render prompts for them
+# during blueprint creation and never persists them in this file.
+
+databases:
+  - name: qms-postgres
+    databaseName: qms
+    user: qms
+    plan: free                        # ~1GB, expires after 90 days on free tier
+    postgresMajorVersion: "16"
+
+services:
+  # ── Web application ────────────────────────────────────────
+  - type: web
+    name: qms-web
+    runtime: docker
+    plan: free                        # sleeps after 15 min idle; upgrade for always-on
+    healthCheckPath: /healthz
+    autoDeploy: true                  # redeploy on every push to main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      # ── Required, provided by user during blueprint apply ───
+      - key: SECRET_KEY
+        generateValue: true           # Render auto-generates a strong random value
+      - key: AI_API_KEY
+        sync: false                   # user pastes their Anthropic/OpenAI key
+      - key: AI_PROVIDER
+        value: anthropic              # or openai / azure / bedrock
+      - key: FLASK_ENV
+        value: production
+
+      # ── Bound to the managed Postgres ───────────────────────
+      - key: DATABASE_URL
+        fromDatabase:
+          name: qms-postgres
+          property: connectionString
+
+      # ── Rate limit + Celery broker use Redis if provided ────
+      #     For a pilot, leave these unset -> in-memory fallback.
+      #     When you add a Render Redis or Upstash instance, set:
+      #       RATE_LIMIT_STORAGE_URI = redis://:PASSWORD@HOST:6379/1
+      #       CELERY_BROKER_URL      = redis://:PASSWORD@HOST:6379/0
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+
+      # ── Hardening flags ─────────────────────────────────────
+      - key: CSRF_ENABLED
+        value: "true"
+      - key: SEED_BUILTIN_USERS
+        value: "false"                # NEVER seed admin/admin in prod
+      - key: API_V1_ALLOW_ANONYMOUS
+        value: "false"
+
+      # ── Gunicorn tuning for free tier (0.5 CPU / 512 MB) ────
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: WEB_THREADS
+        value: "4"
+      - key: WEB_TIMEOUT
+        value: "120"
+
+      # ── LLM cost + safety ───────────────────────────────────
+      - key: AGENT_KILL_SWITCH
+        value: "false"
+      - key: MOCK_MODE
+        value: "false"
+
+      # ── Salesforce webhook signing window ───────────────────
+      - key: WEBHOOK_MAX_SKEW_SECONDS
+        value: "300"
