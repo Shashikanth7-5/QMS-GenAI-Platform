@@ -113,7 +113,6 @@ def _bind_request_context():
 
 
 def _apply_security_headers(response):
-    from flask import g
     from config import IS_PRODUCTION
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
