@@ -1882,7 +1882,16 @@
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({record: currentRecord}),
     })
-    .then(r => r.json())
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data: capa}) => {
+      if (!ok || capa.error) {
+        throw new Error(capa.details || capa.error || 'CAPA generation failed');
+      }
+      if (!capa.rootCause || !capa.immediateAction || !capa.correctiveAction || !capa.preventiveAction) {
+        throw new Error(capa._error || 'AI response did not include the required CAPA fields.');
+      }
+      return capa;
+    })
     .then(capa => {
       currentCapa = capa;
       populateCAPAFields(capa);

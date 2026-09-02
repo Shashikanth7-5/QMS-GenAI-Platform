@@ -4,8 +4,8 @@
 # Render reads render.yaml and provisions everything below in one shot.
 #
 # Free-tier fit:
-#   web        : Free plan, sleeps after 15 min idle (wakes on request ~30s)
-#   postgres   : Free plan, 90-day expiry, 1 GB storage, upgrade before then
+#   web        : Starter plan recommended for persistent SQLite/Chroma pilot
+#   data disk  : Required when using SQLite/Chroma so records survive redeploys
 #   redis      : Free plan via Upstash add-on (external), or Render Redis Starter $10/mo
 #
 # For a live pilot / paid pilot promote:
@@ -17,23 +17,20 @@
 # All secrets are declared with `sync: false` so Render prompts for them
 # during blueprint creation and never persists them in this file.
 
-databases:
-  - name: qms-postgres
-    databaseName: qms
-    user: qms
-    plan: free                        # ~1GB, expires after 90 days on free tier
-    postgresMajorVersion: "16"
-
 services:
   # ── Web application ────────────────────────────────────────
   - type: web
     name: qms-web
     runtime: docker
-    plan: free                        # sleeps after 15 min idle; upgrade for always-on
+    plan: starter                     # persistent disk-backed SQLite/Chroma pilot
     healthCheckPath: /healthz
     autoDeploy: true                  # redeploy on every push to main
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    disk:
+      name: qms-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       # ── Required, provided by user during blueprint apply ───
       - key: SECRET_KEY
@@ -47,11 +44,15 @@ services:
       - key: FLASK_ENV
         value: production
 
-      # ── Bound to the managed Postgres ───────────────────────
+      # ── Persistent SQLite + ChromaDB on mounted Render disk ─
+      - key: QMS_DATA_DIR
+        value: /var/data
       - key: DATABASE_URL
-        fromDatabase:
-          name: qms-postgres
-          property: connectionString
+        value: sqlite:////var/data/qms_data.db
+      - key: CHROMA_PERSIST_DIR
+        value: /var/data/chroma_db
+      - key: UPLOAD_STORAGE_DIR
+        value: /var/data/uploads
 
       # ── Rate limit + Celery broker use Redis if provided ────
       #     For a pilot, leave these unset -> in-memory fallback.

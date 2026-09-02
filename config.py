@@ -77,7 +77,7 @@ RATE_LIMIT_API_V1   = os.getenv("RATE_LIMIT_API_V1",   "60 per minute")
 RATE_LIMIT_AGENTS   = os.getenv("RATE_LIMIT_AGENTS",   "10 per minute; 60 per hour")
 # Per-user cap on LLM-hitting endpoints (/api/capa/generate, /api/rca/*,
 # /api/rag/ask). Prevents a single account from exhausting the AI budget.
-RATE_LIMIT_LLM      = os.getenv("RATE_LIMIT_LLM",      "20 per minute; 200 per hour")
+RATE_LIMIT_LLM      = os.getenv("RATE_LIMIT_LLM",      "20 per minute; 300 per day")
 
 # ── Login lockout ──────────────────────────────────────────
 LOGIN_LOCKOUT_ATTEMPTS = int(os.getenv("LOGIN_LOCKOUT_ATTEMPTS", "5"))
@@ -141,7 +141,8 @@ if IS_PRODUCTION and not SF_WEBHOOK_SECRET:
 # ── Mock mode ─────────────────────────────────────────────
 # True  → uses template-based mock responses (no API key needed)
 # False → calls the real AI provider set below
-MOCK_MODE  = os.getenv("MOCK_MODE", "true").lower() == "true"
+MOCK_MODE  = True if IS_TESTING and os.getenv("LIVE_LLM_TESTS", "").lower() != "true" \
+    else os.getenv("MOCK_MODE", "true").lower() == "true"
 
 # ── AI Provider config ────────────────────────────────────
 # Change these in .env to switch AI provider — no code changes needed.
@@ -150,6 +151,8 @@ AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
 AI_API_KEY  = os.getenv("AI_API_KEY",  "")
 AI_MODEL    = os.getenv("AI_MODEL",    "mock-mode")
 AI_BASE_URL = os.getenv("AI_BASE_URL", "")   # needed for Azure OpenAI
+AI_FAILOVER_PROVIDERS = os.getenv("AI_FAILOVER_PROVIDERS", "").strip()
+LLM_MAX_OUTPUT_TOKENS = int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "10000"))
 
 # ── LLM resilience knobs ───────────────────────────────────
 LLM_TIMEOUT_SECONDS   = float(os.getenv("LLM_TIMEOUT_SECONDS",   "60"))
@@ -175,11 +178,14 @@ AGENT_AUTOSAVE_CAPA_DRAFT = os.getenv(
     "false" if IS_PRODUCTION else "true",
 ).lower() == "true"
 
+QMS_DATA_DIR = os.getenv("QMS_DATA_DIR", "").strip()
+
 # File storage
 UPLOAD_STORAGE_BACKEND = os.getenv("UPLOAD_STORAGE_BACKEND", "local").strip().lower()
 UPLOAD_STORAGE_DIR = os.getenv(
     "UPLOAD_STORAGE_DIR",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"),
+    os.path.join(QMS_DATA_DIR, "uploads") if QMS_DATA_DIR
+    else os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"),
 )
 
 # ── Logging ────────────────────────────────────────────────

@@ -16,7 +16,7 @@ from pydantic import BaseModel, validator, ValidationError
 
 load_dotenv()
 
-from config import MOCK_MODE
+from config import AI_FAILOVER_PROVIDERS, LLM_MAX_OUTPUT_TOKENS, MOCK_MODE
 from services.capa_service import build_mock_capa
 from services.logging_config import get_logger
 
@@ -33,6 +33,30 @@ _MAX_RETRIES = 3
 _BACKOFF     = 2
 _RETRY_ON    = {429, 500, 502, 503, 504}
 _FAIL_FAST   = {400, 401, 403}
+
+
+def _env_name(provider: str, suffix: str) -> str:
+    aliases = {"anthropic": "ANTHROPIC", "openai": "OPENAI", "azure": "AZURE", "gemini": "GEMINI", "groq": "GROQ"}
+    return f"AI_{aliases.get(provider, provider.upper())}_{suffix}"
+
+
+def _provider_configs() -> list[dict]:
+    names = [AI_PROVIDER]
+    if AI_FAILOVER_PROVIDERS:
+        names.extend(p.strip() for p in AI_FAILOVER_PROVIDERS.split(",") if p.strip())
+    unique = []
+    for name in names:
+        name = name.lower()
+        if name not in unique and name != "mock":
+            unique.append(name)
+    configs = []
+    for provider in unique:
+        key = os.getenv(_env_name(provider, "API_KEY"), AI_API_KEY if provider == AI_PROVIDER else "").strip()
+        model = os.getenv(_env_name(provider, "MODEL"), AI_MODEL if provider == AI_PROVIDER else "").strip()
+        base_url = os.getenv(_env_name(provider, "BASE_URL"), AI_BASE_URL if provider == AI_PROVIDER else "").strip()
+        if key and model:
+            configs.append({"provider": provider, "api_key": key, "model": model, "base_url": base_url})
+    return configs
 
 
 # ═════════════════════════════════════════════════════════
@@ -136,7 +160,7 @@ def generate_capa(record: dict) -> dict:
     except Exception:
         log.warning("ai.rag_retrieval_skipped", exc_info=True)
 
-    if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
+    if MOCK_MODE or AI_PROVIDER == "mock" or not _provider_configs():
         time.sleep(0.5)
         result = build_mock_capa(record)
         if similar:
@@ -150,7 +174,7 @@ def generate_capa(record: dict) -> dict:
 
 
 def stream_capa(record: dict) -> Generator[str, None, None]:
-    if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
+    if MOCK_MODE or AI_PROVIDER == "mock" or not _provider_configs():
         yield from _mock_stream(record)
     else:
         yield from _live_stream(_build_capa_prompt(record))
@@ -158,16 +182,43 @@ def stream_capa(record: dict) -> Generator[str, None, None]:
 
 def generate_rca(record: dict, method: str) -> dict:
     from services.rca_service import build_five_why, build_fishbone
-    if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
+    if MOCK_MODE or AI_PROVIDER == "mock" or not _provider_configs():
         time.sleep(0.4)
         return build_five_why(record) if method == "5why" else build_fishbone(record)
-    try:
-        result = _live_generate(_build_rca_prompt(record, method))
-        if result.get("_fallback") or "rootCause" in result:
-            return build_five_why(record) if method == "5why" else build_fishbone(record)
-        return result
-    except Exception:
-        return build_five_why(record) if method == "5why" else build_fishbone(record)
+    result = _live_generate(_build_rca_prompt(record, method), task="rca_gen")
+    _normalize_rca_result(result, record, method)
+    return result
+
+
+def propose_rca_models(record: dict, method: str) -> dict:
+    from services.rca_service import propose_three_models
+    if MOCK_MODE or AI_PROVIDER == "mock" or not _provider_configs():
+        return propose_three_models(record, method)
+
+    configs = [
+        ("basic", "Model A - Basic", 0.3, 0.75, "Foundational"),
+        ("standard", "Model B - Intermediate", 0.5, 0.85, "Recommended"),
+        ("enhanced", "Model C - Advanced", 0.7, 0.95, "Regulatory grade"),
+    ]
+    models = []
+    for model_id, name, temperature, top_p, badge in configs:
+        prompt = _build_rca_model_prompt(record, method, name, temperature, top_p)
+        model = _live_generate(prompt, temperature=temperature, top_p=top_p, task="rca_model")
+        model["id"] = model_id
+        model["name"] = model.get("name") or name
+        model["badge"] = model.get("badge") or badge
+        model["temperature"] = temperature
+        model["top_p"] = top_p
+        _normalize_rca_model(model, record, method)
+        models.append(model)
+    return {
+        "models": models,
+        "record_id": record.get("id"),
+        "method": method,
+        "provider": models[0].get("_provider", AI_PROVIDER) if models else AI_PROVIDER,
+        "model": models[0].get("_model", AI_MODEL) if models else AI_MODEL,
+        "generated_at": datetime_now_iso(),
+    }
 
 
 # ═════════════════════════════════════════════════════════
@@ -218,9 +269,10 @@ _PRICE_PER_1K = {
 }
 
 
-def _estimate_cost(input_tokens: int, output_tokens: int) -> float:
-    p_in  = _PRICE_PER_1K.get((AI_PROVIDER, "input"),  0.0)
-    p_out = _PRICE_PER_1K.get((AI_PROVIDER, "output"), 0.0)
+def _estimate_cost(input_tokens: int, output_tokens: int, provider: str | None = None) -> float:
+    provider = provider or AI_PROVIDER
+    p_in  = _PRICE_PER_1K.get((provider, "input"),  0.0)
+    p_out = _PRICE_PER_1K.get((provider, "output"), 0.0)
     return round((input_tokens / 1000.0) * p_in + (output_tokens / 1000.0) * p_out, 6)
 
 
@@ -240,124 +292,118 @@ def _extract_usage(resp_json: dict) -> tuple[int, int]:
     return 0, 0
 
 
-def _live_generate(prompt: str) -> dict:
-    log.info("ai.live.call", extra={
-        "provider": AI_PROVIDER,
-        "url": AI_BASE_URL or "default",
-        "model": AI_MODEL,
-        "has_key": bool(AI_API_KEY),
-    })
+def _live_generate(prompt: str, temperature: float | None = None, top_p: float | None = None, task: str = "capa_gen") -> dict:
+    configs = _provider_configs()
+    if not configs:
+        raise RuntimeError("No live LLM provider is configured. Set AI_PROVIDER plus provider key/model env vars.")
 
     if AI_PROVIDER == "bedrock":
         return _bedrock_generate(prompt)
 
     if not _breaker.allow():
-        log.warning("ai.circuit_open.mock_fallback")
-        result = build_mock_capa({})
-        result["_fallback"] = True
-        result["_error"]    = "Circuit breaker open — AI provider unavailable"
+        log.warning("ai.circuit_open")
         _log_llm_call(success=False, cached=True,
                       error_message="circuit_breaker_open")
-        return result
+        raise RuntimeError("Circuit breaker open - live AI provider unavailable")
 
-    last_error = None
     started_at = time.time()
 
-    for attempt in range(_MAX_RETRIES):
-        try:
-            headers, payload, url = _build_request(prompt, stream=False)
-            resp = httpx.post(url, headers=headers, json=payload,
-                              timeout=60.0, verify=_SSL_VERIFY)
+    errors = []
+    for cfg in configs:
+        provider = cfg["provider"]
+        last_error = None
+        log.info("ai.live.call", extra={
+            "provider": provider,
+            "url": cfg.get("base_url") or "default",
+            "model": cfg.get("model"),
+            "has_key": bool(cfg.get("api_key")),
+            "task": task,
+        })
 
-            if resp.status_code in _FAIL_FAST:
-                _breaker.record_failure()
-                if "zscaler" in resp.text.lower() or \
-                   "<!doctype" in resp.text.lower():
-                    log.warning("ai.zscaler_blocked.mock_fallback")
-                    result = build_mock_capa({})
-                    result["_fallback"] = True
-                    result["_error"]    = "Blocked by corporate proxy (Zscaler)"
-                    return result
-                raise RuntimeError(
-                    f"AI API fatal {resp.status_code}: {resp.text[:300]}")
+        for attempt in range(_MAX_RETRIES):
+            try:
+                headers, payload, url = _build_request(
+                    prompt, stream=False, temperature=temperature, top_p=top_p, config=cfg
+                )
+                resp = httpx.post(url, headers=headers, json=payload,
+                                  timeout=60.0, verify=_SSL_VERIFY)
 
-            if resp.status_code in _RETRY_ON:
+                if resp.status_code in _FAIL_FAST:
+                    _breaker.record_failure()
+                    if "zscaler" in resp.text.lower() or \
+                       "<!doctype" in resp.text.lower():
+                        raise RuntimeError("Blocked by corporate proxy (Zscaler)")
+                    raise RuntimeError(
+                        f"{provider} API fatal {resp.status_code}: {resp.text[:300]}")
+
+                if resp.status_code in _RETRY_ON:
+                    wait = _BACKOFF ** (attempt + 1)
+                    retry_after = resp.headers.get("Retry-After")
+                    if retry_after:
+                        wait = int(retry_after)
+                    last_error = f"{provider} HTTP {resp.status_code}"
+                    log.warning("ai.retry", extra={
+                        "provider": provider, "attempt": attempt + 1, "max": _MAX_RETRIES,
+                        "error": last_error, "wait_s": wait,
+                    })
+                    time.sleep(wait)
+                    continue
+
+                resp.raise_for_status()
+                resp_json = resp.json()
+                text   = _extract_text(resp_json)
+                text   = text.replace("```json", "").replace("```", "").strip()
+                result = json.loads(text)
+
+                if "rootCause" in result:
+                    try:
+                        CAPASchema(**result)
+                        log.debug("ai.schema.ok")
+                    except ValidationError as ve:
+                        warnings = [e["msg"] for e in ve.errors()]
+                        log.warning("ai.schema.warnings", extra={"warnings": warnings})
+                        result["_validation_warnings"] = warnings
+
+                _breaker.record_success()
+                in_tok, out_tok = _extract_usage(resp_json)
+                latency_ms = int((time.time() - started_at) * 1000)
+                cost = _estimate_cost(in_tok, out_tok, provider)
+                result["_provider"] = provider
+                result["_model"] = cfg.get("model")
+                log.info("ai.success", extra={
+                    "provider": provider, "model": cfg.get("model"), "attempt": attempt + 1,
+                    "input_tokens": in_tok, "output_tokens": out_tok,
+                    "latency_ms": latency_ms, "cost_usd": cost, "task": task,
+                })
+                _log_llm_call(
+                    provider=provider, model=cfg.get("model"), task=task,
+                    input_tokens=in_tok, output_tokens=out_tok,
+                    latency_ms=latency_ms, cost_usd=cost, success=True,
+                )
+                return result
+
+            except httpx.TimeoutException:
+                last_error = f"{provider} timeout"
                 wait = _BACKOFF ** (attempt + 1)
-                retry_after = resp.headers.get("Retry-After")
-                if retry_after:
-                    wait = int(retry_after)
-                last_error = f"HTTP {resp.status_code}"
-                log.warning("ai.retry", extra={
-                    "attempt": attempt + 1, "max": _MAX_RETRIES,
-                    "error": last_error, "wait_s": wait,
+                log.warning("ai.timeout", extra={
+                    "provider": provider, "attempt": attempt + 1, "max": _MAX_RETRIES, "wait_s": wait,
                 })
                 time.sleep(wait)
-                continue
-
-            resp.raise_for_status()
-            resp_json = resp.json()
-            text   = _extract_text(resp_json)
-            text   = text.replace("```json", "").replace("```", "").strip()
-            result = json.loads(text)
-
-            # ── Pydantic validation ───────────────────────
-            if "rootCause" in result:
-                try:
-                    CAPASchema(**result)
-                    log.debug("ai.schema.ok")
-                except ValidationError as ve:
-                    warnings = [e["msg"] for e in ve.errors()]
-                    log.warning("ai.schema.warnings", extra={"warnings": warnings})
-                    result["_validation_warnings"] = warnings
-
-            _breaker.record_success()
-            # ── Token / cost accounting (best-effort) ─────
-            in_tok, out_tok = _extract_usage(resp_json)
-            latency_ms = int((time.time() - started_at) * 1000)
-            cost = _estimate_cost(in_tok, out_tok)
-            log.info("ai.success", extra={
-                "provider": AI_PROVIDER, "model": AI_MODEL, "attempt": attempt + 1,
-                "input_tokens": in_tok, "output_tokens": out_tok,
-                "latency_ms": latency_ms, "cost_usd": cost,
-            })
-            _log_llm_call(
-                input_tokens=in_tok, output_tokens=out_tok,
-                latency_ms=latency_ms, cost_usd=cost, success=True,
-            )
-            return result
-
-        except httpx.TimeoutException:
-            last_error = "Timeout"
-            wait = _BACKOFF ** (attempt + 1)
-            log.warning("ai.timeout", extra={
-                "attempt": attempt + 1, "max": _MAX_RETRIES, "wait_s": wait,
-            })
-            time.sleep(wait)
-
-        except json.JSONDecodeError as e:
-            _breaker.record_failure()
-            raise RuntimeError(f"AI returned invalid JSON: {e}") from e
-
-        except RuntimeError:
-            raise
-
-        except Exception as exc:
-            last_error = str(exc)
-            error_type = type(exc).__name__
-            _breaker.record_failure()
-            wait = _BACKOFF ** (attempt + 1)
-            log.warning("ai.error", extra={
-                "attempt": attempt + 1, "max": _MAX_RETRIES,
-                "error_type": error_type, "error": last_error, "wait_s": wait,
-            })
-            time.sleep(wait)
+            except Exception as exc:
+                last_error = str(exc)
+                _breaker.record_failure()
+                wait = _BACKOFF ** (attempt + 1)
+                log.warning("ai.error", extra={
+                    "provider": provider, "attempt": attempt + 1, "max": _MAX_RETRIES,
+                    "error_type": type(exc).__name__, "error": last_error, "wait_s": wait,
+                })
+                time.sleep(wait)
+        errors.append(last_error or f"{provider} failed")
 
     _breaker.record_failure()
-    log.error("ai.retries_exhausted", extra={"attempts": _MAX_RETRIES, "last_error": last_error})
-    result = build_mock_capa({})
-    result["_fallback"] = True
-    result["_error"]    = last_error or "All retries exhausted"
-    return result
+    message = "All live LLM providers failed: " + " | ".join(errors)
+    _log_llm_call(task=task, success=False, error_message=message)
+    raise RuntimeError(message)
 
 
 def _bedrock_generate(prompt: str) -> dict:
@@ -538,6 +584,22 @@ def _build_rca_prompt(record: dict, method: str) -> str:
     safe = sanitize_record_for_prompt(record)
     method_label = "5-Why chain" if method == "5why" \
                    else "Fishbone (Ishikawa) diagram"
+    schema = (
+        "Required JSON shape for 5why:\n"
+        "{ \"method\":\"5-Why\", \"record_id\":\"...\", \"problem_statement\":\"...\", "
+        "\"chain\":[{\"level\":1,\"why\":\"...\",\"because\":\"...\",\"is_root\":false}], "
+        "\"root_cause\":\"...\" }\n"
+        if method == "5why" else
+        "Required JSON shape for fishbone:\n"
+        "{ \"method\":\"Fishbone\", \"record_id\":\"...\", \"problem_statement\":\"...\", "
+        "\"categories\":{\"Man\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Machine\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Method\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Material\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Measurement\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Environment\":[{\"text\":\"...\",\"primary\":false}]}, "
+        "\"root_cause\":\"...\" }\n"
+    )
     return (
         f"You are a senior QA expert. Perform a {method_label} "
         f"root cause analysis.\n"
@@ -551,7 +613,19 @@ def _build_rca_prompt(record: dict, method: str) -> str:
         f"Description: {safe.get('description')}\n"
         f"Priority: {safe.get('priority')}\n"
         "END RECORD\n\n"
+        f"{schema}"
         "Respond ONLY with valid JSON — no markdown, no explanation."
+    )
+
+
+def _build_rca_model_prompt(record: dict, method: str, model_name: str, temperature: float, top_p: float) -> str:
+    base = _build_rca_prompt(record, method)
+    return (
+        f"{base}\n\n"
+        f"Generate {model_name} as one RCA improvement option using temperature={temperature} and top_p={top_p} style diversity.\n"
+        "Also include keys: name, description, badge, target_score, estimated_score.\n"
+        "Use specific SOP/equipment/batch/regulatory evidence from the record content. "
+        "Do not invent impossible facts; infer cautiously where the record is incomplete."
     )
 
 
@@ -559,81 +633,153 @@ def _build_rca_prompt(record: dict, method: str) -> str:
 # REQUEST BUILDER
 # ═════════════════════════════════════════════════════════
 
-def _build_request(prompt: str, stream: bool = False):
-    if AI_PROVIDER == "anthropic":
+def _build_request(prompt: str, stream: bool = False, temperature: float | None = None, top_p: float | None = None, config: dict | None = None):
+    cfg = config or {"provider": AI_PROVIDER, "api_key": AI_API_KEY, "model": AI_MODEL, "base_url": AI_BASE_URL}
+    provider = cfg["provider"]
+    api_key = cfg["api_key"]
+    model = cfg["model"]
+    base_url = cfg.get("base_url", "")
+
+    if provider == "anthropic":
         url     = "https://api.anthropic.com/v1/messages"
         headers = {
-            "x-api-key":         AI_API_KEY,
+            "x-api-key":         api_key,
             "anthropic-version": "2023-06-01",
             "content-type":      "application/json",
         }
         payload = {
-            "model":      AI_MODEL,
-            "max_tokens": 2000,
+            "model":      model,
+            "max_tokens": LLM_MAX_OUTPUT_TOKENS,
             "stream":     stream,
             "messages":   [{"role": "user", "content": prompt}],
         }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if top_p is not None:
+            payload["top_p"] = top_p
 
-    elif AI_PROVIDER in ("openai", "groq"):
-        base_url = AI_BASE_URL or (
+    elif provider in ("openai", "groq"):
+        base_url = base_url or (
             "https://api.groq.com/openai/v1"
-            if AI_PROVIDER == "groq"
+            if provider == "groq"
             else "https://api.openai.com/v1"
         )
         url     = f"{base_url.rstrip('/')}/chat/completions"
         headers = {
-            "Authorization": f"Bearer {AI_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type":  "application/json",
         }
         payload = {
-            "model":    AI_MODEL,
+            "model":    model,
+            "max_tokens": LLM_MAX_OUTPUT_TOKENS,
             "stream":   stream,
             "messages": [{"role": "user", "content": prompt}],
         }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if top_p is not None:
+            payload["top_p"] = top_p
+        if not stream:
+            payload["response_format"] = {"type": "json_object"}
 
-    elif AI_PROVIDER == "azure":
-        url     = AI_BASE_URL
+    elif provider == "azure":
+        url     = base_url
         headers = {
-            "api-key":      AI_API_KEY,
+            "api-key":      api_key,
             "Content-Type": "application/json",
         }
         payload = {
             "messages": [{"role": "user", "content": prompt}],
             "stream":   stream,
+            "max_tokens": LLM_MAX_OUTPUT_TOKENS,
         }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if top_p is not None:
+            payload["top_p"] = top_p
 
-    elif AI_PROVIDER == "gemini":
+    elif provider == "gemini":
         if stream:
             url = (
                 f"https://generativelanguage.googleapis.com/v1beta/models"
-                f"/{AI_MODEL}:streamGenerateContent"
-                f"?key={AI_API_KEY}&alt=sse"
+                f"/{model}:streamGenerateContent"
+                f"?key={api_key}&alt=sse"
             )
         else:
             url = (
                 f"https://generativelanguage.googleapis.com/v1beta/models"
-                f"/{AI_MODEL}:generateContent?key={AI_API_KEY}"
+                f"/{model}:generateContent?key={api_key}"
             )
         headers = {"Content-Type": "application/json"}
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
-                "temperature":     0.2,
-                "maxOutputTokens": 2000,
+                "temperature":     temperature if temperature is not None else 0.2,
+                "topP":            top_p if top_p is not None else 0.9,
+                "maxOutputTokens": LLM_MAX_OUTPUT_TOKENS,
             },
         }
 
-    elif AI_PROVIDER == "bedrock":
+    elif provider == "bedrock":
         raise ValueError(
             "Bedrock uses boto3 — handled in _bedrock_generate()")
 
     else:
         raise ValueError(
-            f"Unknown AI_PROVIDER: '{AI_PROVIDER}'. "
+            f"Unknown AI_PROVIDER: '{provider}'. "
             f"Use: mock | gemini | anthropic | openai | azure | groq | bedrock"
         )
 
     return headers, payload, url
+
+
+def datetime_now_iso() -> str:
+    from datetime import datetime
+    return datetime.now().isoformat()
+
+
+def _normalize_rca_result(result: dict, record: dict, method: str) -> None:
+    result.setdefault("record_id", record.get("id"))
+    result.setdefault("problem_statement", record.get("title", ""))
+    result.setdefault("generated_at", datetime_now_iso())
+    result["_source"] = "llm"
+    result["_provider"] = AI_PROVIDER
+    result["_model"] = AI_MODEL
+    if method == "5why":
+        result["method"] = "5-Why"
+        chain = result.get("chain") or result.get("steps") or []
+        if not isinstance(chain, list) or not chain:
+            raise ValueError("RCA LLM response missing 5-Why chain")
+        for idx, step in enumerate(chain, start=1):
+            step.setdefault("level", idx)
+            step.setdefault("why", f"Why {idx}")
+            step.setdefault("because", step.get("answer") or step.get("text") or "")
+            step["is_root"] = bool(step.get("is_root", idx == len(chain)))
+        result["chain"] = chain
+        result.setdefault("root_cause", chain[-1].get("because", ""))
+    else:
+        result["method"] = "Fishbone"
+        cats = result.get("categories") or {}
+        if not isinstance(cats, dict) or not cats:
+            raise ValueError("RCA LLM response missing fishbone categories")
+        normalized = {}
+        for cat, causes in cats.items():
+            normalized[str(cat)] = [
+                {"text": c.get("text") or c.get("cause") or str(c), "primary": bool(c.get("primary", False))}
+                if isinstance(c, dict) else {"text": str(c), "primary": False}
+                for c in (causes or [])
+            ]
+        result["categories"] = normalized
+        primaries = [c["text"] for causes in normalized.values() for c in causes if c.get("primary")]
+        result.setdefault("root_cause", "; ".join(primaries[:2]))
+
+
+def _normalize_rca_model(model: dict, record: dict, method: str) -> None:
+    _normalize_rca_result(model, record, method)
+    model.setdefault("icon", "")
+    model.setdefault("description", "LLM-generated RCA option using alternate sampling settings.")
+    model.setdefault("target_score", model.get("estimated_score", 75))
+    model.setdefault("estimated_score", model.get("target_score", 75))
 
 
 # ═════════════════════════════════════════════════════════

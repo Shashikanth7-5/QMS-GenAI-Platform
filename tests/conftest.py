@@ -3,6 +3,16 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+_TEST_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "qms_test_data.db")
+os.environ.setdefault("FLASK_ENV", "testing")
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{_TEST_DB}")
+os.environ["MOCK_MODE"] = "true"
+for suffix in ("", "-wal", "-shm"):
+    try:
+        os.remove(_TEST_DB + suffix)
+    except FileNotFoundError:
+        pass
+
 import pytest
 from app import create_app
 

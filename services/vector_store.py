@@ -15,8 +15,14 @@ from services.logging_config import get_logger
 
 log = get_logger(__name__)
 
-# Persist the vector DB to disk so embeddings survive restarts
-_PERSIST_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "chroma_db")
+# Persist the vector DB to disk so embeddings survive restarts. In cloud
+# deployments, set QMS_DATA_DIR or CHROMA_PERSIST_DIR to a mounted disk path.
+_DATA_DIR = os.getenv("QMS_DATA_DIR", "").strip()
+_PERSIST_DIR = (
+    os.getenv("CHROMA_PERSIST_DIR", "").strip()
+    or (os.path.join(_DATA_DIR, "chroma_db") if _DATA_DIR else "")
+    or os.path.join(os.path.dirname(__file__), "..", "data", "chroma_db")
+)
 _COLLECTION_NAME = "capa_history"
 
 _client = None
