@@ -66,6 +66,21 @@ services:
         value: "true"
       - key: SEED_BUILTIN_USERS
         value: "false"                # NEVER seed admin/admin in prod
+      # Pilot: create admin/quality/reviewer/demo accounts at container
+      # startup so the Render Shell (paywalled) is not required. Passwords
+      # are set via ADMIN_PASSWORD / QUALITY_PASSWORD / REVIEWER_PASSWORD /
+      # DEMO_PASSWORD env vars; defaults live in scripts/bootstrap_pilot_users.py.
+      # See docs/PILOT_ACCESS.md for the credential reference.
+      - key: BOOTSTRAP_PILOT_USERS
+        value: "true"
+      - key: ADMIN_PASSWORD
+        sync: false                   # optional override; leave blank to accept the default
+      - key: QUALITY_PASSWORD
+        sync: false
+      - key: REVIEWER_PASSWORD
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false
       - key: API_V1_ALLOW_ANONYMOUS
         value: "false"
 
@@ -86,3 +101,20 @@ services:
       # ── Salesforce webhook signing window ───────────────────
       - key: WEBHOOK_MAX_SKEW_SECONDS
         value: "300"
+
+      # ── Salesforce tenant auto-provision at startup ─────────
+      # See docs/PILOT_ACCESS.md and docs/salesforce-manual-setup.md.
+      # Set all four then redeploy; the app creates the tenant on boot.
+      # Skip this block if you plan to provision from the /admin UI later.
+      - key: BOOTSTRAP_SF_TENANT
+        value: "false"                # flip to "true" once SF_* are filled
+      - key: SF_TENANT_ID
+        value: sf-sandbox
+      - key: SF_TENANT_DISPLAY
+        value: "Salesforce Sandbox"
+      - key: SF_ORIGIN
+        sync: false                   # your My Domain URL
+      - key: SF_API_KEY
+        sync: false                   # 32+ char random you choose; also goes into SF Named Credential
+      - key: SF_WEBHOOK_SECRET
+        sync: false                   # 32+ char random you choose; also goes into SF Custom Setting
