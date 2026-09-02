@@ -163,11 +163,48 @@ def generate_rca(record: dict, method: str) -> dict:
         return build_five_why(record) if method == "5why" else build_fishbone(record)
     try:
         result = _live_generate(_build_rca_prompt(record, method))
-        if result.get("_fallback") or "rootCause" in result:
+        if result.get("_fallback"):
             return build_five_why(record) if method == "5why" else build_fishbone(record)
+        _normalize_rca_result(result, record, method)
         return result
     except Exception:
+        log.warning("ai.rca.live_failed_using_template_fallback", exc_info=True)
         return build_five_why(record) if method == "5why" else build_fishbone(record)
+
+
+def propose_rca_models(record: dict, method: str) -> dict:
+    from services.rca_service import propose_three_models
+    if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
+        return propose_three_models(record, method)
+
+    configs = [
+        ("basic", "Model A - Basic", 0.3, 0.75, "Foundational"),
+        ("standard", "Model B - Intermediate", 0.5, 0.85, "Recommended"),
+        ("enhanced", "Model C - Advanced", 0.7, 0.95, "Regulatory grade"),
+    ]
+    models = []
+    try:
+        for model_id, name, temperature, top_p, badge in configs:
+            prompt = _build_rca_model_prompt(record, method, name, temperature, top_p)
+            model = _live_generate(prompt, temperature=temperature, top_p=top_p)
+            model["id"] = model_id
+            model["name"] = model.get("name") or name
+            model["badge"] = model.get("badge") or badge
+            model["temperature"] = temperature
+            model["top_p"] = top_p
+            _normalize_rca_model(model, record, method)
+            models.append(model)
+        return {
+            "models": models,
+            "record_id": record.get("id"),
+            "method": method,
+            "provider": AI_PROVIDER,
+            "model": AI_MODEL,
+            "generated_at": datetime_now_iso(),
+        }
+    except Exception:
+        log.warning("ai.rca_models.live_failed_using_template_fallback", exc_info=True)
+        return propose_three_models(record, method)
 
 
 # ═════════════════════════════════════════════════════════
@@ -240,7 +277,7 @@ def _extract_usage(resp_json: dict) -> tuple[int, int]:
     return 0, 0
 
 
-def _live_generate(prompt: str) -> dict:
+def _live_generate(prompt: str, temperature: float | None = None, top_p: float | None = None) -> dict:
     log.info("ai.live.call", extra={
         "provider": AI_PROVIDER,
         "url": AI_BASE_URL or "default",
@@ -265,7 +302,7 @@ def _live_generate(prompt: str) -> dict:
 
     for attempt in range(_MAX_RETRIES):
         try:
-            headers, payload, url = _build_request(prompt, stream=False)
+            headers, payload, url = _build_request(prompt, stream=False, temperature=temperature, top_p=top_p)
             resp = httpx.post(url, headers=headers, json=payload,
                               timeout=60.0, verify=_SSL_VERIFY)
 
@@ -538,6 +575,22 @@ def _build_rca_prompt(record: dict, method: str) -> str:
     safe = sanitize_record_for_prompt(record)
     method_label = "5-Why chain" if method == "5why" \
                    else "Fishbone (Ishikawa) diagram"
+    schema = (
+        "Required JSON shape for 5why:\n"
+        "{ \"method\":\"5-Why\", \"record_id\":\"...\", \"problem_statement\":\"...\", "
+        "\"chain\":[{\"level\":1,\"why\":\"...\",\"because\":\"...\",\"is_root\":false}], "
+        "\"root_cause\":\"...\" }\n"
+        if method == "5why" else
+        "Required JSON shape for fishbone:\n"
+        "{ \"method\":\"Fishbone\", \"record_id\":\"...\", \"problem_statement\":\"...\", "
+        "\"categories\":{\"Man\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Machine\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Method\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Material\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Measurement\":[{\"text\":\"...\",\"primary\":true}],"
+        "\"Environment\":[{\"text\":\"...\",\"primary\":false}]}, "
+        "\"root_cause\":\"...\" }\n"
+    )
     return (
         f"You are a senior QA expert. Perform a {method_label} "
         f"root cause analysis.\n"
@@ -551,7 +604,19 @@ def _build_rca_prompt(record: dict, method: str) -> str:
         f"Description: {safe.get('description')}\n"
         f"Priority: {safe.get('priority')}\n"
         "END RECORD\n\n"
+        f"{schema}"
         "Respond ONLY with valid JSON — no markdown, no explanation."
+    )
+
+
+def _build_rca_model_prompt(record: dict, method: str, model_name: str, temperature: float, top_p: float) -> str:
+    base = _build_rca_prompt(record, method)
+    return (
+        f"{base}\n\n"
+        f"Generate {model_name} as one RCA improvement option using temperature={temperature} and top_p={top_p} style diversity.\n"
+        "Also include keys: name, description, badge, target_score, estimated_score.\n"
+        "Use specific SOP/equipment/batch/regulatory evidence from the record content. "
+        "Do not invent impossible facts; infer cautiously where the record is incomplete."
     )
 
 
@@ -559,7 +624,7 @@ def _build_rca_prompt(record: dict, method: str) -> str:
 # REQUEST BUILDER
 # ═════════════════════════════════════════════════════════
 
-def _build_request(prompt: str, stream: bool = False):
+def _build_request(prompt: str, stream: bool = False, temperature: float | None = None, top_p: float | None = None):
     if AI_PROVIDER == "anthropic":
         url     = "https://api.anthropic.com/v1/messages"
         headers = {
@@ -573,6 +638,10 @@ def _build_request(prompt: str, stream: bool = False):
             "stream":     stream,
             "messages":   [{"role": "user", "content": prompt}],
         }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if top_p is not None:
+            payload["top_p"] = top_p
 
     elif AI_PROVIDER in ("openai", "groq"):
         base_url = AI_BASE_URL or (
@@ -590,6 +659,10 @@ def _build_request(prompt: str, stream: bool = False):
             "stream":   stream,
             "messages": [{"role": "user", "content": prompt}],
         }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if top_p is not None:
+            payload["top_p"] = top_p
         if not stream:
             payload["response_format"] = {"type": "json_object"}
 
@@ -603,6 +676,10 @@ def _build_request(prompt: str, stream: bool = False):
             "messages": [{"role": "user", "content": prompt}],
             "stream":   stream,
         }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if top_p is not None:
+            payload["top_p"] = top_p
 
     elif AI_PROVIDER == "gemini":
         if stream:
@@ -620,7 +697,8 @@ def _build_request(prompt: str, stream: bool = False):
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
-                "temperature":     0.2,
+                "temperature":     temperature if temperature is not None else 0.2,
+                "topP":            top_p if top_p is not None else 0.9,
                 "maxOutputTokens": 2000,
             },
         }
@@ -636,6 +714,55 @@ def _build_request(prompt: str, stream: bool = False):
         )
 
     return headers, payload, url
+
+
+def datetime_now_iso() -> str:
+    from datetime import datetime
+    return datetime.now().isoformat()
+
+
+def _normalize_rca_result(result: dict, record: dict, method: str) -> None:
+    result.setdefault("record_id", record.get("id"))
+    result.setdefault("problem_statement", record.get("title", ""))
+    result.setdefault("generated_at", datetime_now_iso())
+    result["_source"] = "llm"
+    result["_provider"] = AI_PROVIDER
+    result["_model"] = AI_MODEL
+    if method == "5why":
+        result["method"] = "5-Why"
+        chain = result.get("chain") or result.get("steps") or []
+        if not isinstance(chain, list) or not chain:
+            raise ValueError("RCA LLM response missing 5-Why chain")
+        for idx, step in enumerate(chain, start=1):
+            step.setdefault("level", idx)
+            step.setdefault("why", f"Why {idx}")
+            step.setdefault("because", step.get("answer") or step.get("text") or "")
+            step["is_root"] = bool(step.get("is_root", idx == len(chain)))
+        result["chain"] = chain
+        result.setdefault("root_cause", chain[-1].get("because", ""))
+    else:
+        result["method"] = "Fishbone"
+        cats = result.get("categories") or {}
+        if not isinstance(cats, dict) or not cats:
+            raise ValueError("RCA LLM response missing fishbone categories")
+        normalized = {}
+        for cat, causes in cats.items():
+            normalized[str(cat)] = [
+                {"text": c.get("text") or c.get("cause") or str(c), "primary": bool(c.get("primary", False))}
+                if isinstance(c, dict) else {"text": str(c), "primary": False}
+                for c in (causes or [])
+            ]
+        result["categories"] = normalized
+        primaries = [c["text"] for causes in normalized.values() for c in causes if c.get("primary")]
+        result.setdefault("root_cause", "; ".join(primaries[:2]))
+
+
+def _normalize_rca_model(model: dict, record: dict, method: str) -> None:
+    _normalize_rca_result(model, record, method)
+    model.setdefault("icon", "")
+    model.setdefault("description", "LLM-generated RCA option using alternate sampling settings.")
+    model.setdefault("target_score", model.get("estimated_score", 75))
+    model.setdefault("estimated_score", model.get("target_score", 75))
 
 
 # ═════════════════════════════════════════════════════════

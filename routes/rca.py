@@ -9,11 +9,10 @@ from flask import Blueprint, jsonify, render_template, request
 from flask_login import login_required
 
 from config import RATE_LIMIT_LLM
-from services.ai_service  import generate_rca
+from services.ai_service  import generate_rca, propose_rca_models
 from services.logging_config import get_logger
 from services.rca_service import (
     assess_five_why, assess_fishbone,
-    propose_three_models,
 )
 
 log = get_logger(__name__)
@@ -106,6 +105,6 @@ def api_propose():
     if not record:
         return jsonify({"error": "Missing 'record'"}), 400
     try:
-        return jsonify(propose_three_models(record, method))
+        return jsonify(propose_rca_models(record, method))
     except Exception as e:
         return jsonify({"error": str(e)}), 502
