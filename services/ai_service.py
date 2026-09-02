@@ -590,6 +590,8 @@ def _build_request(prompt: str, stream: bool = False):
             "stream":   stream,
             "messages": [{"role": "user", "content": prompt}],
         }
+        if not stream:
+            payload["response_format"] = {"type": "json_object"}
 
     elif AI_PROVIDER == "azure":
         url     = AI_BASE_URL

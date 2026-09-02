@@ -122,7 +122,14 @@ def api_generate():
     record = body.get("record", {})
     if not record:
         return jsonify({"error": "Missing 'record'"}), 400
-    result = generate_capa(record)
+    try:
+        result = generate_capa(record)
+    except Exception as exc:
+        logger.exception("capa.generate_failed")
+        return jsonify({
+            "error": "CAPA generation failed",
+            "details": str(exc),
+        }), 502
     return jsonify(result)
 
 
