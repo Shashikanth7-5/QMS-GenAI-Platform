@@ -178,11 +178,14 @@ AGENT_AUTOSAVE_CAPA_DRAFT = os.getenv(
     "false" if IS_PRODUCTION else "true",
 ).lower() == "true"
 
+QMS_DATA_DIR = os.getenv("QMS_DATA_DIR", "").strip()
+
 # File storage
 UPLOAD_STORAGE_BACKEND = os.getenv("UPLOAD_STORAGE_BACKEND", "local").strip().lower()
 UPLOAD_STORAGE_DIR = os.getenv(
     "UPLOAD_STORAGE_DIR",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"),
+    os.path.join(QMS_DATA_DIR, "uploads") if QMS_DATA_DIR
+    else os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"),
 )
 
 # ── Logging ────────────────────────────────────────────────

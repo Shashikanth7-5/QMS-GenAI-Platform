@@ -29,11 +29,13 @@ docker compose up --build
 FLASK_ENV=production
 SECRET_KEY=<64+ random chars>
 API_V1_KEY=<strong integration API key>
-DATABASE_URL=postgresql+psycopg2://<user>:<pass>@<host>:5432/<db>
+QMS_DATA_DIR=/var/data
+DATABASE_URL=sqlite:////var/data/qms_data.db
+CHROMA_PERSIST_DIR=/var/data/chroma_db
 CELERY_BROKER_URL=redis://<host>:6379/0
 RATE_LIMIT_STORAGE_URI=redis://<host>:6379/1
 UPLOAD_STORAGE_BACKEND=local
-UPLOAD_STORAGE_DIR=/app/uploads
+UPLOAD_STORAGE_DIR=/var/data/uploads
 SMTP_HOST=<smtp host>
 SMTP_PORT=587
 SMTP_FROM=qms-workflow@yourcompany.com
@@ -82,16 +84,18 @@ Admin UI:
 
 ## Upload Storage
 
-Current production-ready option is a mounted persistent volume:
+For the SQLite/Chroma pilot, all runtime state must live on one mounted persistent volume:
 
 ```text
+QMS_DATA_DIR=/var/data
+DATABASE_URL=sqlite:////var/data/qms_data.db
+CHROMA_PERSIST_DIR=/var/data/chroma_db
 UPLOAD_STORAGE_BACKEND=local
-UPLOAD_STORAGE_DIR=/app/uploads
+UPLOAD_STORAGE_DIR=/var/data/uploads
 ```
 
-For Azure App Service, mount Azure Files to `/app/uploads`.
-For AWS/ECS, mount EFS to `/app/uploads`.
-For Render/Railway, use their persistent disk option when available.
+For Render, attach a persistent disk at `/var/data`. Data outside that path is ephemeral.
+For higher-volume multi-instance production, move from SQLite to managed Postgres and object storage.
 
 ## Health / Readiness
 

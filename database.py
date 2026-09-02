@@ -11,7 +11,19 @@ load_dotenv()
 
 log = get_logger(__name__)
 
-DATABASE_URL = (os.getenv("DATABASE_URL") or "sqlite:///qms_data.db").strip().strip('"').strip("'")
+_DATA_DIR = os.getenv("QMS_DATA_DIR", "").strip()
+_DEFAULT_SQLITE_PATH = (
+    os.path.join(_DATA_DIR, "qms_data.db")
+    if _DATA_DIR
+    else os.path.join(os.path.dirname(os.path.abspath(__file__)), "qms_data.db")
+)
+if _DATA_DIR:
+    os.makedirs(_DATA_DIR, exist_ok=True)
+
+DATABASE_URL = (
+    os.getenv("DATABASE_URL")
+    or f"sqlite:///{_DEFAULT_SQLITE_PATH.replace(os.sep, '/')}"
+).strip().strip('"').strip("'")
 log.info("db.configured", extra={"url_scheme": DATABASE_URL.split(":", 1)[0]})
 
 _is_sqlite = DATABASE_URL.startswith("sqlite")
@@ -19,6 +31,7 @@ _is_sqlite = DATABASE_URL.startswith("sqlite")
 _engine_kwargs = {"echo": False}
 if _is_sqlite:
     _engine_kwargs["connect_args"] = {"check_same_thread": False}
+    _engine_kwargs["pool_pre_ping"] = True
 else:
     _engine_kwargs["connect_args"] = {}
     _engine_kwargs["pool_size"]    = 5
@@ -32,6 +45,7 @@ if _is_sqlite:
     def set_sqlite_pragma(conn, _):
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("PRAGMA busy_timeout=30000")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

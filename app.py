@@ -306,6 +306,15 @@ def _bootstrap_database() -> None:
         from database import init_db
 
         init_db()
+        try:
+            from services.vector_store import backfill_from_db, collection_stats
+            embedded = backfill_from_db()
+            log.info("vector.bootstrap_backfill", extra={
+                "embedded": embedded,
+                "stats": collection_stats(),
+            })
+        except Exception:
+            log.warning("vector.bootstrap_backfill_skipped", exc_info=True)
     except Exception:
         log.exception("database.init.failed")
 
