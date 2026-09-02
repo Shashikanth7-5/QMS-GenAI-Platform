@@ -73,7 +73,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          python -m pytest -v --tb=long -rA --basetemp=.pytest-tmp --cov=. --cov-report=xml --cov-report=term --cov-fail-under=55 2>&1 | tee pytest.log
+          pytest -v --tb=long -rA --cov=. --cov-report=xml --cov-report=term --cov-fail-under=55 2>&1 | tee pytest.log
       - name: Emit pytest failures as annotations
         if: steps.pytest.outcome == 'failure'
         run: |
