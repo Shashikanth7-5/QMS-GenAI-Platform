@@ -10,6 +10,7 @@
 #   anthropic  → ChatAnthropic
 #   azure      → AzureChatOpenAI
 #   gemini     → ChatGoogleGenerativeAI
+#   groq       → ChatOpenAI with Groq's OpenAI-compatible endpoint
 #
 # Usage in chains:
 #   from services.llm_provider import get_llm
@@ -32,19 +33,24 @@ def get_llm(temperature: float = 0.1, max_tokens: int = 1500):
     """
     Returns a LangChain-compatible LLM instance or None in mock mode.
     Install extras as needed:
-      pip install langchain-openai        # for openai / azure
+      pip install langchain-openai        # for openai / azure / groq
       pip install langchain-anthropic     # for anthropic
       pip install langchain-google-genai  # for gemini
     """
     if AI_PROVIDER == "mock" or not AI_API_KEY:
         return None
 
-    if AI_PROVIDER == "openai":
+    if AI_PROVIDER in ("openai", "groq"):
         try:
             from langchain_openai import ChatOpenAI
             return ChatOpenAI(
                 model       = AI_MODEL,
                 api_key     = AI_API_KEY,
+                base_url    = AI_BASE_URL or (
+                    "https://api.groq.com/openai/v1"
+                    if AI_PROVIDER == "groq"
+                    else None
+                ),
                 temperature = temperature,
                 max_tokens  = max_tokens,
             )

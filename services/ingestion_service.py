@@ -218,8 +218,12 @@ def ai_extract_record(extracted, filename: str) -> dict:
             )
             raw = resp.json()["content"][0]["text"]
 
-        elif AI_PROVIDER in ("openai","azure"):
-            base = AI_BASE_URL or "https://api.openai.com/v1"
+        elif AI_PROVIDER in ("openai","azure","groq"):
+            base = AI_BASE_URL or (
+                "https://api.groq.com/openai/v1"
+                if AI_PROVIDER == "groq"
+                else "https://api.openai.com/v1"
+            )
             user_content = (
                 [
                     {"type":"text","text":_PROMPT.replace("{content}","[see image]")},
