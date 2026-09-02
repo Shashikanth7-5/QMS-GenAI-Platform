@@ -141,7 +141,8 @@ if IS_PRODUCTION and not SF_WEBHOOK_SECRET:
 # ── Mock mode ─────────────────────────────────────────────
 # True  → uses template-based mock responses (no API key needed)
 # False → calls the real AI provider set below
-MOCK_MODE  = os.getenv("MOCK_MODE", "true").lower() == "true"
+MOCK_MODE  = True if IS_TESTING and os.getenv("LIVE_LLM_TESTS", "").lower() != "true" \
+    else os.getenv("MOCK_MODE", "true").lower() == "true"
 
 # ── AI Provider config ────────────────────────────────────
 # Change these in .env to switch AI provider — no code changes needed.

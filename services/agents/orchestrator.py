@@ -141,7 +141,8 @@ class CapaAgentOrchestrator:
             )
             return result
         except Exception as exc:
-            log.exception("agent.orchestrator.failed", extra={"run_id": run_id, "record_id": record_id})
+            log.warning("agent.orchestrator.failed", exc_info=True,
+                        extra={"run_id": run_id, "record_id": record_id})
             log_agent_event(
                 "capa_agent_orchestrator", "workflow_failed", "error",
                 run_id=run_id, record_id=record_id, triggered_by=triggered_by,

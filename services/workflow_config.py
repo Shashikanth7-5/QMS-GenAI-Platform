@@ -135,7 +135,7 @@ def load_workflow_config() -> dict:
                 if not isinstance(loaded, dict):
                     raise ValueError(f"top-level YAML must be a mapping, got {type(loaded).__name__}")
             except (yaml.YAMLError, ValueError, OSError) as exc:
-                log.error("workflow_config.load_failed", extra={"path": str(path), "error": str(exc)})
+                log.warning("workflow_config.load_failed", extra={"path": str(path), "error": str(exc)})
                 if _CACHE["config"] is not None:
                     # Serve last-known-good rather than reverting to defaults
                     # silently.
@@ -146,7 +146,7 @@ def load_workflow_config() -> dict:
         config = _merge(_DEFAULT_CONFIG, loaded)
         errors = _validate_config(config)
         if errors:
-            log.error("workflow_config.invalid", extra={"errors": errors, "path": str(path)})
+            log.warning("workflow_config.invalid", extra={"errors": errors, "path": str(path)})
             if _CACHE["config"] is not None:
                 _CACHE["mtime"] = mtime
                 return copy.deepcopy(_CACHE["config"])
