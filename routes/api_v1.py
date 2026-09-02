@@ -22,7 +22,6 @@ from data.records import (get_all_capas, get_all_records, get_capa_by_id,
 from services.ai_service import generate_capa
 from services.agents.orchestrator import CapaAgentOrchestrator
 from services.logging_config import get_logger
-from services.rca_service import build_fishbone, build_five_why
 from services.security import capa_content_hash
 from services.workflow_config import (is_agent_eligible, normalize_record_type,
                                       workflow_snapshot)
@@ -622,7 +621,8 @@ def api_rca():
         if not record:
             return _err(f"Record {rid} not found", 404, "not_found")
     try:
-        rca = build_five_why(record) if method == "5why" else build_fishbone(record)
+        from services.ai_service import generate_rca
+        rca = generate_rca(record, method)
         return _ok({"rca": rca, "method": method})
     except Exception as exc:
         log.exception("api_v1.rca.failed")

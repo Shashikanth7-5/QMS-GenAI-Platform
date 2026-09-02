@@ -12,6 +12,7 @@ from auth.users import (get_all_registered_users, get_pending_users,
                         record_login_failure, record_login_success,
                         register_user, update_user_role, update_user_status)
 from config import RATE_LIMIT_LOGIN
+from services.agents.notifications import send_email_notification
 from services.logging_config import get_logger
 
 log = get_logger(__name__)
@@ -154,7 +155,16 @@ def page_manage_users():
 @auth_bp.route("/admin/users/<user_id>/approve", methods=["POST"])
 @admin_required
 def approve_user(user_id):
-    update_user_status(user_id, "approved")
+    user = update_user_status(user_id, "approved")
+    if user:
+        send_email_notification(
+            getattr(user, "email", ""),
+            "QMS GenAI account approved",
+            f"Your QMS GenAI account '{user.username}' has been approved. You can now sign in.",
+            run_id=f"user-approval-{user_id}",
+            agent_name="user_access_notification_agent",
+            details={"userId": user_id, "decision": "approved", "reviewedBy": current_user.username},
+        )
     flash("User approved.", "success")
     return redirect(url_for("auth.page_manage_users"))
 
@@ -162,7 +172,20 @@ def approve_user(user_id):
 @auth_bp.route("/admin/users/<user_id>/reject", methods=["POST"])
 @admin_required
 def reject_user(user_id):
-    update_user_status(user_id, "rejected", comment=request.form.get("comment", "").strip())
+    comment = request.form.get("comment", "").strip()
+    user = update_user_status(user_id, "rejected", comment=comment)
+    if user:
+        send_email_notification(
+            getattr(user, "email", ""),
+            "QMS GenAI account request rejected",
+            (
+                f"Your QMS GenAI account request for '{user.username}' was rejected.\n\n"
+                f"Reason: {comment or 'No reason provided.'}"
+            ),
+            run_id=f"user-rejection-{user_id}",
+            agent_name="user_access_notification_agent",
+            details={"userId": user_id, "decision": "rejected", "reviewedBy": current_user.username},
+        )
     flash("User rejected.", "error")
     return redirect(url_for("auth.page_manage_users"))
 

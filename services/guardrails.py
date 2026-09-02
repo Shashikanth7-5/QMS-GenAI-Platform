@@ -21,6 +21,17 @@ _PROMPT_INJECTION_PATTERNS = [
 
 _MAX_FIELD_LEN = 4000  # hard cap per field going into any prompt
 
+_SENSITIVE_PATTERNS = [
+    re.compile(r"(?i)\b(patent|pat\.?|publication|application)\s*(no\.?|number|#)?\s*[:\-]?\s*[A-Z]{0,4}\d[A-Z0-9/\-]{4,}\b"),
+    re.compile(r"(?i)\b(US|EP|WO|IN|CN|JP)\s*\d{4,}[A-Z0-9/\-]*\b"),
+    re.compile(r"(?i)\b(invention disclosure|trade secret|proprietary formulation|confidential formula)\b\s*[:\-]?\s*[^\n.;]{0,160}"),
+    re.compile(r"(?i)\b(api key|secret key|password|token|bearer)\s*[:=]\s*[^\s,;]+"),
+    re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"),
+    re.compile(r"\b(?:\+?\d[\d \-().]{8,}\d)\b"),
+    re.compile(r"\b(?:\d[ -]*?){13,19}\b"),
+    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+]
+
 
 def sanitize_prompt_text(value: Any, max_len: int = _MAX_FIELD_LEN) -> str:
     """
@@ -36,6 +47,8 @@ def sanitize_prompt_text(value: Any, max_len: int = _MAX_FIELD_LEN) -> str:
     text = str(value)
     for pat in _PROMPT_INJECTION_PATTERNS:
         text = pat.sub("[redacted]", text)
+    for pat in _SENSITIVE_PATTERNS:
+        text = pat.sub("[sensitive-info-redacted]", text)
     # Strip control characters other than tab/newline.
     text = "".join(ch for ch in text if ch >= " " or ch in "\t\n")
     if len(text) > max_len:

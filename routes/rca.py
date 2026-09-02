@@ -8,7 +8,7 @@
 from flask import Blueprint, jsonify, render_template, request
 from flask_login import login_required
 
-from config import RATE_LIMIT_LLM
+from config import MOCK_MODE, RATE_LIMIT_LLM
 from services.ai_service  import generate_rca, propose_rca_models
 from services.logging_config import get_logger
 from services.rca_service import (
@@ -46,8 +46,10 @@ def api_fishbone():
         return jsonify({"error": "Missing 'record'"}), 400
     try:
         return jsonify(generate_rca(record, method="fishbone"))
-    except Exception:
-        # Never return 502 — always give the user something to work with
+    except Exception as exc:
+        if not MOCK_MODE:
+            log.exception("rca.fishbone.live_failed")
+            return jsonify({"error": "RCA LLM generation failed", "details": str(exc)}), 502
         from services.rca_service import build_fishbone
         result = build_fishbone(record)
         result["_fallback"] = True
@@ -63,7 +65,10 @@ def api_five_why():
         return jsonify({"error": "Missing 'record'"}), 400
     try:
         return jsonify(generate_rca(record, method="5why"))
-    except Exception:
+    except Exception as exc:
+        if not MOCK_MODE:
+            log.exception("rca.five_why.live_failed")
+            return jsonify({"error": "RCA LLM generation failed", "details": str(exc)}), 502
         from services.rca_service import build_five_why
         result = build_five_why(record)
         result["_fallback"] = True

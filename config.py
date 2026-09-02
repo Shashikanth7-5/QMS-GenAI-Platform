@@ -77,7 +77,7 @@ RATE_LIMIT_API_V1   = os.getenv("RATE_LIMIT_API_V1",   "60 per minute")
 RATE_LIMIT_AGENTS   = os.getenv("RATE_LIMIT_AGENTS",   "10 per minute; 60 per hour")
 # Per-user cap on LLM-hitting endpoints (/api/capa/generate, /api/rca/*,
 # /api/rag/ask). Prevents a single account from exhausting the AI budget.
-RATE_LIMIT_LLM      = os.getenv("RATE_LIMIT_LLM",      "20 per minute; 200 per hour")
+RATE_LIMIT_LLM      = os.getenv("RATE_LIMIT_LLM",      "20 per minute; 300 per day")
 
 # ── Login lockout ──────────────────────────────────────────
 LOGIN_LOCKOUT_ATTEMPTS = int(os.getenv("LOGIN_LOCKOUT_ATTEMPTS", "5"))
@@ -150,6 +150,8 @@ AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
 AI_API_KEY  = os.getenv("AI_API_KEY",  "")
 AI_MODEL    = os.getenv("AI_MODEL",    "mock-mode")
 AI_BASE_URL = os.getenv("AI_BASE_URL", "")   # needed for Azure OpenAI
+AI_FAILOVER_PROVIDERS = os.getenv("AI_FAILOVER_PROVIDERS", "").strip()
+LLM_MAX_OUTPUT_TOKENS = int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "10000"))
 
 # ── LLM resilience knobs ───────────────────────────────────
 LLM_TIMEOUT_SECONDS   = float(os.getenv("LLM_TIMEOUT_SECONDS",   "60"))
