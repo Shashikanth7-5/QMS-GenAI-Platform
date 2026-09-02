@@ -23,13 +23,45 @@
 
 import os
 
+from config import AI_FAILOVER_PROVIDERS, LLM_MAX_OUTPUT_TOKENS, MOCK_MODE
+
 AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
 AI_API_KEY  = os.getenv("AI_API_KEY",  "")
 AI_MODEL    = os.getenv("AI_MODEL",    "gpt-4o")
 AI_BASE_URL = os.getenv("AI_BASE_URL", "")
 
 
-def get_llm(temperature: float = 0.1, max_tokens: int = 1500):
+def _env_name(provider: str, suffix: str) -> str:
+    aliases = {
+        "anthropic": "ANTHROPIC",
+        "openai": "OPENAI",
+        "azure": "AZURE",
+        "gemini": "GEMINI",
+        "groq": "GROQ",
+    }
+    return f"AI_{aliases.get(provider, provider.upper())}_{suffix}"
+
+
+def provider_configs() -> list[dict]:
+    names = [AI_PROVIDER]
+    if AI_FAILOVER_PROVIDERS:
+        names.extend(p.strip() for p in AI_FAILOVER_PROVIDERS.split(",") if p.strip())
+    unique = []
+    for name in names:
+        name = name.lower()
+        if name not in unique and name != "mock":
+            unique.append(name)
+    configs = []
+    for provider in unique:
+        key = os.getenv(_env_name(provider, "API_KEY"), AI_API_KEY if provider == AI_PROVIDER else "").strip()
+        model = os.getenv(_env_name(provider, "MODEL"), AI_MODEL if provider == AI_PROVIDER else "").strip()
+        base_url = os.getenv(_env_name(provider, "BASE_URL"), AI_BASE_URL if provider == AI_PROVIDER else "").strip()
+        if key and model:
+            configs.append({"provider": provider, "api_key": key, "model": model, "base_url": base_url})
+    return configs
+
+
+def get_llm(temperature: float = 0.1, max_tokens: int = None, config: dict | None = None):
     """
     Returns a LangChain-compatible LLM instance or None in mock mode.
     Install extras as needed:
@@ -37,18 +69,28 @@ def get_llm(temperature: float = 0.1, max_tokens: int = 1500):
       pip install langchain-anthropic     # for anthropic
       pip install langchain-google-genai  # for gemini
     """
-    if AI_PROVIDER == "mock" or not AI_API_KEY:
+    if MOCK_MODE or AI_PROVIDER == "mock":
         return None
 
-    if AI_PROVIDER in ("openai", "groq"):
+    cfg = config or (provider_configs()[0] if provider_configs() else None)
+    if not cfg:
+        return None
+
+    provider = cfg["provider"]
+    api_key = cfg["api_key"]
+    model = cfg["model"]
+    base_url = cfg.get("base_url", "")
+    max_tokens = max_tokens or LLM_MAX_OUTPUT_TOKENS
+
+    if provider in ("openai", "groq"):
         try:
             from langchain_openai import ChatOpenAI
             return ChatOpenAI(
-                model       = AI_MODEL,
-                api_key     = AI_API_KEY,
-                base_url    = AI_BASE_URL or (
+                model       = model,
+                api_key     = api_key,
+                base_url    = base_url or (
                     "https://api.groq.com/openai/v1"
-                    if AI_PROVIDER == "groq"
+                    if provider == "groq"
                     else None
                 ),
                 temperature = temperature,
@@ -57,25 +99,25 @@ def get_llm(temperature: float = 0.1, max_tokens: int = 1500):
         except ImportError:
             raise RuntimeError("Install langchain-openai: pip install langchain-openai")
 
-    if AI_PROVIDER == "anthropic":
+    if provider == "anthropic":
         try:
             from langchain_anthropic import ChatAnthropic
             return ChatAnthropic(
-                model       = AI_MODEL,
-                api_key     = AI_API_KEY,
+                model       = model,
+                api_key     = api_key,
                 temperature = temperature,
                 max_tokens  = max_tokens,
             )
         except ImportError:
             raise RuntimeError("Install langchain-anthropic: pip install langchain-anthropic")
 
-    if AI_PROVIDER == "azure":
+    if provider == "azure":
         try:
             from langchain_openai import AzureChatOpenAI
             return AzureChatOpenAI(
-                azure_endpoint   = AI_BASE_URL,
-                api_key          = AI_API_KEY,
-                azure_deployment = AI_MODEL,
+                azure_endpoint   = base_url,
+                api_key          = api_key,
+                azure_deployment = model,
                 api_version      = "2024-02-01",
                 temperature      = temperature,
                 max_tokens       = max_tokens,
@@ -83,16 +125,16 @@ def get_llm(temperature: float = 0.1, max_tokens: int = 1500):
         except ImportError:
             raise RuntimeError("Install langchain-openai: pip install langchain-openai")
 
-    if AI_PROVIDER == "gemini":
+    if provider == "gemini":
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
             return ChatGoogleGenerativeAI(
-                model       = AI_MODEL,
-                google_api_key = AI_API_KEY,
+                model       = model,
+                google_api_key = api_key,
                 temperature = temperature,
                 max_output_tokens = max_tokens,
             )
         except ImportError:
             raise RuntimeError("Install langchain-google-genai: pip install langchain-google-genai")
 
-    raise ValueError(f"Unknown AI_PROVIDER: {AI_PROVIDER}")
+    raise ValueError(f"Unknown AI_PROVIDER: {provider}")

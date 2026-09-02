@@ -24,6 +24,12 @@ PyYAML>=6.0.2
 # ── HTTP client (AI API calls) ─────────────────────────────────
 httpx==0.27.2
 
+# ── Agentic LLM orchestration (LangChain LCEL) ─────────────────
+langchain-core>=0.3.0,<0.4
+langchain-openai>=0.2.0,<0.3
+langchain-anthropic>=0.2.0,<0.3
+langchain-google-genai>=2.0.0,<3.0
+
 # ── Document parsing ───────────────────────────────────────────
 pdfplumber==0.11.0
 openpyxl==3.1.2
@@ -52,11 +58,6 @@ psycopg2-binary>=2.9.10
 
 # ── Sprint 3 — Fine-tuning (uncomment when API key available) ──
 # openai==1.35.0
-
-# ── Sprint 3 — LangChain (uncomment when activating RAG) ───────
-# langchain==0.2.0
-# langchain-core==0.2.0
-# faiss-cpu==1.8.0
 
 # ── Dev / CI tooling (optional at runtime) ─────────────────────
 # ruff==0.6.9
