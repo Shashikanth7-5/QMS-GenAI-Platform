@@ -18,7 +18,8 @@ from config import RATE_LIMIT_AGENTS
 from data.records import get_record_by_id
 from services.agents.audit import get_agent_events
 from services.agents.decision_agent import DecisionEligibilityAgent
-from services.agents.orchestrator import CapaAgentOrchestrator, run_access_review
+from services.agents.langgraph_workflow import run_capa_workflow
+from services.agents.orchestrator import run_access_review
 from services.agents.rca_scoring_agent import RCAScoringAgent
 from services.agents.record_intake_agent import RecordIntakeAgent
 from services.agents.supervisor import (AgentSupervisor, get_dead_letters,
@@ -141,7 +142,7 @@ def api_capa_agents_run():
     if save_draft and not current_user.can_create_capa():
         return jsonify({"error": "Quality or Admin access required to save drafts"}), 403
 
-    result = CapaAgentOrchestrator().run(
+    result = run_capa_workflow(
         record_id,
         triggered_by=current_user.username,
         save_draft=save_draft,
