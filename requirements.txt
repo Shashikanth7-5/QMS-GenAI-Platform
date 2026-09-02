@@ -46,7 +46,9 @@ pydantic>=2.0
 # ── Database ───────────────────────────────────────────────────
 sqlalchemy==2.0.31
 alembic==1.13.2
-psycopg2-binary==2.9.9
+# 2.9.9 has no Python 3.13 wheel, so pip falls back to building from source
+# and needs libpq-dev (not in Debian slim). 2.9.10 shipped cp313 wheels.
+psycopg2-binary>=2.9.10
 
 # ── Sprint 3 — Fine-tuning (uncomment when API key available) ──
 # openai==1.35.0
