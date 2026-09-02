@@ -20,7 +20,7 @@ from data.records import (get_all_capas, get_all_records, get_capa_by_id,
                           get_record_by_id, save_capa, update_capa_status,
                           upsert_external_record)
 from services.ai_service import generate_capa
-from services.agents.orchestrator import CapaAgentOrchestrator
+from services.agents.langgraph_workflow import run_capa_workflow
 from services.logging_config import get_logger
 from services.security import capa_content_hash
 from services.workflow_config import (is_agent_eligible, normalize_record_type,
@@ -308,7 +308,7 @@ def api_external_quality_event_capa():
         }, 202)
 
     save_draft = options.get("saveDraft", True)
-    result = CapaAgentOrchestrator().run(
+    result = run_capa_workflow(
         imported["id"],
         triggered_by=user["username"],
         save_draft=save_draft,

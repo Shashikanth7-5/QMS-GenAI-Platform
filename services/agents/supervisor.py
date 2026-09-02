@@ -22,7 +22,7 @@ from data.records import get_all_capas, get_all_records
 from services.agents import deadletter_store
 from services.agents.audit import get_agent_events, log_agent_event
 from services.agents.notifications import send_agent_alert
-from services.agents.orchestrator import CapaAgentOrchestrator
+from services.agents.langgraph_workflow import run_capa_workflow
 from services.logging_config import get_logger
 
 log = get_logger(__name__)
@@ -103,7 +103,7 @@ class AgentSupervisor:
             record_id = record.get("id")
             attempts = _record_attempt(record_id)
             try:
-                result = CapaAgentOrchestrator().run(
+                result = run_capa_workflow(
                     record_id, triggered_by=triggered_by,
                     save_draft=AGENT_AUTOSAVE_CAPA_DRAFT,
                     parent_run_id=run_id,
