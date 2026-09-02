@@ -16,9 +16,8 @@ from pydantic import BaseModel, validator, ValidationError
 
 load_dotenv()
 
-from config import LLM_MAX_OUTPUT_TOKENS, MOCK_MODE
+from config import AI_FAILOVER_PROVIDERS, LLM_MAX_OUTPUT_TOKENS, MOCK_MODE
 from services.capa_service import build_mock_capa
-from services.llm_provider import provider_configs
 from services.logging_config import get_logger
 
 log = get_logger(__name__)
@@ -34,6 +33,30 @@ _MAX_RETRIES = 3
 _BACKOFF     = 2
 _RETRY_ON    = {429, 500, 502, 503, 504}
 _FAIL_FAST   = {400, 401, 403}
+
+
+def _env_name(provider: str, suffix: str) -> str:
+    aliases = {"anthropic": "ANTHROPIC", "openai": "OPENAI", "azure": "AZURE", "gemini": "GEMINI", "groq": "GROQ"}
+    return f"AI_{aliases.get(provider, provider.upper())}_{suffix}"
+
+
+def _provider_configs() -> list[dict]:
+    names = [AI_PROVIDER]
+    if AI_FAILOVER_PROVIDERS:
+        names.extend(p.strip() for p in AI_FAILOVER_PROVIDERS.split(",") if p.strip())
+    unique = []
+    for name in names:
+        name = name.lower()
+        if name not in unique and name != "mock":
+            unique.append(name)
+    configs = []
+    for provider in unique:
+        key = os.getenv(_env_name(provider, "API_KEY"), AI_API_KEY if provider == AI_PROVIDER else "").strip()
+        model = os.getenv(_env_name(provider, "MODEL"), AI_MODEL if provider == AI_PROVIDER else "").strip()
+        base_url = os.getenv(_env_name(provider, "BASE_URL"), AI_BASE_URL if provider == AI_PROVIDER else "").strip()
+        if key and model:
+            configs.append({"provider": provider, "api_key": key, "model": model, "base_url": base_url})
+    return configs
 
 
 # ═════════════════════════════════════════════════════════
@@ -137,7 +160,7 @@ def generate_capa(record: dict) -> dict:
     except Exception:
         log.warning("ai.rag_retrieval_skipped", exc_info=True)
 
-    if MOCK_MODE or AI_PROVIDER == "mock" or not provider_configs():
+    if MOCK_MODE or AI_PROVIDER == "mock" or not _provider_configs():
         time.sleep(0.5)
         result = build_mock_capa(record)
         if similar:
@@ -151,7 +174,7 @@ def generate_capa(record: dict) -> dict:
 
 
 def stream_capa(record: dict) -> Generator[str, None, None]:
-    if MOCK_MODE or AI_PROVIDER == "mock" or not provider_configs():
+    if MOCK_MODE or AI_PROVIDER == "mock" or not _provider_configs():
         yield from _mock_stream(record)
     else:
         yield from _live_stream(_build_capa_prompt(record))
@@ -159,7 +182,7 @@ def stream_capa(record: dict) -> Generator[str, None, None]:
 
 def generate_rca(record: dict, method: str) -> dict:
     from services.rca_service import build_five_why, build_fishbone
-    if MOCK_MODE or AI_PROVIDER == "mock" or not provider_configs():
+    if MOCK_MODE or AI_PROVIDER == "mock" or not _provider_configs():
         time.sleep(0.4)
         return build_five_why(record) if method == "5why" else build_fishbone(record)
     result = _live_generate(_build_rca_prompt(record, method), task="rca_gen")
@@ -169,7 +192,7 @@ def generate_rca(record: dict, method: str) -> dict:
 
 def propose_rca_models(record: dict, method: str) -> dict:
     from services.rca_service import propose_three_models
-    if MOCK_MODE or AI_PROVIDER == "mock" or not provider_configs():
+    if MOCK_MODE or AI_PROVIDER == "mock" or not _provider_configs():
         return propose_three_models(record, method)
 
     configs = [
@@ -269,32 +292,8 @@ def _extract_usage(resp_json: dict) -> tuple[int, int]:
     return 0, 0
 
 
-def _langchain_generate(prompt: str, cfg: dict, temperature: float | None, top_p: float | None) -> tuple[dict, int, int]:
-    from langchain_core.output_parsers import JsonOutputParser
-    from langchain_core.prompts import PromptTemplate
-
-    from services.llm_provider import get_llm
-
-    llm = get_llm(
-        temperature=temperature if temperature is not None else 0.1,
-        max_tokens=LLM_MAX_OUTPUT_TOKENS,
-        config=cfg,
-    )
-    if llm is None:
-        raise RuntimeError(f"LangChain provider {cfg['provider']} is not configured")
-
-    if top_p is not None and hasattr(llm, "bind"):
-        llm = llm.bind(top_p=top_p)
-
-    chain = PromptTemplate.from_template("{prompt}") | llm | JsonOutputParser()
-    result = chain.invoke({"prompt": prompt})
-    if not isinstance(result, dict):
-        raise ValueError("LangChain parser did not return a JSON object")
-    return result, 0, 0
-
-
 def _live_generate(prompt: str, temperature: float | None = None, top_p: float | None = None, task: str = "capa_gen") -> dict:
-    configs = provider_configs()
+    configs = _provider_configs()
     if not configs:
         raise RuntimeError("No live LLM provider is configured. Set AI_PROVIDER plus provider key/model env vars.")
 
@@ -323,48 +322,38 @@ def _live_generate(prompt: str, temperature: float | None = None, top_p: float |
 
         for attempt in range(_MAX_RETRIES):
             try:
-                try:
-                    result, in_tok, out_tok = _langchain_generate(prompt, cfg, temperature, top_p)
-                    transport = "langchain"
-                except (ImportError, ModuleNotFoundError) as exc:
-                    log.warning("ai.langchain_unavailable_using_http", extra={
-                        "provider": provider,
-                        "error": str(exc),
+                headers, payload, url = _build_request(
+                    prompt, stream=False, temperature=temperature, top_p=top_p, config=cfg
+                )
+                resp = httpx.post(url, headers=headers, json=payload,
+                                  timeout=60.0, verify=_SSL_VERIFY)
+
+                if resp.status_code in _FAIL_FAST:
+                    _breaker.record_failure()
+                    if "zscaler" in resp.text.lower() or \
+                       "<!doctype" in resp.text.lower():
+                        raise RuntimeError("Blocked by corporate proxy (Zscaler)")
+                    raise RuntimeError(
+                        f"{provider} API fatal {resp.status_code}: {resp.text[:300]}")
+
+                if resp.status_code in _RETRY_ON:
+                    wait = _BACKOFF ** (attempt + 1)
+                    retry_after = resp.headers.get("Retry-After")
+                    if retry_after:
+                        wait = int(retry_after)
+                    last_error = f"{provider} HTTP {resp.status_code}"
+                    log.warning("ai.retry", extra={
+                        "provider": provider, "attempt": attempt + 1, "max": _MAX_RETRIES,
+                        "error": last_error, "wait_s": wait,
                     })
-                    headers, payload, url = _build_request(
-                        prompt, stream=False, temperature=temperature, top_p=top_p, config=cfg
-                    )
-                    resp = httpx.post(url, headers=headers, json=payload,
-                                      timeout=60.0, verify=_SSL_VERIFY)
+                    time.sleep(wait)
+                    continue
 
-                    if resp.status_code in _FAIL_FAST:
-                        _breaker.record_failure()
-                        if "zscaler" in resp.text.lower() or \
-                           "<!doctype" in resp.text.lower():
-                            raise RuntimeError("Blocked by corporate proxy (Zscaler)")
-                        raise RuntimeError(
-                            f"{provider} API fatal {resp.status_code}: {resp.text[:300]}")
-
-                    if resp.status_code in _RETRY_ON:
-                        wait = _BACKOFF ** (attempt + 1)
-                        retry_after = resp.headers.get("Retry-After")
-                        if retry_after:
-                            wait = int(retry_after)
-                        last_error = f"{provider} HTTP {resp.status_code}"
-                        log.warning("ai.retry", extra={
-                            "provider": provider, "attempt": attempt + 1, "max": _MAX_RETRIES,
-                            "error": last_error, "wait_s": wait,
-                        })
-                        time.sleep(wait)
-                        continue
-
-                    resp.raise_for_status()
-                    resp_json = resp.json()
-                    text   = _extract_text(resp_json)
-                    text   = text.replace("```json", "").replace("```", "").strip()
-                    result = json.loads(text)
-                    in_tok, out_tok = _extract_usage(resp_json)
-                    transport = "http"
+                resp.raise_for_status()
+                resp_json = resp.json()
+                text   = _extract_text(resp_json)
+                text   = text.replace("```json", "").replace("```", "").strip()
+                result = json.loads(text)
 
                 if "rootCause" in result:
                     try:
@@ -385,7 +374,6 @@ def _live_generate(prompt: str, temperature: float | None = None, top_p: float |
                     "provider": provider, "model": cfg.get("model"), "attempt": attempt + 1,
                     "input_tokens": in_tok, "output_tokens": out_tok,
                     "latency_ms": latency_ms, "cost_usd": cost, "task": task,
-                    "transport": transport,
                 })
                 _log_llm_call(
                     provider=provider, model=cfg.get("model"), task=task,
