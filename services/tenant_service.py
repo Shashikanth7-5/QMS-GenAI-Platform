@@ -46,13 +46,18 @@ def create_tenant(
     origin_allowlist: Optional[list[str]] = None,
     webhook_secret: Optional[str] = None,
     rate_limit: str = "120 per minute; 2000 per hour",
+    api_key_override: Optional[str] = None,
 ) -> tuple[dict, str]:
     """
     Provision a new tenant. Returns (tenant_dict, raw_api_key).
     The raw key is displayed ONCE — caller must hand it to the tenant.
+
+    ``api_key_override`` lets the caller supply a pre-decided key
+    (e.g. from an env var during pilot bootstrap) instead of generating
+    a new one. Only the digest is stored either way.
     """
     from models import ApiTenant
-    raw_key = generate_api_key()
+    raw_key = api_key_override or generate_api_key()
     with _session() as session:
         existing = session.query(ApiTenant).filter(ApiTenant.tenant_id == tenant_id).first()
         if existing:
@@ -69,6 +74,20 @@ def create_tenant(
         session.add(row)
         session.commit()
         return row.to_dict(), raw_key
+
+
+def get_tenant(tenant_id: str) -> Optional[dict]:
+    """Return the tenant dict without needing the API key. Used by bootstrap
+    scripts + admin UI. Never call from a request handler — use
+    resolve_tenant(tenant_id, api_key) so the key is verified."""
+    from models import ApiTenant
+    try:
+        with _session() as session:
+            row = session.query(ApiTenant).filter(ApiTenant.tenant_id == tenant_id).first()
+            return row.to_dict() if row else None
+    except Exception:
+        log.warning("tenant.get_failed", exc_info=True, extra={"tenant_id": tenant_id})
+        return None
 
 
 def resolve_tenant(tenant_id: str, api_key: str) -> Optional[dict]:
