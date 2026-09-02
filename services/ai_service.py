@@ -575,7 +575,12 @@ def _build_request(prompt: str, stream: bool = False):
         }
 
     elif AI_PROVIDER in ("openai", "groq"):
-        url     = AI_BASE_URL or "https://api.openai.com/v1/chat/completions"
+        base_url = AI_BASE_URL or (
+            "https://api.groq.com/openai/v1"
+            if AI_PROVIDER == "groq"
+            else "https://api.openai.com/v1"
+        )
+        url     = f"{base_url.rstrip('/')}/chat/completions"
         headers = {
             "Authorization": f"Bearer {AI_API_KEY}",
             "Content-Type":  "application/json",

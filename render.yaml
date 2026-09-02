@@ -41,9 +41,9 @@ services:
       - key: API_V1_KEY
         generateValue: true           # legacy-client sentinel; per-tenant keys are the real auth
       - key: AI_API_KEY
-        sync: false                   # user pastes their Anthropic/OpenAI key
+        sync: false                   # user pastes their Anthropic/OpenAI/Groq key
       - key: AI_PROVIDER
-        value: anthropic              # or openai / azure / bedrock
+        value: anthropic              # or openai / azure / groq / bedrock
       - key: FLASK_ENV
         value: production
 
