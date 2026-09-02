@@ -77,48 +77,82 @@ PILOT_USERS = [
 
 
 def bootstrap() -> None:
-    """Create or update every pilot user. Prints a summary at the end."""
+    """Create or update every pilot user. Prints a summary at the end.
+
+    auth/users.py is the source of truth for login and reads from
+    users_data.json (a JSON file, not the SQL UserModel table). We
+    therefore write to that file so the running Flask app actually
+    picks the accounts up. The SQL UserModel table remains untouched;
+    a follow-up PR will migrate auth/users.py to read from SQL.
+    """
     if not _bool("BOOTSTRAP_PILOT_USERS", default=False):
         print("[bootstrap] BOOTSTRAP_PILOT_USERS not set — skipping.")
         return
 
-    from database import SessionLocal, init_db
-    from models import UserModel
-
     print("[bootstrap] BOOTSTRAP_PILOT_USERS=true — ensuring pilot accounts exist")
-    init_db()
+
+    # Import here so init_db side effects don't block if this script is
+    # called without DB access (e.g. a preview environment).
+    from auth import users as auth_users
+    from datetime import datetime
 
     created, refreshed = [], []
-    with SessionLocal() as session:
-        for spec in PILOT_USERS:
-            pw = os.getenv(spec["password_env"], spec["password_default"])
-            pw_hash = generate_password_hash(pw)
 
-            existing = session.query(UserModel).filter_by(username=spec["username"]).one_or_none()
-            if existing is None:
-                session.add(UserModel(
-                    username=spec["username"],
-                    email=spec["email"],
-                    password_hash=pw_hash,
-                    role=spec["role"],
-                    full_name=spec["full_name"],
-                    status="approved",
-                ))
-                created.append(spec["username"])
-            else:
-                # Refresh password + role + status so a redeploy is enough
-                # to rotate credentials without touching the DB.
-                existing.password_hash  = pw_hash
-                existing.role           = spec["role"]
-                existing.status         = "approved"
-                existing.full_name      = spec["full_name"]
-                if not existing.email:
-                    existing.email = spec["email"]
-                refreshed.append(spec["username"])
-        session.commit()
+    # Start from whatever is currently loaded from disk so we don't
+    # clobber teammates who registered via /register.
+    existing = {u.username: u for u in auth_users._REGISTERED}
+
+    # Also skip any names that collide with _BUILTIN when seed is on
+    # (SEED_BUILTIN_USERS=false in prod so this list is usually empty).
+    builtin_names = {u.username for u in auth_users._BUILTIN}
+
+    for spec in PILOT_USERS:
+        uname = spec["username"]
+        pw    = os.getenv(spec["password_env"], spec["password_default"])
+        pw_hash = generate_password_hash(pw)
+
+        if uname in builtin_names:
+            # Built-in seed user already handles this login. Skip.
+            continue
+
+        if uname in existing:
+            u = existing[uname]
+            u._pw_hash = pw_hash
+            u.role     = spec["role"]
+            u.status   = "approved"
+            u.full_name = spec["full_name"]
+            if not u.email:
+                u.email = spec["email"]
+            refreshed.append(uname)
+        else:
+            # register_user() rejects reserved names (admin, quality, ...)
+            # and applies password policy, both of which block us here.
+            # Build the User object directly and append to _REGISTERED,
+            # mirroring what register_user + approval would produce.
+            u = auth_users.User(
+                id=str(auth_users._NEXT_ID),
+                username=uname,
+                password=pw_hash,
+                role=spec["role"],
+                full_name=spec["full_name"],
+                status="approved",
+                email=spec["email"],
+                created_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+                _hashed=True,
+            )
+            auth_users._NEXT_ID += 1
+            auth_users._REGISTERED.append(u)
+            created.append(uname)
+
+    # Persist to users_data.json. Every gunicorn worker reads this file
+    # at import time; workers started BEFORE this script won't see the
+    # changes, but Render restarts all workers on redeploy so this is
+    # fine in practice.
+    auth_users._save()
 
     print(f"[bootstrap] created:   {created}")
     print(f"[bootstrap] refreshed: {refreshed}")
+    print(f"[bootstrap] persisted to users_data.json ({len(auth_users._REGISTERED)} accounts total)")
     print("[bootstrap] done.")
 
 
