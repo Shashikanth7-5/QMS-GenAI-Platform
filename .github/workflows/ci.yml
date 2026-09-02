@@ -114,13 +114,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # GHCR requires an all-lowercase image path but ${{ github.repository_owner }}
+      # preserves the case of the GitHub username ("Shashikanth7-5"). Lowercase it
+      # into an env var before we tag.
+      - name: Compute lowercase owner for GHCR
+        id: repo
+        run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/qms-genai-platform:latest
-            ghcr.io/${{ github.repository_owner }}/qms-genai-platform:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/qms-genai-platform:latest
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/qms-genai-platform:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
