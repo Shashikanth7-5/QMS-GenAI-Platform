@@ -570,7 +570,7 @@ function generateRCA() {
       if (currentMethod==='5why') render5Why(data, false);
       else renderFishbone(data, false);
       btn.disabled=false; btn.textContent='Regenerate';
-      setStatus('Generated - click Assess Accuracy');
+      setStatus(`Generated${llmLabel(data) ? ' - ' + llmLabel(data) : ''} - click Assess Accuracy`);
       showBtn('btnAssess'); hideBtn('btnEdit'); hideBtn('btnReAssess');
       hideBtn('btnApprove'); hideBtn('btnAIImprove');
       setStep(2);
@@ -781,6 +781,9 @@ function applySelectedModel() {
   if (currentMethod === 'fishbone') {
     // Apply new categories to fishbone
     if (model.categories) rcaData.categories = model.categories;
+    rcaData.root_cause = model.root_cause || rcaRootCause(model);
+    rcaData._provider = model._provider || proposedModels.provider || rcaData._provider;
+    rcaData._model = model._model || proposedModels.model || rcaData._model;
     renderFishbone(rcaData, false);
   } else {
     // 5-Why: use the chain built by the service, or build from categories
@@ -820,10 +823,10 @@ function applySelectedModel() {
   hideBtn('btnApprove');
   setStep(4);
   setBanner(
-    `${model.name} applied (~${model.estimated_score}%) - edit if needed, then click Re-assess`,
+    `${model.name} applied (~${model.estimated_score}%)${llmLabel(model) ? ' from ' + llmLabel(model) : ''} - edit if needed, then click Re-assess`,
     'success'
   );
-  setStatus('Model applied - re-assess to score');
+  setStatus(`Model applied${llmLabel(model) ? ' - ' + llmLabel(model) : ''} - re-assess to score`);
 }
 
 /* STEP 5 - EDIT MODE */
@@ -1164,6 +1167,22 @@ function setBanner(msg,type) {
   const icons={info:'i',success:'OK',warning:'!',error:'X'};
   b.className=`banner banner--${type}`;
   b.innerHTML=`<span>${escapeHtml(icons[type] || '')}</span> ${escapeHtml(msg)}`;
+}
+
+function llmLabel(payload) {
+  if (!payload || !payload._provider) return '';
+  return `LLM: ${payload._provider} / ${payload._model || 'model'}`;
+}
+
+function rcaRootCause(data) {
+  if (!data) return '';
+  if (data.root_cause) return data.root_cause;
+  if (data.chain && data.chain.length) {
+    const root = data.chain.find(s => s.is_root) || data.chain[data.chain.length - 1];
+    return root.because || root.text || '';
+  }
+  const primaries = Object.values(data.categories || {}).flat().filter(c => c.primary).map(c => c.text);
+  return primaries.slice(0, 2).join('; ') + (primaries.length ? '.' : '');
 }
 </script>
 {% endblock %}
