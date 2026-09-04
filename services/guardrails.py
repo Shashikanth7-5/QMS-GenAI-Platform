@@ -56,20 +56,31 @@ def sanitize_prompt_text(value: Any, max_len: int = _MAX_FIELD_LEN) -> str:
     return text
 
 
+def _sanitize_prompt_value(value: Any, max_len: int = _MAX_FIELD_LEN) -> Any:
+    if isinstance(value, str):
+        return sanitize_prompt_text(value, max_len=max_len)
+    if isinstance(value, dict):
+        return {k: _sanitize_prompt_value(v, max_len=max_len) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_prompt_value(v, max_len=max_len) for v in value[:50]]
+    return value
+
+
 def sanitize_record_for_prompt(record: Dict, max_len: int = _MAX_FIELD_LEN) -> Dict:
     """
-    Return a shallow copy of `record` with all string fields sanitized so it
-    is safe to embed in a prompt. Non-string values pass through unchanged.
+    Return a copy of `record` with nested string fields sanitized so it is
+    safe to embed in a prompt.
     """
     if not isinstance(record, dict):
         return {}
-    safe = {}
-    for k, v in record.items():
-        if isinstance(v, str):
-            safe[k] = sanitize_prompt_text(v, max_len=max_len)
-        else:
-            safe[k] = v
-    return safe
+    return {k: _sanitize_prompt_value(v, max_len=max_len) for k, v in record.items()}
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 VALID_REGULATORY_REFS = [
     "21 CFR", "ISO 13485", "EU MDR", "ICH", "GMP", "GDP",
@@ -206,7 +217,7 @@ def validate_capa(capa: Dict) -> Tuple[bool, List[str]]:
             )
 
     # 3. Closure days range check
-    closure_days = int(capa.get("estimatedClosureDays", 0))
+    closure_days = _safe_int(capa.get("estimatedClosureDays"), 0)
     risk = capa.get("riskRating", "Medium")
     limits = {"Critical": (1, 30), "High": (1, 60), "Medium": (1, 90), "Low": (1, 120)}
     lo, hi = limits.get(risk, (1, 120))

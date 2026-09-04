@@ -192,15 +192,20 @@ def ai_extract_record(extracted, filename: str) -> dict:
                 ),
             }
 
-    if MOCK_MODE or AI_PROVIDER == "mock":
+    from services.ai_service import _provider_configs
+    configs = _provider_configs()
+    if MOCK_MODE or AI_PROVIDER == "mock" or not configs:
         return _mock_extract(filename)
 
     try:
         import httpx
-        from config import AI_API_KEY, AI_MODEL, AI_BASE_URL
-
         from services.guardrails import sanitize_prompt_text
-        if AI_PROVIDER == "anthropic":
+        cfg = configs[0]
+        provider = cfg["provider"]
+        api_key = cfg["api_key"]
+        model = cfg["model"]
+        base_url = cfg.get("base_url", "")
+        if provider == "anthropic":
             user_content = (
                 [
                     {"type":"image","source":{"type":"base64","media_type":extracted["mime"],"data":extracted["b64"]}},
@@ -211,17 +216,17 @@ def ai_extract_record(extracted, filename: str) -> dict:
             )
             resp = httpx.post(
                 "https://api.anthropic.com/v1/messages",
-                headers={"x-api-key":AI_API_KEY,"anthropic-version":"2023-06-01","content-type":"application/json"},
-                json={"model":AI_MODEL,"max_tokens":900,"messages":[{"role":"user","content":user_content}]},
+                headers={"x-api-key":api_key,"anthropic-version":"2023-06-01","content-type":"application/json"},
+                json={"model":model,"max_tokens":900,"messages":[{"role":"user","content":user_content}]},
                 timeout=40,
                 verify=_SSL_VERIFY,
             )
             raw = resp.json()["content"][0]["text"]
 
-        elif AI_PROVIDER in ("openai","azure","groq"):
-            base = AI_BASE_URL or (
+        elif provider in ("openai","azure","groq"):
+            base = base_url or (
                 "https://api.groq.com/openai/v1"
-                if AI_PROVIDER == "groq"
+                if provider == "groq"
                 else "https://api.openai.com/v1"
             )
             user_content = (
@@ -233,8 +238,8 @@ def ai_extract_record(extracted, filename: str) -> dict:
                 else _PROMPT.replace("{content}", sanitize_prompt_text(extracted, max_len=6000))
             )
             resp = httpx.post(f"{base}/chat/completions",
-                headers={"Authorization":f"Bearer {AI_API_KEY}"},
-                json={"model":AI_MODEL,"messages":[{"role":"user","content":user_content}]},
+                headers={"Authorization":f"Bearer {api_key}"},
+                json={"model":model,"messages":[{"role":"user","content":user_content}]},
                 timeout=40,
                 verify=_SSL_VERIFY,
             )
