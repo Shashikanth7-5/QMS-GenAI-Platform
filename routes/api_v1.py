@@ -264,6 +264,7 @@ def _normalize_external_record(body: dict) -> dict:
 # ══════════════════════════════════════════════════════════════
 @api_v1_bp.route("/health", methods=["GET"])
 def health():
+    from services.ai_service import llm_status
     return _ok({
         "service":   "QMS GenAI",
         "version":   "1.0",
@@ -271,6 +272,7 @@ def health():
         "records":   len(get_all_records()),
         "capas":     len(get_all_capas()),
         "mock_mode": os.getenv("MOCK_MODE", "true"),
+        "llm":        llm_status(),
     })
 
 

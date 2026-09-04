@@ -159,11 +159,13 @@ def api_analytics():
 @dashboard_bp.route("/api/health", methods=["GET"])
 @login_required
 def api_health():
+    from services.ai_service import llm_status
     return jsonify({
         "status":    "ok",
         "framework": "Flask",
         "mock_mode": MOCK_MODE,
         "ai_model":  AI_MODEL,
+        "llm":       llm_status(),
         "records":   len(get_all_records()),
         "timestamp": datetime.now().isoformat(),
     })

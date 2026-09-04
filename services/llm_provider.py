@@ -23,13 +23,81 @@
 
 import os
 
+from config import AI_FAILOVER_PROVIDERS, LLM_MAX_OUTPUT_TOKENS, MOCK_MODE
+
 AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
 AI_API_KEY  = os.getenv("AI_API_KEY",  "")
 AI_MODEL    = os.getenv("AI_MODEL",    "gpt-4o")
 AI_BASE_URL = os.getenv("AI_BASE_URL", "")
 
 
-def get_llm(temperature: float = 0.1, max_tokens: int = 1500):
+def _env_name(provider: str, suffix: str) -> str:
+    aliases = {
+        "anthropic": "ANTHROPIC",
+        "openai": "OPENAI",
+        "azure": "AZURE",
+        "gemini": "GEMINI",
+        "groq": "GROQ",
+    }
+    return f"AI_{aliases.get(provider, provider.upper())}_{suffix}"
+
+
+def _env_value(provider: str, suffix: str, default: str = "") -> str:
+    sdk_aliases = {
+        "anthropic": "ANTHROPIC",
+        "openai": "OPENAI",
+        "azure": "AZURE_OPENAI",
+        "gemini": "GEMINI",
+        "groq": "GROQ",
+    }
+    names = [_env_name(provider, suffix)]
+    alias = sdk_aliases.get(provider)
+    if alias:
+        names.append(f"{alias}_{suffix}")
+    if provider == "gemini" and suffix == "API_KEY":
+        names.append("GOOGLE_API_KEY")
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return default.strip()
+
+
+def _default_model(provider: str) -> str:
+    return {
+        "anthropic": "claude-3-5-sonnet-latest",
+        "openai": "gpt-4o-mini",
+        "azure": "",
+        "gemini": "gemini-1.5-flash",
+        "groq": "llama-3.1-70b-versatile",
+    }.get(provider, "")
+
+
+def provider_configs() -> list[dict]:
+    primary = os.getenv("AI_PROVIDER", AI_PROVIDER).strip().lower()
+    generic_key = os.getenv("AI_API_KEY", AI_API_KEY)
+    generic_model = os.getenv("AI_MODEL", AI_MODEL)
+    generic_base_url = os.getenv("AI_BASE_URL", AI_BASE_URL)
+    failover = os.getenv("AI_FAILOVER_PROVIDERS", AI_FAILOVER_PROVIDERS)
+    names = [primary]
+    if failover:
+        names.extend(p.strip() for p in failover.split(",") if p.strip())
+    unique = []
+    for name in names:
+        name = name.lower()
+        if name not in unique and name != "mock":
+            unique.append(name)
+    configs = []
+    for provider in unique:
+        key = _env_value(provider, "API_KEY", generic_key if provider == primary else "")
+        model = _env_value(provider, "MODEL", generic_model if provider == primary else _default_model(provider))
+        base_url = _env_value(provider, "BASE_URL", generic_base_url if provider == primary else "")
+        if key and model:
+            configs.append({"provider": provider, "api_key": key, "model": model, "base_url": base_url})
+    return configs
+
+
+def get_llm(temperature: float = 0.1, max_tokens: int = None, config: dict | None = None):
     """
     Returns a LangChain-compatible LLM instance or None in mock mode.
     Install extras as needed:
@@ -37,18 +105,28 @@ def get_llm(temperature: float = 0.1, max_tokens: int = 1500):
       pip install langchain-anthropic     # for anthropic
       pip install langchain-google-genai  # for gemini
     """
-    if AI_PROVIDER == "mock" or not AI_API_KEY:
+    if MOCK_MODE or AI_PROVIDER == "mock":
         return None
 
-    if AI_PROVIDER in ("openai", "groq"):
+    cfg = config or (provider_configs()[0] if provider_configs() else None)
+    if not cfg:
+        return None
+
+    provider = cfg["provider"]
+    api_key = cfg["api_key"]
+    model = cfg["model"]
+    base_url = cfg.get("base_url", "")
+    max_tokens = max_tokens or LLM_MAX_OUTPUT_TOKENS
+
+    if provider in ("openai", "groq"):
         try:
             from langchain_openai import ChatOpenAI
             return ChatOpenAI(
-                model       = AI_MODEL,
-                api_key     = AI_API_KEY,
-                base_url    = AI_BASE_URL or (
+                model       = model,
+                api_key     = api_key,
+                base_url    = base_url or (
                     "https://api.groq.com/openai/v1"
-                    if AI_PROVIDER == "groq"
+                    if provider == "groq"
                     else None
                 ),
                 temperature = temperature,
@@ -57,25 +135,25 @@ def get_llm(temperature: float = 0.1, max_tokens: int = 1500):
         except ImportError:
             raise RuntimeError("Install langchain-openai: pip install langchain-openai")
 
-    if AI_PROVIDER == "anthropic":
+    if provider == "anthropic":
         try:
             from langchain_anthropic import ChatAnthropic
             return ChatAnthropic(
-                model       = AI_MODEL,
-                api_key     = AI_API_KEY,
+                model       = model,
+                api_key     = api_key,
                 temperature = temperature,
                 max_tokens  = max_tokens,
             )
         except ImportError:
             raise RuntimeError("Install langchain-anthropic: pip install langchain-anthropic")
 
-    if AI_PROVIDER == "azure":
+    if provider == "azure":
         try:
             from langchain_openai import AzureChatOpenAI
             return AzureChatOpenAI(
-                azure_endpoint   = AI_BASE_URL,
-                api_key          = AI_API_KEY,
-                azure_deployment = AI_MODEL,
+                azure_endpoint   = base_url,
+                api_key          = api_key,
+                azure_deployment = model,
                 api_version      = "2024-02-01",
                 temperature      = temperature,
                 max_tokens       = max_tokens,
@@ -83,16 +161,16 @@ def get_llm(temperature: float = 0.1, max_tokens: int = 1500):
         except ImportError:
             raise RuntimeError("Install langchain-openai: pip install langchain-openai")
 
-    if AI_PROVIDER == "gemini":
+    if provider == "gemini":
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
             return ChatGoogleGenerativeAI(
-                model       = AI_MODEL,
-                google_api_key = AI_API_KEY,
+                model       = model,
+                google_api_key = api_key,
                 temperature = temperature,
                 max_output_tokens = max_tokens,
             )
         except ImportError:
             raise RuntimeError("Install langchain-google-genai: pip install langchain-google-genai")
 
-    raise ValueError(f"Unknown AI_PROVIDER: {AI_PROVIDER}")
+    raise ValueError(f"Unknown AI_PROVIDER: {provider}")
