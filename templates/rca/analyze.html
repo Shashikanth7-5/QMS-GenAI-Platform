@@ -560,7 +560,11 @@ function generateRCA() {
   const ep = currentMethod === '5why' ? '/api/rca/five-why' : '/api/rca/fishbone';
   fetch(ep, {method:'POST', headers:{'Content-Type':'application/json'},
              body:JSON.stringify({record:currentRecord})})
-    .then(r=>r.json())
+    .then(async r=>{
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.details || data.error || `HTTP ${r.status}`);
+      return data;
+    })
     .then(data=>{
       rcaData=data; assessmentData=null; editMode=false;
       if (currentMethod==='5why') render5Why(data, false);
@@ -574,6 +578,7 @@ function generateRCA() {
     })
     .catch(err=>{
       btn.disabled=false; btn.textContent='Generate RCA';
+      showOutput(`<div class="empty-state"><div class="empty-state__icon">!</div><div class="empty-state__text">RCA generation failed: ${escapeHtml(err.message)}</div></div>`);
       setStatus('Error'); setBanner('Error: '+err.message,'error');
     });
 }
@@ -734,8 +739,13 @@ function loadProposedModels() {
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({record: currentRecord, method: currentMethod}),
   })
-  .then(r => r.json())
+  .then(async r => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.error) throw new Error(data.details || data.error || `HTTP ${r.status}`);
+    return data;
+  })
   .then(data => {
+    if (!Array.isArray(data.models)) throw new Error('RCA model response did not include models.');
     proposedModels = data;
     const cardCls = ['model-card--a','model-card--b','model-card--c'];
     grid.innerHTML = data.models.map((m, i) => `
@@ -750,8 +760,8 @@ function loadProposedModels() {
       </div>`
     ).join('');
   })
-  .catch(() => {
-    grid.innerHTML = '<div style="color:var(--red);font-size:12px;">Error loading models</div>';
+  .catch(err => {
+    grid.innerHTML = `<div style="color:var(--red);font-size:12px;">Error loading models: ${escapeHtml(err.message)}</div>`;
   });
 }
 

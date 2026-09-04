@@ -1750,7 +1750,11 @@
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({record: currentRecord}),
     })
-    .then(r => r.json())
+    .then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.details || data.error || `HTTP ${r.status}`);
+      return data;
+    })
     .then(data => {
       rcaData       = data;
       currentMethod = rcaMethod;
@@ -1760,7 +1764,7 @@
       _showRCAButtons();
     })
     .catch(err => {
-      content.innerHTML = `<div class="banner banner--error">Error: ${escapeHtml(err.message)}</div>`;
+      content.innerHTML = `<div class="banner banner--error">RCA generation failed: ${escapeHtml(err.message)}</div>`;
       statusEl.textContent = 'Error';
     });
   }
@@ -2508,8 +2512,13 @@ function printCAPA(capaId) {
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ record: currentRecord, method: currentMethod }),
     })
-    .then(r => r.json())
+    .then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.details || data.error || `HTTP ${r.status}`);
+      return data;
+    })
     .then(data => {
+      if (!Array.isArray(data.models)) throw new Error('RCA model response did not include models.');
       _aiProposedModels = data;
       const clsMap = { basic: 'model-card--a', standard: 'model-card--b', enhanced: 'model-card--c' };
       const icons  = { basic: '', standard: '', enhanced: '' };
@@ -2524,8 +2533,8 @@ function printCAPA(capaId) {
           <div class="ai-model-card__desc">${m.description}</div>
         </div>`).join('');
     })
-    .catch(() => {
-      grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Error loading models. Try again.</div>';
+    .catch(err => {
+      grid.innerHTML = `<div style="text-align:center;padding:20px;color:var(--red);">Error loading models: ${escapeHtml(err.message)}</div>`;
     });
   }
 

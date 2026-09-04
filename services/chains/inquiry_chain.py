@@ -76,7 +76,14 @@ def _try_direct_then_mock(record: Dict, question: str,
 
     try:
         import httpx
-        model    = os.getenv("AI_MODEL", "llama-3.1-70b-versatile")
+        model    = os.getenv("AI_MODEL", "openai/gpt-oss-120b")
+        if provider == "groq" and model in {
+            "llama-3.1-70b-versatile",
+            "llama-3.1-70b-specdec",
+            "llama-3.3-70b-versatile",
+            "llama3-70b-8192",
+        }:
+            model = "openai/gpt-oss-120b"
         base_url = os.getenv("AI_BASE_URL", "")
         system   = _SYSTEM.format(context=_build_context(record))
         messages = [h for h in history[-8:]

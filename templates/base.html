@@ -711,9 +711,9 @@
   </div>
 
   <div class="navbar__right">
-    <div class="mode-badge">
+    <div class="mode-badge" id="llmModeBadge">
       <div class="mode-badge__dot"></div>
-      Mock Mode - Live
+      Checking LLM...
     </div>
 
     <!-- Help button -->
@@ -1311,6 +1311,28 @@ fetch('/api/metrics')
       .replace(/'/g, '&#39;')
       .replace(/`/g, '&#96;');
   };
+
+  (function () {
+    var badge = document.getElementById('llmModeBadge');
+    if (!badge) return;
+    fetch('/api/health')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var llm = data.llm || {};
+        var configured = llm.configuredProviders || [];
+        var first = configured[0] || {};
+        var text = llm.liveReady
+          ? 'Live LLM: ' + (first.provider || llm.primaryProvider || 'configured') + ' / ' + (first.model || 'model')
+          : 'Mock Mode';
+        badge.lastChild.textContent = ' ' + text;
+        badge.title = configured.length
+          ? 'Configured providers: ' + configured.map(function (p) { return p.provider + ':' + p.model; }).join(', ')
+          : 'No live LLM provider configured';
+      })
+      .catch(function () {
+        badge.lastChild.textContent = ' LLM status unavailable';
+      });
+  })();
 </script>
 
 </body>

@@ -41,7 +41,7 @@ AI_PROVIDER=openai           # openai | anthropic | azure | bedrock
 AI_BASE_URL=https://api.groq.com/openai/v1
 AI_API_KEY=xxxxxxxxxxxxxxxxxxxxx
 
-AI_MODEL=llama-3.1-70b-versatile
+AI_MODEL=openai/gpt-oss-120b
 MOCK_MODE=false
 
 Supports Groq (free), Anthropic Claude, OpenAI, Azure OpenAI, and Amazon Bedrock - switch provider with one `.env` change.
