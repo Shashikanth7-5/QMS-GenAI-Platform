@@ -40,10 +40,38 @@ def _env_name(provider: str, suffix: str) -> str:
     return f"AI_{aliases.get(provider, provider.upper())}_{suffix}"
 
 
+def _env_value(provider: str, suffix: str, default: str = "") -> str:
+    """Read provider-specific env vars, accepting AI_* and native SDK names."""
+
+    sdk_aliases = {
+        "anthropic": "ANTHROPIC",
+        "openai": "OPENAI",
+        "azure": "AZURE_OPENAI",
+        "gemini": "GEMINI",
+        "groq": "GROQ",
+    }
+    names = [_env_name(provider, suffix)]
+    alias = sdk_aliases.get(provider)
+    if alias:
+        names.append(f"{alias}_{suffix}")
+    if provider == "gemini" and suffix == "API_KEY":
+        names.append("GOOGLE_API_KEY")
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return default.strip()
+
+
 def _provider_configs() -> list[dict]:
-    names = [AI_PROVIDER]
-    if AI_FAILOVER_PROVIDERS:
-        names.extend(p.strip() for p in AI_FAILOVER_PROVIDERS.split(",") if p.strip())
+    primary = os.getenv("AI_PROVIDER", AI_PROVIDER).strip().lower()
+    generic_key = os.getenv("AI_API_KEY", AI_API_KEY)
+    generic_model = os.getenv("AI_MODEL", AI_MODEL)
+    generic_base_url = os.getenv("AI_BASE_URL", AI_BASE_URL)
+    failover = os.getenv("AI_FAILOVER_PROVIDERS", AI_FAILOVER_PROVIDERS)
+    names = [primary]
+    if failover:
+        names.extend(p.strip() for p in failover.split(",") if p.strip())
     unique = []
     for name in names:
         name = name.lower()
@@ -51,12 +79,44 @@ def _provider_configs() -> list[dict]:
             unique.append(name)
     configs = []
     for provider in unique:
-        key = os.getenv(_env_name(provider, "API_KEY"), AI_API_KEY if provider == AI_PROVIDER else "").strip()
-        model = os.getenv(_env_name(provider, "MODEL"), AI_MODEL if provider == AI_PROVIDER else "").strip()
-        base_url = os.getenv(_env_name(provider, "BASE_URL"), AI_BASE_URL if provider == AI_PROVIDER else "").strip()
+        key = _env_value(provider, "API_KEY", generic_key if provider == primary else "")
+        model = _env_value(provider, "MODEL", generic_model if provider == primary else _default_model(provider))
+        base_url = _env_value(provider, "BASE_URL", generic_base_url if provider == primary else "")
         if key and model:
             configs.append({"provider": provider, "api_key": key, "model": model, "base_url": base_url})
     return configs
+
+
+def _default_model(provider: str) -> str:
+    return {
+        "anthropic": "claude-3-5-sonnet-latest",
+        "openai": "gpt-4o-mini",
+        "azure": "",
+        "gemini": "gemini-1.5-flash",
+        "groq": "llama-3.1-70b-versatile",
+    }.get(provider, "")
+
+
+def llm_status() -> dict:
+    primary = os.getenv("AI_PROVIDER", AI_PROVIDER).strip().lower()
+    failover = os.getenv("AI_FAILOVER_PROVIDERS", AI_FAILOVER_PROVIDERS)
+    mock_mode = os.getenv("MOCK_MODE", "true").lower() == "true"
+    configs = _provider_configs()
+    return {
+        "mockMode": mock_mode,
+        "primaryProvider": primary,
+        "failoverProviders": [p.strip() for p in failover.split(",") if p.strip()],
+        "configuredProviders": [
+            {
+                "provider": cfg["provider"],
+                "model": cfg["model"],
+                "baseUrl": cfg.get("base_url") or "default",
+                "hasKey": bool(cfg.get("api_key")),
+            }
+            for cfg in configs
+        ],
+        "liveReady": (not mock_mode and primary != "mock" and bool(configs)),
+    }
 
 
 # ═════════════════════════════════════════════════════════
@@ -333,8 +393,13 @@ def _live_generate(prompt: str, temperature: float | None = None, top_p: float |
                     if "zscaler" in resp.text.lower() or \
                        "<!doctype" in resp.text.lower():
                         raise RuntimeError("Blocked by corporate proxy (Zscaler)")
-                    raise RuntimeError(
-                        f"{provider} API fatal {resp.status_code}: {resp.text[:300]}")
+                    last_error = f"{provider} API fatal {resp.status_code}: {resp.text[:300]}"
+                    log.warning("ai.provider_fail_fast", extra={
+                        "provider": provider,
+                        "status_code": resp.status_code,
+                        "task": task,
+                    })
+                    break
 
                 if resp.status_code in _RETRY_ON:
                     wait = _BACKOFF ** (attempt + 1)
