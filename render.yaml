@@ -42,13 +42,13 @@ services:
       - key: AI_PROVIDER
         value: groq                   # Groq-first pilot; failover supports openai/gemini/anthropic
       - key: AI_MODEL
-        value: llama-3.1-70b-versatile
+        value: openai/gpt-oss-120b
       - key: AI_FAILOVER_PROVIDERS
         value: openai,gemini,anthropic
       - key: AI_GROQ_API_KEY
         sync: false                   # preferred for Groq; GROQ_API_KEY also works
       - key: AI_GROQ_MODEL
-        value: llama-3.1-70b-versatile
+        value: openai/gpt-oss-120b
       - key: AI_OPENAI_API_KEY
         sync: false
       - key: AI_OPENAI_MODEL

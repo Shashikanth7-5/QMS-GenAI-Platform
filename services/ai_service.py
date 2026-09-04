@@ -26,7 +26,7 @@ _SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
 AI_API_KEY  = os.getenv("AI_API_KEY",  "")
-AI_MODEL    = os.getenv("AI_MODEL",    "llama-3.1-70b-versatile")
+AI_MODEL    = os.getenv("AI_MODEL",    "openai/gpt-oss-120b")
 AI_BASE_URL = os.getenv("AI_BASE_URL", "")
 
 _MAX_RETRIES = 3
@@ -82,6 +82,7 @@ def _provider_configs() -> list[dict]:
         key = _env_value(provider, "API_KEY", generic_key if provider == primary else "")
         model = _env_value(provider, "MODEL", generic_model if provider == primary else _default_model(provider))
         base_url = _env_value(provider, "BASE_URL", generic_base_url if provider == primary else "")
+        model = _normalize_model(provider, model)
         if key and model:
             configs.append({"provider": provider, "api_key": key, "model": model, "base_url": base_url})
     return configs
@@ -93,8 +94,29 @@ def _default_model(provider: str) -> str:
         "openai": "gpt-4o-mini",
         "azure": "",
         "gemini": "gemini-1.5-flash",
-        "groq": "llama-3.1-70b-versatile",
+        "groq": "openai/gpt-oss-120b",
     }.get(provider, "")
+
+
+def _normalize_model(provider: str, model: str) -> str:
+    replacements = {
+        "groq": {
+            "llama-3.1-70b-versatile": "openai/gpt-oss-120b",
+            "llama-3.1-70b-specdec": "openai/gpt-oss-120b",
+            "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+            "llama3-70b-8192": "openai/gpt-oss-120b",
+            "llama3-8b-8192": "openai/gpt-oss-20b",
+        },
+    }
+    mapped = replacements.get(provider, {}).get((model or "").strip())
+    if mapped:
+        log.warning("ai.model.deprecated_replaced", extra={
+            "provider": provider,
+            "configured_model": model,
+            "replacement_model": mapped,
+        })
+        return mapped
+    return model
 
 
 def llm_status() -> dict:

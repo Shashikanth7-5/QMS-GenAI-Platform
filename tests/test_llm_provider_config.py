@@ -42,6 +42,7 @@ def test_llm_status_reports_live_groq_with_native_key_alias(monkeypatch):
     assert status["liveReady"] is True
     assert status["primaryProvider"] == "groq"
     assert status["configuredProviders"][0]["provider"] == "groq"
+    assert status["configuredProviders"][0]["model"] == "openai/gpt-oss-120b"
     assert status["configuredProviders"][0]["hasKey"] is True
 
 
