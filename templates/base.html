@@ -1335,6 +1335,23 @@ fetch('/api/metrics')
   })();
 </script>
 
+<div class="creator-mark" aria-label="Developed by Shashi">Developed by Shashi</div>
+
+<style nonce="{{ csp_nonce }}">
+  .creator-mark {
+    position: fixed;
+    right: 10px;
+    bottom: 6px;
+    z-index: 20;
+    pointer-events: none;
+    font-size: 9px;
+    line-height: 1;
+    color: rgba(15, 23, 42, 0.24);
+  }
+  @media print {
+    .creator-mark { display: none; }
+  }
+</style>
+
 </body>
 </html>
-

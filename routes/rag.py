@@ -211,13 +211,14 @@ def api_rag_ask():
     )
 
     try:
-        from services.ai_service import MOCK_MODE, AI_PROVIDER, AI_API_KEY
-        if MOCK_MODE or AI_PROVIDER == "mock" or not AI_API_KEY:
+        from services.ai_service import MOCK_MODE, AI_PROVIDER, _build_request, _extract_text, _provider_configs
+        configs = _provider_configs()
+        if MOCK_MODE or AI_PROVIDER == "mock" or not configs:
             answer = f"[Mock] Based on '{extraction['filename']}': {record.get('description','N/A')}"
         else:
             import httpx
-            from services.ai_service import _build_request, _extract_text
-            headers, payload, url = _build_request(prompt)
+            cfg = configs[0]
+            headers, payload, url = _build_request(prompt, config=cfg)
             payload["max_tokens"] = 800
             resp = httpx.post(url, headers=headers, json=payload,
                               timeout=60.0, verify=_SSL_VERIFY)
@@ -227,6 +228,8 @@ def api_rag_ask():
             "extractionId": extraction_id,
             "question":     question,
             "answer":       answer,
+            "provider":     None if MOCK_MODE or not configs else configs[0].get("provider"),
+            "model":        None if MOCK_MODE or not configs else configs[0].get("model"),
             "answeredAt":   datetime.now().isoformat(),
         })
     except Exception as exc:

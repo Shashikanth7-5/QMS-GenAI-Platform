@@ -69,14 +69,20 @@ def _try_direct_then_mock(record: Dict, question: str,
     """Try live API first, fall back to smart mock if blocked."""
     import os
     provider = os.getenv("AI_PROVIDER", "mock")
-    api_key  = os.getenv("AI_API_KEY", "")
+    try:
+        from services.llm_provider import provider_configs
+        cfg = provider_configs()[0] if provider_configs() else None
+    except Exception:
+        cfg = None
 
-    if not api_key or provider == "mock":
+    if not cfg or provider == "mock":
         return _smart_mock(record, question)
 
     try:
         import httpx
-        model    = os.getenv("AI_MODEL", "openai/gpt-oss-120b")
+        provider = cfg["provider"]
+        api_key = cfg["api_key"]
+        model = cfg["model"]
         if provider == "groq" and model in {
             "llama-3.1-70b-versatile",
             "llama-3.1-70b-specdec",
@@ -84,7 +90,7 @@ def _try_direct_then_mock(record: Dict, question: str,
             "llama3-70b-8192",
         }:
             model = "openai/gpt-oss-120b"
-        base_url = os.getenv("AI_BASE_URL", "")
+        base_url = cfg.get("base_url", "")
         system   = _SYSTEM.format(context=_build_context(record))
         messages = [h for h in history[-8:]
                     if h.get("role") in ("user", "assistant")]

@@ -1760,7 +1760,8 @@
       currentMethod = rcaMethod;
       if (rcaMethod === '5why') render5Why(data, false);
       else                       renderFishbone(data, false);
-      statusEl.textContent = `OK ${rcaMethod === '5why' ? '5-Why' : 'Fishbone'} complete`;
+      statusEl.textContent = `OK ${rcaMethod === '5why' ? '5-Why' : 'Fishbone'} complete${llmLabel(data) ? ' - ' + llmLabel(data) : ''}`;
+      syncRcaSummaryToCapa(data);
       _showRCAButtons();
     })
     .catch(err => {
@@ -1884,7 +1885,13 @@
     fetch('/api/capa/generate', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({record: currentRecord}),
+      body: JSON.stringify({
+        record: {
+          ...currentRecord,
+          rca: rcaData || null,
+          rootCause: rcaRootCause(rcaData) || document.getElementById('fRootCause').value || currentRecord.rootCause || '',
+        },
+      }),
     })
     .then(r => r.json().then(data => ({ok: r.ok, data})))
     .then(({ok, data: capa}) => {
@@ -1901,9 +1908,9 @@
       populateCAPAFields(capa);
       btn.disabled    = false;
       btn.textContent = ' Regenerate';
-      statusEl.textContent = 'OK CAPA generated';
+      statusEl.textContent = `OK CAPA generated${llmLabel(capa) ? ' - ' + llmLabel(capa) : ''}`;
       document.getElementById('btnSave').disabled = false;
-      setBanner('OK CAPA draft generated - review fields and save', 'success');
+      setBanner(`OK CAPA draft generated${llmLabel(capa) ? ' by ' + llmLabel(capa) : ''} - review fields and save`, 'success');
     })
     .catch(err => {
       btn.disabled    = false;
@@ -2313,6 +2320,31 @@ function printCAPA(capaId) {
     b.className = `banner banner--${type}`;
     b.innerHTML = `<span>${escapeHtml(icons[type] || '')}</span> ${escapeHtml(msg)}`;
   }
+
+  function llmLabel(payload) {
+    if (!payload || !payload._provider) return '';
+    return `LLM: ${payload._provider} / ${payload._model || 'model'}`;
+  }
+
+  function rcaRootCause(data) {
+    if (!data) return '';
+    if (data.root_cause) return data.root_cause;
+    if (data.chain && data.chain.length) {
+      const root = data.chain.find(s => s.is_root) || data.chain[data.chain.length - 1];
+      return root.because || root.text || '';
+    }
+    const primaries = Object.values(data.categories || {}).flat().filter(c => c.primary).map(c => c.text);
+    return primaries.slice(0, 2).join('; ') + (primaries.length ? '.' : '');
+  }
+
+  function syncRcaSummaryToCapa(data) {
+    const rc = rcaRootCause(data);
+    if (!rc) return;
+    document.getElementById('rcaSummaryText').textContent = rc;
+    document.getElementById('rcaSummary').classList.add('visible');
+    const ta = document.getElementById('fRootCause');
+    if (ta) ta.value = rc;
+  }
 </script>
 
 
@@ -2553,6 +2585,9 @@ function printCAPA(capaId) {
     if (currentMethod === 'fishbone') {
       if (model.categories) {
         rcaData.categories = model.categories;
+        rcaData.root_cause = model.root_cause || rcaRootCause(model);
+        rcaData._provider = model._provider || _aiProposedModels.provider || rcaData._provider;
+        rcaData._model = model._model || _aiProposedModels.model || rcaData._model;
         renderFishbone(rcaData, false);
       }
     } else {
@@ -2582,13 +2617,14 @@ function printCAPA(capaId) {
     }
 
     closeAIImproveModal();
+    syncRcaSummaryToCapa(rcaData);
     _showRCAButtons();
 
     // Show reassess prompt
     const status = document.getElementById('rcaStatus');
-    if (status) status.textContent = `${model.name} applied - click Reassess Score`;
+    if (status) status.textContent = `${model.name} applied${llmLabel(model) ? ' - ' + llmLabel(model) : ''} - click Reassess Score`;
     setBanner(
-      `OK ${model.name} (~${model.estimated_score}%) applied - click Reassess Score to update accuracy, then Sync to CAPA form`,
+      `OK ${model.name} (~${model.estimated_score}%) applied${llmLabel(model) ? ' from ' + llmLabel(model) : ''} - root cause synced to CAPA form`,
       'success'
     );
   }
